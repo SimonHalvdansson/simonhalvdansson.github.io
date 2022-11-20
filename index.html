@@ -8,7 +8,7 @@
 	<style>
 
 		#container {
-			width: 730px;
+			width: 800px;
 			max-width: 80%;
 			margin-left: auto;
 			margin-right: auto;
@@ -16,7 +16,7 @@
 
 		body {
 			font-family: 'Product Sans', sans-serif;
-			font-size: 16px;
+			font-size: 17px;
 			color: #444;
 			margin-top: 64px;
 		}
@@ -44,10 +44,20 @@
 			text-decoration: underline;
 		}
 
+		.talk {
+			padding-bottom: 4px;
+		}
+		.talks_location {
+			margin-top: -4px;
+		}
+
+		@font-face{font-family:product sans;
+			font-style:normal;
+			font-weight:400;
+			src:local('Product Sans'),url(https://fonts.cdnfonts.com/s/13998/ProductSans-Regular.woff) format('woff')}
+
 
 	</style>
-
-<link href="http://fonts.cdnfonts.com/css/product-sans" rel="stylesheet">	
 
 </head>
 <body>
@@ -76,21 +86,30 @@
 		</section>
 
 		<section id="talks">
-			<h3>Talks:</h3>
-			<div>
-				- Oberseminar Analysis, Leibniz Universität Hannover October 2022
+			<h3>Talks/posters:</h3>
+			<div class="talk">
+				<div class="talks_name">Oberseminar Analysis</div>
+				<div class="talks_location">Leibniz Universität Hannover, Germany October 4, 2022</div>
 			</div>
 
-			<div>
-				- International Conference on Computational Harmonic Analysis (ICCHA 2022) September 2022
+			<div class="talk">
+				<div class="talks_name">International Conference on Computational Harmonic Analysis (ICCHA 2022)</div>
+				<div class="talks_location">Ingolstadt, Germany, September 12-16, 2022</div>
 			</div>
 
-			<div>
-				- International Workshop on Operator Theory and its Applications (IWOTA 2022) September 2022
+			<div class="talk">
+				<div class="talks_name">International Workshop on Operator Theory and its Applications (IWOTA 2022)</div>
+				<div class="talks_location">Krakow, Poland, September 6-10, 2022</div>
 			</div>
 
-			<div>
-				- Online International Conference on Computational Harmonic Analysis (ICCHA 2021) September 2021
+			<div class="talk">
+				<div class="talks_name">Applied Harmonic Analysis and Friends (Strobl22)</div>
+				<div class="talks_location">Strobl, Austria, June 19-25 2022</div>
+			</div>
+
+			<div class="talk">
+				<div class="talks_name">Online International Conference on Computational Harmonic Analysis (ICCHA 2021)</div>
+				<div class="talks_location">Online, September 13-17, 2021</div>
 			</div>
 		</section>
 
