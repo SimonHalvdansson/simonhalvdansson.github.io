@@ -28,11 +28,22 @@
 			margin: 0;
 		}
 
+		::selection {
+			background: #ffb7b7; /* Background color of the selection */
+			color: #000000; /* Text color of the selection */
+		}
+
 		.about {
-			padding-top: 70px;
+			padding-top: 0px;
 			font-size: 22px;
 			margin-block-start: 3em;
 			margin-block-end: 1em;
+		}
+
+		@media (min-width: 768px) {
+			.about {
+				padding-top: 70px;
+			}
 		}
 
 		.about p {
@@ -134,8 +145,7 @@
 			box-shadow: 0px 10px 22px rgba(0, 0, 0, 0.07);
 		}
 
-		/* Media query for larger screens */
-		@media (min-width: 768px) { /* Adjust the min-width as needed */
+		@media (min-width: 768px) {
 			.masonry-grid {
 				display: flex;
 			}
@@ -321,6 +331,7 @@
 			border-radius: 40px;
 			font-size: 16px;
 			transition: all 200ms;
+			user-select: none;
 		}
 
 		.project .project_links a:hover {
