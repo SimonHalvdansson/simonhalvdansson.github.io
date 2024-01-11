@@ -4,11 +4,16 @@
 	<title>Simon Halvdansson</title>
 
 	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#FBEDEA" />
 
 	<style>
 
-		#container {
-			width: 800px;
+		* {
+			box-sizing: border-box;
+		}
+
+		.centering {
+			width: 900px;
 			max-width: 90%;
 			margin-left: auto;
 			margin-right: auto;
@@ -16,189 +21,547 @@
 
 		body {
 			font-family: 'Product Sans', sans-serif;
-			font-size: 17px;
-			color: #444;
-			margin-top: 64px;
-			padding-bottom: 20px;
+			font-size: 21px;
+			color: #914642;
+			background-color: #FBEDEA;
+			padding: 0;
+			margin: 0;
 		}
 
-		.headline {
-			font-weight: bold;
-			font-size: 19px;
-			color: #000;
+		.about {
+			padding-top: 70px;
+			font-size: 22px;
+			margin-block-start: 3em;
+			margin-block-end: 1em;
 		}
 
-		.paper a {
-			padding-right: 6px;
+		.about p {
+			line-height: 1.52em;
+			margin-top: 14px;
 		}
 
-		.paper {
-			margin-top: 10px;
-			margin-bottom: 10px;
+		.about h1 {
+			margin-top: 8px;
+			margin-bottom: 8px;
 		}
 
-		#talks div {
-			margin-bottom: 6px;
+		.about a {
+			color: #512725;
+			text-decoration: none;
+			border-bottom: 2px solid #512725;
+			transition: border-bottom-width 150ms ease;
 		}
 
-		h3 {
-			text-decoration: underline;
+		a:hover {
+			border-bottom-width: 3px;
 		}
 
-		.talk {
-			padding-bottom: 4px;
-		}
-
-		.talks_location {
-			margin-top: -4px;
-		}
-
-		.project {
-			padding-bottom: 4px;
+		.boldened {
+				font-weight: 900;
 		}
 
 		@font-face{font-family:product sans;
 			font-style:normal;
 			font-weight:400;
-			src:local('Product Sans'),url(https://fonts.cdnfonts.com/s/13998/ProductSans-Regular.woff) format('woff')}
+			src:local('Product Sans'),url(https://fonts.cdnfonts.com/s/13998/ProductSans-Regular.woff) format('woff')
+		}
 
+		.links {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: flex-start; /* Align items to the start of the container */
+			justify-content: flex-start; /* Align content to the start of the container */
+			margin-bottom: 46px;
+			user-select: none;
+		}
+
+		.links a {
+			background-color: #FBDEAC;
+			padding: 12px 24px;
+			border-radius: 24px;
+			margin-right: 12px;
+			margin-bottom: 8px;
+			text-decoration: none;
+			font-size: 16px;
+			font-family: 'Roboto Mono', monospace;
+			font-weight: 900;
+			color: #512725;
+			transition: all 300ms linear;
+			box-shadow: 0px 8px 40px rgba(0, 0, 0, 0.0);
+		}
+
+		#arxiv {
+			background-color: #8FEBD1;
+		}
+
+		#cv {
+			background-color: #FED7E2;
+		}
+
+		#github {
+			background-color: #CBCC58;
+		}
+
+		#linkedin {
+			background-color: #8FD7D8;
+		}
+
+		.links a:hover {
+			box-shadow: 0px 8px 30px rgba(0, 0, 0, 0.1);
+			filter: brightness(103%);
+		}
+
+		h1 {
+			font-size: 50px;
+		}
+
+		.masonry-grid {
+			display: block; /* Stack columns on small screens */
+		}
+
+		.column {
+			margin-right: 0;
+			margin-left: 0;
+			padding: 0;
+		}
+
+		.paper {
+			color: #512725;
+			margin-bottom: 24px; 
+			padding: 28px;
+			border-radius: 36px;
+			transition: all 300ms;
+			box-shadow: 0px 10px 22px rgba(0, 0, 0, 0.07);
+		}
+
+		/* Media query for larger screens */
+		@media (min-width: 768px) { /* Adjust the min-width as needed */
+			.masonry-grid {
+				display: flex;
+			}
+
+			.column {
+				flex: 1;
+				padding: 0;
+				margin-right: 12px;
+			}
+
+			.column:last-child {
+				margin-right: 0;
+				margin-left: 12px;
+			}
+		}
+
+		.paper {
+			color: #512725;
+			margin-bottom: 24px; 
+			padding: 28px;
+			border-radius: 36px;
+			transition: all 300ms;
+			box-shadow: 0px 10px 22px rgba(0, 0, 0, 0.07);
+		}
+
+		.paper:hover {
+			box-shadow: 0px 10px 18px rgba(0, 0, 0, 0.11);
+		}
+
+		#qhalc {
+			background-color: #FBDEAC;
+		}
+
+		#symbolrecovery {
+			background-color: #DAFAAF;
+		}
+
+		#measureoperatorconv {
+			background-color: #ED959A;
+		}
+
+		#minimizers {
+			background-color: #C4B5D8;
+		}
+
+		.papers h1 {
+			margin-top: 8px;
+			margin-bottom: 36px;
+		}
+
+		.paper .title {
+			color: #512725;
+			font-size: 24px;
+		}
+		
+		.paper .subtitle {
+			font-size: 14px;
+			font-family: 'Roboto Mono', 'monospace';
+		}
+
+		.paper a {
+			margin-right: 6px;
+			font-size: 14px;
+			color: #512725;
+			font-family: 'Roboto Mono', monospace;
+			text-decoration: none;
+			border-bottom: 2px solid #512725;
+			transition: border-bottom-width 150ms ease;
+		}
+		
+		.item a:hover {
+			border-bottom-width: 3px;
+		}
+
+		.formula {
+			color: #512725;
+			text-align: center;
+			padding-bottom: 8px;
+		}
+
+		.squiggly-line {
+			border: none;
+			margin-top: 36px;
+			margin-bottom: 36px;
+			height: 20px;
+			background-image: url('data:image/svg+xml;base64,Cjxzdmcgd2lkdGg9IjEyMDAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPHBhdGggZD0iTTAsMTAgUTEwLDAgMjAsMTAgVDQwLDEwIFQ2MCwxMCBUODAsMTAgVDEwMCwxMCBUMTIwLDEwIFQxNDAsMTAgVDE2MCwxMCBUMTgwLDEwIFQyMDAsMTAgVDIyMCwxMCBUMjQwLDEwIFQyNjAsMTAgVDI4MCwxMCBUMzAwLDEwIFQzMjAsMTAgVDM0MCwxMCBUMzYwLDEwIFQzODAsMTAgVDQwMCwxMCBUNDIwLDEwIFQ0NDAsMTAgVDQ2MCwxMCBUNDgwLDEwIFQ1MDAsMTAgVDUyMCwxMCBUNTQwLDEwIFQ1NjAsMTAgVDU4MCwxMCBUNjAwLDEwIFQ2MjAsMTAgVDY0MCwxMCBUNjYwLDEwIFQ2ODAsMTAgVDcwMCwxMCBUNzIwLDEwIFQ3NDAsMTAgVDc2MCwxMCBUNzgwLDEwIFQ4MDAsMTAgVDgyMCwxMCBUODQwLDEwIFQ4NjAsMTAgVDg4MCwxMCBUOTAwLDEwIFQ5MjAsMTAgVDk0MCwxMCBUOTYwLDEwIFQ5ODAsMTAgVDEwMDAsMTAgVDEwMjAsMTAgVDEwNDAsMTAgVDEwNjAsMTAgVDEwODAsMTAgVDExMDAsMTAgVDExMjAsMTAgVDExNDAsMTAgVDExNjAsMTAgVDExODAsMTAgVDEyMDAsMTAiCiAgICAgICAgc3Ryb2tlPSIjNTEyNzI1IiBzdHJva2Utd2lkdGg9IjMiIGZpbGw9InRyYW5zcGFyZW50Ii8+Cjwvc3ZnPgo=');
+			background-repeat: repeat-x;
+		}
+
+		.timeline {
+			position: relative;
+			padding-left: 30px; /* Adjust as needed */
+		}
+
+		.talk::before {
+			content: '';
+			position: absolute;
+			left: -9px; /* Center the line with the dot */
+			top: 20px;
+			bottom: -20px;
+			width: 2px; /* Thickness of the line */
+			background-color: #623D3F; /* Color of the line */
+			z-index: 1;
+		}
+
+		.talk:last-child::before {
+			display: none; /* Hide line for the last .talk item */
+		}
+
+		.talk {
+			padding-top: 12px;
+			padding-bottom: 12px;
+			padding-left: 24px;
+			position: relative;
+		}
+
+		.talk::after {
+			content: '';
+			position: absolute;
+			left: -15px; /* Adjust this to align with the timeline */
+			top: 26px;
+			transform: translateY(-50%);
+			width: 14px; /* Size of the dot */
+			height: 14px; /* Size of the dot */
+			background-color: #623D3F; /* Color of the dot */
+			border-radius: 50%; /* Makes it round */
+			z-index: 2;
+		}
+
+		.talks h1 {
+			margin-bottom: 10px;
+		}
+
+		.talk a {
+			color: #512725;
+			text-decoration: none;
+			border-bottom: 2px solid #512725;
+			transition: border-bottom-width 150ms ease;
+		}
+
+		.talk .name {
+			color: #512725;
+			font-size: 23px;
+			padding-bottom: 2px;
+		}
+		
+		.talk a:hover {
+			border-bottom-width: 3px;
+		}
+
+		.talk .location {
+			font-size: 14px;
+			font-family: 'Roboto Mono', monospace;
+		}
+
+		.talk .date {
+			font-size: 14px;
+			font-family: 'Roboto Mono', monospace;
+		}
+
+		.projects {
+			padding-bottom: 24px;
+		}
+
+		.project {
+			padding-bottom: 1px;
+			border-left: 4px solid #512725;
+			padding-left: 24px;
+			margin-bottom: 20px;
+		}
+
+		.project .project_links a {
+			font-weight: bold;
+			text-decoration: none;
+			color: #512725;
+			margin-right: 6px;
+			user-select: none;
+			border: 1.5px solid #512725;
+			padding-left: 18px;
+			padding-right: 18px;
+			padding-top: 7px;
+			padding-bottom: 7px;
+			border-radius: 40px;
+			font-size: 16px;
+			transition: all 200ms;
+		}
+
+		.project .project_links a:hover {
+			background-color: #ccc;
+		}
+
+		.project .title {
+			font-weight: bold;
+			color: #512725;
+			font-size: 28px;
+			padding-bottom: 6px;
+		}
+
+		.project .description {
+			font-size: 19px;
+			line-height: 1.42em;
+			padding-bottom: 16px;
+		}
+
+		.project .description a {
+			color: #512725;
+		}
+
+		.project .project_links {
+			margin-bottom: 20px;
+		}
 
 	</style>
+
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+
+
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
+
+	<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 </head>
 <body>
 
-	<div id="container">
-
-		<h1>Simon Halvdansson</h1>
+	<section class="about centering">
+		<h1>Hey! I'm <span class="boldened">Simon Halvdansson</span>,</h1>
 		<p>
-		I am a PhD candidate at the Norwegian University of Science and Technology (NTNU) in Trondheim, studying under the supervision of Professor Franz Luef. My research is in time frequency analysis using tools from harmonic analysis, functional analysis and operator theory. More specifically I have an interest in the framework of quantum harmonic analysis.
+			a PhD candidate in the analysis group at the Norwegian University of Science and Technology (<a href="https://www.ntnu.no/" target="_blank">NTNU</a>) in Trondheim, Norway, studying under the supervision of Professor <a href="https://www.ntnu.edu/employees/franz.luef" target="_blank">Franz Luef</a>. My research is in <i>time-frequency analysis</i> using tools from <i>harmonic analysis</i>, <i>functional analysis</i> and <i>operator theory</i>. More specifically, much of my research is connected to the framework of quantum harmonic analysis.<!--<a href="example.com" target="_blank">quantum harmonic analysis</a>.-->
+			<br><br>
+			Apart from my interest in mathematics, I have a background in physics, programming and deep learning, and currently maintain the open source Android Hacker News client <a href="https://github.com/SimonHalvdansson/Harmonic-HN" target="_blank">Harmonic</a>.
 		</p>
-		
-		<section>
-			<h3>Papers:</h3>
+	</section>
 
-			<div class="paper">
-				<div class="headline">Measure-operator convolutions and applications to mixed-state Gabor multipliers</div>
-				<div>(with Hans Feichtinger and Franz Luef)</div>
-				<div>Uploaded to <a href="https://arxiv.org/abs/2308.04985" target="_blank">ArXiv</a><a href="https://arxiv.org/pdf/2308.04985.pdf" target="_blank">(PDF)</a>in August 2023</div>
-			</div>
+	<section class="links centering">
+		<a id="arxiv" href="https://arxiv.org/search/?query=simon+halvdansson&searchtype=all">ArXiV</a>
+		<!--<a id="cv" href="Simon Halvdansson.pdf">CV</a>-->
+		<a id="github" href="https://github.com/SimonHalvdansson">GitHub</a>
+		<a id="linkedin" href="https://www.linkedin.com/in/simon-halvdansson-3a2440240/">LinkedIn</a>
+	</section>
 
-			<div class="paper">
-				<div class="headline">Five ways to recover the symbol of a non-binary localization operator</div>
-				<div>Uploaded to <a href="https://arxiv.org/abs/2301.11618" target="_blank">ArXiv</a><a href="https://arxiv.org/pdf/2301.11618.pdf" target="_blank">(PDF)</a>in January 2023, updated in October 2023</div>
-			</div>
-
-			<div class="paper">
-				<div class="headline">Quantum harmonic analysis on locally compact groups</div>
-				<div>Published in <a href="https://www.sciencedirect.com/science/article/pii/S0022123623002537">Journal of Functional Analysis</a>in July 2023</div>
-				<div>also available from <a href="https://arxiv.org/abs/2210.08314" target="_blank">ArXiv</a><a href="https://arxiv.org/pdf/2210.08314.pdf" target="_blank">(PDF)</a>posted in October 2022</div>
-			</div>
-
-			<div class="paper">
-				<div class="headline">Existence of Uncertainty Minimizers for the Continuous Wavelet Transform</div>
-				<div>
-					<div>(with Jan-Fredrik Olsen, Ron Levie and Nir Sochen)</div>
-					<div>Published in <a href="https://onlinelibrary.wiley.com/doi/full/10.1002/mana.202100466">Mathematische Nachrichten</a>in January 2023</div>
-					<div>also available from <a href="https://arxiv.org/abs/2108.12018" target="_blank">ArXiv</a><a href="https://arxiv.org/pdf/2108.12018.pdf" target="_blank">(PDF)</a>posted in August 2021</div>
-				</div>
-				
-				
-			</div>
-			
-			<a href="https://arxiv.org/abs/2210.08314"></a>
-		</section>
-
-		<section id="talks">
-			<h3>Talks/posters:</h3>
-			<div class="talk">
-				<div class="talks_name">International Workshop on Operator Theory and its Applications (IWOTA 2023)</div>
-				<div class="talks_location">Helsinki, Finland, July 31 - August 4, 2023</div>
-			</div>
-
-			<div class="talk">
-				<div class="talks_name">Workshop on quantum harmonic analysis (QHA23)</div>
-				<div class="talks_location">NTNU Trondheim, Norway, June 5, 2023</div>
-			</div>
-
-			<div class="talk">
-				<div class="talks_name">Dynamics in the noncommutative world</div>
-				<div class="talks_location">NTNU Trondheim, Norway, January 26, 2023</div>
-			</div>
-
-			<div class="talk">
-				<div class="talks_name">Oberseminar Analysis</div>
-				<div class="talks_location">Leibniz Universität Hannover, Germany, October 4, 2022</div>
-			</div>
-
-			<div class="talk">
-				<div class="talks_name">International Conference on Computational Harmonic Analysis (ICCHA 2022)</div>
-				<div class="talks_location">Ingolstadt, Germany, September 12-16, 2022</div>
-			</div>
-
-			<div class="talk">
-				<div class="talks_name">International Workshop on Operator Theory and its Applications (IWOTA 2022)</div>
-				<div class="talks_location">Krakow, Poland, September 6-10, 2022</div>
-			</div>
-
-			<div class="talk">
-				<div class="talks_name">Applied Harmonic Analysis and Friends (Strobl22)</div>
-				<div class="talks_location">Strobl, Austria, June 19-25, 2022</div>
-			</div>
-
-			<div class="talk">
-				<div class="talks_name">Online International Conference on Computational Harmonic Analysis (ICCHA 2021)</div>
-				<div class="talks_location">Online, September 13-17, 2021</div>
-			</div>
-		</section>
-
-		<section>
-			<h3>Projects:</h3>
-			
-			<div class="project">
-				<div>
-					Harmonic for Hacker News (Android app)
-				</div>
-				<div>
-					<a href="https://play.google.com/store/apps/details?id=com.simon.harmonichackernews" target="_blank">Play Store</a>,
-					<a href="https://github.com/SimonHalvdansson/Harmonic-HN" target="_blank">GitHub</a>
-				</div>
-			</div>
-
-			<div class="project">
-				<div>
-					Existence and Approximations of Optimal Wavelets (Master thesis)
-				</div>
-				<div>
-					<a href="http://lup.lub.lu.se/student-papers/record/9048876" target="_blank">Link</a>,
-					<a href="https://lup.lub.lu.se/luur/download?func=downloadFile&recordOId=9048876&fileOId=9058062" target="_blank">PDF</a>
-				</div>
-			</div>
-
-			<div class="project">
-				<div>
-					Computations with the 2D Coulomb Gas (Bachelor thesis)
-				</div>
-				<div>
-					<a href=""></a>
-					<a href="https://simonhalvdansson.github.io/2D-Coulomb-Gas-Tools/" target="_blank">Simulator</a>,
-					<a href="https://github.com/SimonHalvdansson/2D-Coulomb-Gas-Tools" target="_blank">GitHub</a>
-				</div>
-			</div>
-
-			<div class="project">
-				<div>
-					Pay Back - IOU Manager (Android app, together with John Rapp Farnes)
-				</div>
-				<div>
-					<a href="https://play.google.com/store/apps/details?id=com.johnsimon.payback" target="_blank">Play Store</a>
-				</div>
-			</div>
-
-		</section>
-
+	<div class="centering">
+		<hr class="squiggly-line">
 	</div>
+		
+	<section class="papers centering">
+		<h1>Publications</h1>
+
+		<div class="masonry-grid">
+			<div class="column">
+
+				<div class="paper" id="measureoperatorconv">
+					<div class="formula">\(\boldsymbol{\mu \star S}\)</div>
+					<div class="title">Measure-operator convolutions and applications to mixed-state Gabor multipliers</div>
+					<div class="subtitle">August 2023<br>with Hans Feichtinger and Franz Luef</div>
+					<a href="https://arxiv.org/abs/2308.04985" target="_blank">ArXiV</a>
+				</div>
+
+				<div class="paper" id="qhalc">
+					<div class="formula">\(\boldsymbol{f \star_G S}\)</div>
+					<div class="title">Quantum harmonic analysis on locally compact groups</div>
+					<div class="subtitle">October 2022</div>
+					<a href="https://www.sciencedirect.com/science/article/pii/S0022123623002537" target="_blank">Journal of Functional Analysis</a>
+					<a href="https://arxiv.org/abs/2210.08314" target="_blank">ArXiV</a>
+				</div>
+
+			
+			</div>
+			<div class="column">
+				
+				<div class="paper" id="symbolrecovery">
+					<div class="formula">\(\boldsymbol{A_f^g \mapsto f}\)</div>
+					<div class="title">Five ways to recover the symbol of a non-binary localization operator</div>
+					<div class="subtitle">January 2023</div>
+					<a href="https://arxiv.org/abs/2301.11618" target="_blank">ArXiV</a>
+				</div>
+				
+				<div class="paper" id="minimizers">
+					<div class="formula">\(\boldsymbol{\operatorname{argmin}_f \mathcal{L}_{\mathrm{P}}(f)}\)</div>
+					<div class="title">Existence of Uncertainty Minimizers for the Continuous Wavelet Transform</div>
+					<div class="subtitle">August 2021<br>with Jan-Fredrik Olsen, Ron Levie and Nir Sochen</div>
+					<a href="https://onlinelibrary.wiley.com/doi/full/10.1002/mana.202100466">Mathematische Nachrichten</a>
+					<a href="https://arxiv.org/abs/2308.04985" target="_blank">ArXiV</a>
+				</div>
+
+			</div>
+		</div>
+	</section>
 	
+	<div class="centering">
+		<hr class="squiggly-line">
+	</div>
+
+	<section id="talks" class="centering">
+		<h1>Talks/posters</h1>
+
+		<div class="timeline">
+						
+			<div class="talk">
+				<div class="name">International Workshop on Operator Theory and its Applications (<a href="https://www.helsinki.fi/en/conferences/iwota2023" target="_blank">IWOTA 2023</a>)</div>
+				<div class="date">July 31 - August 4, 2023</div>
+				<div class="location">Helsinki, Finland</div>
+			</div>
+	
+			<div class="talk">
+				<div class="name">Workshop on quantum harmonic analysis (<a href="https://www.ntnu.edu/imf/qha2023" target="_blank">QHA2023</a>)</div>
+				<div class="date">June 5, 2023</div>
+				<div class="location">NTNU Trondheim, Norway</div>
+			</div>
+			
+			<div class="talk">
+				<div class="name">Dynamics in the noncommutative world (<a href="https://sites.google.com/view/dncw2023" target="_blank">DNCW 2023</a>)</div>
+				<div class="date">January 26, 2023</div>
+				<div class="location">NTNU Trondheim, Norway</div>
+			</div>
+	
+			<div class="talk">
+				<div class="name">Oberseminar Analysis</div>
+				<div class="date">October 4, 2022</div>
+				<div class="location">Leibniz Universität Hannover, Germany</div>
+			</div>
+	
+			<div class="talk">
+				<div class="name">International Conference on Computational Harmonic Analysis (<a href="https://ps-mathematik.univie.ac.at/e/index.php?event=ICCHA2022" target="_blank">ICCHA 2022</a>)</div>
+				<div class="date">September 12-16, 2022</div>
+				<div class="location">Ingolstadt, Germany</div>
+			</div>
+	
+			<div class="talk">
+				<div class="name">International Workshop on Operator Theory and its Applications (<a href="https://iwota2022.urk.edu.pl/" target="_blank">IWOTA 2022</a>)</div>
+				<div class="date">September 6-10, 2022</div>
+				<div class="location">Krakow, Poland</div>
+			</div>
+	
+			<div class="talk">
+				<div class="name">Applied Harmonic Analysis and Friends (<a href="https://ps-mathematik.univie.ac.at/e/?event=strobl22" target="_blank">Strobl2022</a>)</div>
+				<div class="date">June 19-25, 2022</div>
+				<div class="location">Strobl, Austria</div>
+			</div>
+	
+			<div class="talk">
+				<div class="name">Online International Conference on Computational Harmonic Analysis (<a href="https://ps-mathematik.univie.ac.at/e/index.php?event=ICCHA2021online" target="_blank">ICCHA 2021</a>)</div>
+				<div class="date">September 13-17, 2021</div>
+				<div class="location">Online</div>
+			</div>
+		</div>
+
+	</section>
+
+	<div class="centering">
+		<hr class="squiggly-line">
+	</div>
+
+	<section class="centering projects">
+		<h1>Projects</h1>
+		
+		<div class="project">
+			<div class="title">
+				Harmonic for Hacker News
+			</div>
+			<div class="description">
+				Harmonic is currently the most popular <a href="https://news.ycombinator.com/">Hacker News</a> client for Android with over 6000 daily active users and 60&thinsp;000 downloads. As of summer 2023, it is open source and development is still ongoing. The focus of the app is on customizability, performance and a sleek modern design.
+			</div>
+			<div class="project_links">
+				<a href="https://play.google.com/store/apps/details?id=com.simon.harmonichackernews" target="_blank">Play Store</a>
+				<a href="https://github.com/SimonHalvdansson/Harmonic-HN" target="_blank">GitHub</a>
+			</div>
+		</div>
+		<!--
+		<div class="project">
+			<div class="title">
+				An Introduction to Quantum Harmonic Analysis
+			</div>
+			<div class="description">
+				As quantum harmonic analysis is a rather small subfield, I figured it would be beneficial to write an approachable introduction to it. The text is geared towards the mathematically interested reader but does not presume knowledge of either harmonic analysis or operator theory. Ideally, it should be easier to approach than a classical research paper and set the reader up to appreciate the ideas underpinning quantum harmonic analysis.
+			</div>
+			<div class="project_links">
+				<a href="qha.pdf" target="_blank">PDF</a>
+			</div>
+		</div>-->
+
+		<div class="project">
+			<div class="title">
+				Existence and Approximations of Optimal Wavelets
+			</div>
+			<div class="description">
+				This is my master's thesis from Lund University, supervised by <a href="https://www.lu.se/lucat/user/b9011d68278906636ba320a486af6d85">Jan-Fredrik Olsen</a> and later on also <a href="https://sites.google.com/view/ronlevie">Ron Levie</a>. While relying heavily on earlier work by Ron Levie and Nir Sochen, we investigate an uncertainty functional measuring the localization of a wavelet. As it is a master thesis, there is a large focus on going over previous research and motivating the functional properly. In the end, we show that minimizers exists and can be approximated by considering minimizers on lower dimensional subspaces which can be constructed numerically.
+			</div>
+			<div class="project_links">
+				<a href="http://lup.lub.lu.se/student-papers/record/9048876" target="_blank">Link</a>
+				<a href="https://lup.lub.lu.se/luur/download?func=downloadFile&recordOId=9048876&fileOId=9058062" target="_blank">PDF</a>
+				<a href="https://simonhalvdansson.github.io/Optimal-Wavelet-Interpolation/" target="_blank">Minimizers</a>
+			</div>
+		</div>
+
+		<div class="project">
+			<div class="title">
+				Computations with the 2D Coulomb Gas
+			</div>
+			<div class="description">
+				My bachelor's thesis, also written at Lund University but with <a href="https://www.maths.lth.se/matematiklu/personal/yacin/">Yacin Ameur</a>, is an introduction to the 2D Coulomb gas. The field has quite a deep background which is investigated and we motivate the construction of the main objects of the field. Moreover, there is also a simulation of these types of particle systems which can run with up to 50&thinsp;000 particles on regular consumer hardware. Originally, the simulator could only handle 5000 particles but I rewrote it to utilize web worker multithreading in 2023.
+			</div>
+			<div class="project_links">
+				<a href="https://simonhalvdansson.github.io/2D-Coulomb-Gas-Tools/" target="_blank">Simulator</a>
+				<a href="https://github.com/SimonHalvdansson/2D-Coulomb-Gas-Tools" target="_blank">GitHub</a>
+			</div>
+		</div>
+
+		<div class="project">
+			<div class="title">
+				Pay Back - IOU Manager
+			</div>
+			<div class="description">
+				In high school I developed a series of Android apps and Pay Back, while quite outdated, is the only one which is still live on the Play Store. It was a joint project with <a href="example.com">John Rapp Farnes</a> who focused more on the internals while I was responsible for design and UI, however our work often intersected. An IOU (I Owe yoU) manager keeps track of personal debts; this was from before you could painlessly send money to your friends. It has a ton of intricate features such as using NFC to sync your debts with friends which I guess is the highest form of feature creep.
+			</div>
+			<div class="project_links">
+				<a href="https://play.google.com/store/apps/details?id=com.johnsimon.payback" target="_blank">Play Store</a>
+			</div>
+		</div>
+
+	</section>
 	
 </body>
 </html>
