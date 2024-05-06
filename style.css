@@ -165,6 +165,14 @@ h1 {
     box-shadow: 0px 10px 18px rgba(0, 0, 0, 0.11);
 }
 
+#blurop {
+    background-color: #DADDDA;
+}
+
+#accspec {
+    background-color: #C1E7FE;
+}
+
 #qhalc {
     background-color: #FBDEAC;
 }
