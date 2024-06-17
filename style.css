@@ -294,12 +294,12 @@ h1 {
     border-bottom-width: 3px;
 }
 
-.talk .location {
+.talk .date_loc {
     font-size: 14px;
     font-family: 'Roboto Mono', monospace;
 }
 
-.talk .date {
+.talk .link {
     font-size: 14px;
     font-family: 'Roboto Mono', monospace;
 }
