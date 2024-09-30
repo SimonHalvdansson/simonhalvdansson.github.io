@@ -6,10 +6,12 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="theme-color" content="#FBEDEA" />
 
-	<link rel="shortcut icon" type="image/x-icon"  href="../favicon.ico?">
-	<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+	<link rel="shortcut icon" type="image/x-icon"  href="../../favicon.ico?">
+	<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
 
+	<link rel="stylesheet" href="../../style.css">
 	<link rel="stylesheet" href="style.css">
+
 
 	<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
@@ -733,6 +735,10 @@ def forward(...):
 			<img class="figure" src="media/5_step_transformer_multi-token_forecast.png"></img>
 		</a>
 	</div>
+
+	<p>
+		At this point, the predictive power of the forecast drops to basically zero as we are trying to predict the hour-wise temperature almost three months in advance. Obviously this type of model is better suited for a time series with denser sampling.
+	</p>
 
 	<p>
 		We've now gone through most of the model and evaluated it. As mentioned in the introduction, the full TimesFM model has some additional features. Most notable is probably the support for variable input length which is only useful for a model which is meant to be reused in different contexts. Hopefully, you the reader should be better prepared to implement/understand/use other related time series models.
