@@ -28,7 +28,7 @@
 </head>
 <body>
 	<div class="blog centering" id="back_container">
-		<a href="https://simonhalvdansson.github.io" class="back"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="14" fill="currentColor" class="bi bi-caret-left" viewBox="0 0 22 18">
+		<a href="../index.html" class="back"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="14" fill="currentColor" class="bi bi-caret-left" viewBox="0 0 22 18">
 			<path fill-rule="evenodd" clip-rule="evenodd" d="M14.0303 7.46967C14.3232 7.76256 14.3232 8.23744 14.0303 8.53033L10.5607 12L14.0303 15.4697C14.3232 15.7626 14.3232 16.2374 14.0303 16.5303C13.7374 16.8232 13.2626 16.8232 12.9697 16.5303L8.96967 12.5303C8.67678 12.2374 8.67678 11.7626 8.96967 11.4697L12.9697 7.46967C13.2626 7.17678 13.7374 7.17678 14.0303 7.46967Z"/>
 		  </svg>All posts</a>
 	</div>
@@ -39,7 +39,7 @@
 
 		<hr class="squiggly-line"/>
 		<p>
-			This post is meant to serve as an implementation guide and an example of transformer-based time series prediction with PyTorch, strongly inspired by the recent Google model TimesFM. It is not meant as an introduction the either time-series forecasting nor transformers but rather purely to their combination and consequently we expect the reader to have some degree of familiarity with the basic transformer architecture. The text contains several code snippets which illustrate the main components and the goal is for the reader to be able to adapt the <a target="_blank" href="http://github.com">full implementation</a> to their own data after reading.
+			This post is meant to serve as an implementation guide and an example of transformer-based time series prediction with PyTorch, strongly inspired by the recent Google model TimesFM. It is not meant as an introduction the either time-series forecasting or transformers but rather purely to their combination and consequently we expect the reader to have some degree of familiarity with the basic transformer architecture. The text contains several code snippets which illustrate the main components and the goal is for the reader to be able to adapt the <a target="_blank" href="http://github.com">full implementation</a> to their own data after reading.
 		</p>
 		
 		<div class="figure_container_small">
@@ -60,7 +60,7 @@
 		</p>
 
 		<p>
-			As will hopefully become clear throughout the text, the fact that the encoder and decoder are decoupled from the main model means that large parts of the model can be reused for other purposes. Consider e.g. an encoding procedure which takes in a time-frequency representation of historical data and a decoder which reads multiple tokens and maps them into a dictionary - this is the core of the <a target="_blank" href="https://github.com/openai/whisper">Whisper</a> automatic speech recognition (ASR) model from OpenAI. The model can also be made multivariate by increasing the input dimension of the encoder and output dimension of the decoder. This sort of "universality" is a also how multimodal LLM's work and it is my view paradigm of transformer backbones with different encoders/decoders is likely to remain fruitful in the near future.
+			As will hopefully become clear throughout the text, the fact that the encoder and decoder are decoupled from the main model means that large parts of the model can be reused for other purposes. Consider e.g. an encoding procedure which takes in a time-frequency representation of historical data and a decoder which reads multiple tokens and maps them into a dictionary - this is the core of the <a target="_blank" href="https://github.com/openai/whisper">Whisper</a> automatic speech recognition (ASR) model from OpenAI. The model can also be made multivariate by increasing the input dimension of the encoder and output dimension of the decoder. This sort of "universality" is also how multimodal LLMs work and it is my view paradigm of transformer backbones with different encoders/decoders is likely to remain fruitful in the near future.
 		</p>
 
 		<p>
@@ -68,7 +68,7 @@
 		</p>
 
 		<p class="comment">
-			Organization: We introduce the <a href="#dataset">weather dataset</a> we use, implement a <a href="#simple_mlp">simple MLP forecasting model</a> and <a href="#train">train</a> it, describe the basic of <a href="#transformer">transformers</a>, show the <a href="#full_model">full model</a> and lastly discuss <a href="#multitoken">multi-token</a> decoding for longer forecasts.
+			Organization: We introduce the <a href="#dataset">weather dataset</a> we use, implement a <a href="#simple_mlp">simple MLP forecasting model</a> and <a href="#train">train</a> it, describe the basics of <a href="#transformer">transformers</a>, show the <a href="#full_model">full model</a> and lastly discuss <a href="#multitoken">multi-token</a> decoding for longer forecasts.
 		</p>
 
 		<hr class="squiggly-line"/>
@@ -247,7 +247,7 @@ class TimeSeriesDataset(Dataset):
 	<h2 id="simple_mlp">MLP baseline and model generalities</h2>
 
 	<p>
-		Now we turn to developing the simple multilayer-perceptron model for the baseline. Our input data, the temperatures from the table, is not dimensionless and can significantly drift over time. For this reason it is beneficial to normalize each slice we let the model act on and then invert the normalization after the model has acted. To this end, we set up the following helper functions which takes an input <code>x</code>of shape <code>(batch_size, len)</code>:
+		Now we turn to developing the simple multilayer-perceptron model for the baseline. Our input data, the temperatures from the table, is not dimensionless and can significantly drift over time. For this reason it is beneficial to normalize each slice we let the model act on and then invert the normalization after the model has acted. To this end, we set up the following helper functions which take an input <code>x</code>of shape <code>(batch_size, len)</code>:
 	</p>
 
 	<pre><code class="language-py">
@@ -414,7 +414,7 @@ def test(model, device, optimizer, dataloader):
 	</div>
 
 	<p>
-		Should we wish for longer forecasts we essentially have 2 options; increase <code>output_len</code> or run the model autoregressively. The first of these options increases the models parameters while the second comes at the cost of inference time. Below is an example of the autoregressive solution.
+		Should we wish for longer forecasts we essentially have 2 options; increase <code>output_len</code> or run the model autoregressively. The first of these options increases the model's parameters while the second comes at the cost of inference time. Below is an example of the autoregressive solution.
 	</p>
 
 	<div class="figure_container">
@@ -550,7 +550,7 @@ self.transformer_layers = nn.ModuleList(
 	</code></pre>
 
 	<p>
-		With this we are essentially done! Below is the full code for the model where we explicitly force the model to a decoder-only mode with causal attention using a upper triangular attention mask. Using the <code>nn.TransformerEncoderLayer</code> means that we only apply self-attention and no cross attention.
+		With this we are essentially done! Below is the full code for the model where we explicitly force the model to a decoder-only mode with causal attention using an upper triangular attention mask. Using the <code>nn.TransformerEncoderLayer</code> means that we only apply self-attention and no cross attention.
 	</p>
 
 	<pre><code class="language-py" id="full_model">
@@ -678,7 +678,7 @@ class TimeSeriesTransformer(nn.Module):
 	<h2 id="multitoken">Multi-token decoding</h2>
 
 	<p>
-		Lastly we will look at two options for increasing the output length of our model(s) beyond the autoregressive approach; increasing <code>output_len</code> and decoding multiple tokens. The former is very straight forward but for multi-token decoding we will need to need to use something like the <code>encode_patches()</code> function instead of just <code>x = self.patch_decoder(x[:, -1, :])</code>. Our <code>decode_patches()</code> function will be as follows.
+		Lastly we will look at two options for increasing the output length of our model(s) beyond the autoregressive approach; increasing <code>output_len</code> and decoding multiple tokens. The former is very straight forward but for multi-token decoding we will need to use something like the <code>encode_patches()</code> function instead of just <code>x = self.patch_decoder(x[:, -1, :])</code>. Our <code>decode_patches()</code> function will be as follows.
 	</p>
 
 	<pre><code class="language-py">
@@ -727,7 +727,7 @@ def forward(...):
 	</div>
 
 	<p>
-		The increased output length likely promotes reducing the oscillation frequency of the predictions since we use the mean <span class="boldened">square</span> error which punished errors superlinearly. Of course, we can run the multi-token model autoregressively to get even further forecasts.
+		The increased output length likely promotes reducing the oscillation frequency of the predictions since we use the mean <span class="boldened">square</span> error which punishes errors superlinearly. Of course, we can run the multi-token model autoregressively to get even further forecasts.
 	</p>
 
 	<div class="figure_container">
@@ -741,7 +741,7 @@ def forward(...):
 	</p>
 
 	<p>
-		We've now gone through most of the model and evaluated it. As mentioned in the introduction, the full TimesFM model has some additional features. Most notable is probably the support for variable input length which is only useful for a model which is meant to be reused in different contexts. Hopefully, you the reader should be better prepared to implement/understand/use other related time series models.
+		We've now gone through most of the model and evaluated it. As mentioned in the introduction, the full TimesFM model has some additional features. Most notable is probably the support for variable input length which is only useful for a model which is meant to be reused in different contexts. Hopefully, you the reader are better prepared to implement/understand/use other related time series models.
 	</p>
 
 	<hr class="squiggly-line"/>

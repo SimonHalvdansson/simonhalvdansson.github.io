@@ -1,0 +1,459 @@
+.blog {
+    font-size: 19px;
+    color: #512725;
+}
+
+#back_container {
+    padding-top: 40px;
+}
+
+.blog .back {
+    text-decoration: none;
+    font-size: 14px;
+    font-family: 'Roboto Mono', monospace;
+    text-transform: uppercase;
+    font-weight: 900;
+    color: rgba(81, 39, 37, 0.5);
+    text-underline-offset: 4px;
+    text-decoration: underline;
+    text-decoration-color: rgba(81, 39, 37, 0.3);
+    border-bottom: none;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    padding-right: 28px;
+    padding-left: 14px;
+    margin-left: -14px;
+    border-radius: 25px;
+    transition: background 200ms, color 200ms, text-decoration-color 200ms;
+}
+
+.blog .back:hover {
+    background: rgba(81, 39, 37, 0.1);;
+    text-decoration-color: rgba(81, 39, 37, 0.6);
+    color: rgba(81, 39, 37, 0.6);
+}
+
+.post {
+    padding-top: 52px;
+    padding-bottom: 70px;
+}
+
+.blog .subtitle {
+    text-transform: uppercase;
+    font-weight: 900;
+    font-size: 15px;
+    margin-bottom: -3px;
+    font-family: 'Roboto Mono', monospace;
+}
+
+.blog p {
+    line-height: 1.52em;
+    margin-top: 14px;
+}
+
+.blog h1 {
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.blog a {
+    color: #000;
+    text-decoration: none;
+    border-bottom: 2px solid #512725;
+    transition: border-bottom-width 150ms ease;
+}
+
+.blog .comment {
+    font-style: italic;
+    opacity: 0.7;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 14px;
+}
+
+.blog p code,
+.blog ul code {
+    background-color: white;
+    padding-left: 2px;
+    padding-right: 2px;
+    border-radius: 5px;
+    font-size: 17px;
+    color: black;
+}
+
+.blog pre code {
+    tab-size: 4;
+    font-size: 15px;
+    border-radius: 24px;
+    padding-left: 24px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+}
+
+
+.blog .figure_container {
+    width: 120%;
+    margin-left: -10%;
+    margin-right: -10%;
+    border-radius: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 10px 8px rgba(0, 0, 0, 0.07);
+    overflow: hidden;
+}
+
+.blog .figure_container_small {
+    width: 75%;
+    padding-left: 42px;
+    padding-right: 42px;
+    padding-top: 8px;
+    padding-bottom: 14px;
+    background: white;
+    margin-left: auto;
+    margin-right: auto;
+    border-radius: 16px;
+    box-shadow: 0 10px 16px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+
+.blog .figure {
+    width: 100%;
+    display: block;
+}
+
+.fancybox__toolbar {
+    display: none !important;
+}
+
+.blog .figure_caption {
+    font-size: 14px;
+    font-family: 'Roboto Mono';
+    font-style: italic;
+    margin-top: 14px;
+    margin-bottom: 18px;
+    margin-left: 9%;
+    margin-right: 9%;
+}
+
+.blog .figure_caption .caption_title {
+    font-weight: bold;
+}
+
+@media (max-width: 1120px) {
+    .blog .figure_container {
+        width: calc(100%);
+        margin-left: 0;
+        margin-right: 0;
+    }
+}
+
+@media (max-width: 890px) {
+    .blog .figure_container_small {
+        width: 100%;
+    }
+}
+
+.blog .final_button_container {
+
+}
+
+.blog .final_button {
+    display: block;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 20px;
+}
+
+.blog .table-container {
+    padding-bottom: 8px;
+}
+
+.blog table {
+    width: 130%;
+    margin-left: -15%;
+    margin-right: -15%;
+    border-collapse: collapse;
+    box-shadow: 0 10px 14px rgba(0, 0, 0, 0.07);
+    border-radius: 18px;
+    padding-left: 16px;
+    padding-right: 16px;
+    overflow: hidden;
+    color: black;
+    box-sizing: border-box;
+    background-color: #DADDDA;
+}
+
+.blog thead {
+  background-color: #DADDDA;
+  color: black;
+  text-align: left;
+}
+
+.blog thead th {
+    padding-top: 16px;
+    padding-bottom: 16px;
+    padding-left: 14px;
+    padding-right: 14px;
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 13px;
+}
+
+.blog tbody tr {
+  border-bottom: none;
+  transition: background-color 0.3s;
+}
+
+.blog tbody tr:last-of-type {
+  border-bottom: none;
+}
+
+.blog tbody td {
+  padding: 12px 15px;
+  font-size: 14px;
+}
+
+.blog tbody tr:nth-child(even) {
+  background-color: #fafafa;
+}
+
+.blog tbody tr:nth-child(odd) {
+  background-color: #f1f1f1;
+}
+
+@media (max-width: 1200px) {
+    .blog table {
+        width: 100%;
+        margin-left: 0;
+        margin-right: 0;
+    }
+    .blog table {
+        font-size: 12px;
+    }
+
+    .blog thead {
+        font-size: 12px;
+    }
+
+    .blog tbody td {
+        padding-left: 6px;
+        padding-right: 6px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+
+    .blog thead th {
+        padding-left: 6px;
+        padding-right: 6px;
+    }
+}
+
+@media (max-width: 1120px) {
+    .blog .table-container {
+        width: 100%;
+        margin-left: 0;
+        margin-right: 0;
+    }
+    
+    table {
+        font-size: 11px;
+    }
+
+    tbody td {
+        padding-left: 2px;
+        padding-right: 2px;
+    }
+  
+    thead th {
+        padding-left: 0px;
+        padding-right: 6px;
+    }
+}
+
+@media (max-width: 1000px) {
+    .blog .table-container {
+        width: calc(100vw - 15px);
+        margin-left: -5vw;
+        margin-right: -5vw;
+        overflow-x: auto;
+        padding-bottom: 24px;
+        padding-left: 16px;
+        padding-right: 16px;
+        box-sizing: border-box;
+    }
+
+    .blog tbody td {
+        font-size: 11px;
+    }
+
+    .blog thead th {
+        font-size: 11px;
+    }
+
+}
+
+@media (max-width: 800px) {
+    .blog .subtitle {
+        font-size: 14px;
+    }
+
+    .blog {
+        font-size: 18px;
+    }
+
+    .blog h1 {
+        font-size: 46px;
+    }
+
+    .blog p code,
+    .blog ul code {
+        font-size: 15px;
+    }
+
+    .blog pre code {
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 600px) {
+    .blog .subtitle {
+        font-size: 13px;
+    }
+
+    .blog {
+        font-size: 17px;
+    }
+
+    .blog h1 {
+        font-size: 40px;
+    }
+
+    .blog p code,
+    .blog ul code {
+        font-size: 15px;
+    }
+
+    .blog pre code {
+        font-size: 12px;
+        tab-size: 2;
+    }
+
+    .blog .figure_container_small {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: 4px;
+        padding-bottom: 14px;
+    }
+
+    .blog .figure_caption {
+        font-size: 12px;
+        margin-left: 5%;
+        margin-right: 5%;
+    }
+
+    .blog .comment {
+        font-size: 12px;
+    }
+}
+
+
+
+
+@property --border-angle-1 {
+	syntax: "<angle>";
+	inherits: true;
+	initial-value: 0deg;
+}
+
+@property --border-angle-2 {
+	syntax: "<angle>";
+	inherits: true;
+	initial-value: 90deg;
+}
+
+@property --border-angle-3 {
+	syntax: "<angle>";
+	inherits: true;
+	initial-value: 180deg;
+}
+:root {
+	--bright-blue: #DAFAAF;
+	--bright-green: #C1E7FE;
+	--bright-red: #FBDEAC;
+	--background: #fbf4f3;
+	--foreground: rgb(49, 23, 22);
+	--border-size: 2px;
+	--border-radius: 0.75em;
+}
+
+@keyframes rotateBackground {
+	to { --border-angle-1: 360deg; }
+}
+
+@keyframes rotateBackground2 {
+	to { --border-angle-2: -270deg; }
+}
+
+@keyframes rotateBackground3 {
+	to { --border-angle-3: 540deg; }
+}
+
+
+.nice_button {
+    user-select: none;
+    cursor: pointer;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 20px;
+	--border-angle-1: 0deg;
+	--border-angle-2: 90deg;
+	--border-angle-3: 180deg;
+	font-size: 14px;
+	border: 0;
+    font-family: 'Roboto mono', monospace;
+    font-weight: 500;
+	padding: var(--border-size);
+	display: flex;
+	width: max-content;
+	border-radius: var(--border-radius);
+	background-color: transparent;
+	background-image: conic-gradient(
+			from var(--border-angle-1) at 10% 15%,
+			transparent,
+			var(--bright-blue) 10%,
+			transparent 30%,
+			transparent
+		),
+		conic-gradient(
+			from var(--border-angle-2) at 70% 60%,
+			transparent,
+			var(--bright-green) 10%,
+			transparent 60%,
+			transparent
+		),
+		conic-gradient(
+			from var(--border-angle-3) at 50% 20%,
+			transparent,
+			var(--bright-red) 10%,
+			transparent 50%,
+			transparent
+		);
+	animation: 
+		rotateBackground 3s linear infinite,
+		rotateBackground2 8s linear infinite,
+		rotateBackground3 13s linear infinite;
+}
+
+.nice_button a:hover {
+    background: white;
+    color: black;
+}
+
+.nice_button a {
+    display: block;
+    border-bottom: none;
+    transition: background 200ms, color 200ms;
+	background: var(--background); 
+	padding: 0.7em 1.05em;
+	border-radius: calc(var(--border-radius) - var(--border-size));
+	color: var(--foreground);
+}
