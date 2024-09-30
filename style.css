@@ -113,6 +113,7 @@ a:hover {
 }
 
 h1 {
+    color: #512725;
     font-size: 50px;
 }
 
@@ -355,4 +356,46 @@ h1 {
 
 .project .project_links {
     margin-bottom: 20px;
+}
+
+@media (max-width: 600px) {
+    .about {
+        font-size: 19px;
+    }
+
+    .paper {
+        padding: 20px;
+    }
+
+    .paper a {
+        font-size: 12px;
+    }
+
+    .links a {
+        font-size: 14px;
+    }
+
+    h1 {
+        font-size: 44px;
+    }
+
+    .paper .subtitle {
+        font-size: 12px;
+    }
+
+    .project .description {
+        font-size: 17px;
+    }
+
+    .talk .date_loc {
+        font-size: 12px;
+    }
+
+    .talk .link {
+        font-size: 12px;
+    }
+
+    .talk .name {
+        font-size: 21px;
+    }
 }
