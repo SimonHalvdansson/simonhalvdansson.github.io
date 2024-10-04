@@ -358,12 +358,13 @@ h1 {
     border: 1.5px solid #512725;
     padding-left: 18px;
     padding-right: 18px;
-    padding-top: 7px;
-    padding-bottom: 7px;
-    border-radius: 40px;
-    font-size: 16px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    border-radius: 12px;
+    font-size: 14px;
     transition: all 200ms;
     user-select: none;
+    font-family: 'Roboto Mono', monospace;
 }
 
 .project .project_links a:hover {
