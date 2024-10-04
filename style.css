@@ -305,6 +305,39 @@ h1 {
     font-family: 'Roboto Mono', monospace;
 }
 
+.posts {
+    padding-bottom: 0;
+}
+
+.posts .post {
+    width: 46%;
+    margin-right: 16px;
+    margin-left: 16px;
+    margin-bottom: 16px;
+    box-sizing: border-box;
+    display: inline-block;
+    border-radius: 30px;
+    border: 1px solid #512725;
+    padding-left: 20px;
+    padding-right: 20px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    font-family: 'Roboto Mono';
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.posts a {
+    text-decoration: none;
+    color: #512725;
+}
+
+.posts .post:hover {
+    text-decoration: underline;
+}
+
+
 .projects {
     padding-bottom: 24px;
 }
