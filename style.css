@@ -310,7 +310,7 @@ h1 {
 }
 
 .posts .post {
-    width: 46%;
+    width: calc(50% - 32px);
     margin-right: 16px;
     margin-left: 16px;
     margin-bottom: 16px;
@@ -322,13 +322,13 @@ h1 {
     padding-right: 20px;
     padding-top: 10px;
     padding-bottom: 10px;
-    font-family: 'Roboto Mono';
     font-size: 15px;
-    font-weight: bold;
-    cursor: pointer;
 }
 
 .posts a {
+    font-weight: bold;
+    cursor: pointer;
+    font-family: 'Roboto Mono';
     text-decoration: none;
     color: #512725;
 }
@@ -392,6 +392,10 @@ h1 {
 }
 
 @media (max-width: 600px) {
+    .posts .post {
+        width: calc(100% - 32px);
+    }
+
     .about {
         font-size: 19px;
     }
