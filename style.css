@@ -306,35 +306,38 @@ h1 {
 }
 
 .posts {
+    display: flex;                /* Enable Flexbox */
+    flex-wrap: wrap;              /* Allow items to wrap to the next line */
+    gap: 16px;                    /* Space between items */
     padding-bottom: 0;
+    justify-content: center;      /* Center items horizontally */
 }
 
 .posts .post {
-    width: calc(50% - 32px);
-    margin-right: 16px;
-    margin-left: 16px;
-    margin-bottom: 16px;
-    box-sizing: border-box;
-    display: inline-block;
+    flex: 1 1 calc(50% - 16px);   /* Two columns with gap consideration */
+    box-sizing: border-box;       /* Include padding and border in width */
     border-radius: 30px;
     border: 1px solid #512725;
-    padding-left: 20px;
-    padding-right: 20px;
-    padding-top: 10px;
-    padding-bottom: 10px;
+    padding: 10px 20px;
     font-size: 15px;
+    transition: transform 0.2s, box-shadow 0.2s; /* Smooth hover effects */
 }
 
-.posts a {
+.posts .post a {
     font-weight: bold;
     cursor: pointer;
-    font-family: 'Roboto Mono';
+    font-family: 'Roboto Mono', monospace;
     text-decoration: none;
     color: #512725;
+    display: block;               /* Make the link fill the entire post area */
+    height: 100%;                 /* Ensure the link covers the full height */
 }
 
 .posts .post:hover {
     text-decoration: underline;
+    /* Optional: add more hover effects */
+    transform: translateY(-1px);
+    box-shadow: 0 4px 18px rgba(0,0,0,0.1);
 }
 
 
@@ -394,7 +397,7 @@ h1 {
 
 @media (max-width: 600px) {
     .posts .post {
-        width: calc(100% - 32px);
+        flex: 1 1 100%;
     }
 
     .about {

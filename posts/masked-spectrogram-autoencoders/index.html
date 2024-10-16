@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Overview of masked spectrogram autoencoders for efficient pretraining</title>
+
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#FBEDEA" />
+
+	<link rel="shortcut icon" type="image/x-icon"  href="../favicon.ico?">
+	<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+
+	<link rel="stylesheet" href="style.css">
+
+	<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+	<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+	<link rel="stylesheet" href="../atom-one-dark.min.css">
+	<script src="../highlight.min.js"></script>
+
+	<script>hljs.highlightAll();</script>
+
+</head>
+<body>
+	<div class="blog centering" id="back_container">
+		<a href="https://simonhalvdansson.github.io/posts/index.html" class="back"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="14" fill="currentColor" class="bi bi-caret-left" viewBox="0 0 22 18">
+			<path fill-rule="evenodd" clip-rule="evenodd" d="M14.0303 7.46967C14.3232 7.76256 14.3232 8.23744 14.0303 8.53033L10.5607 12L14.0303 15.4697C14.3232 15.7626 14.3232 16.2374 14.0303 16.5303C13.7374 16.8232 13.2626 16.8232 12.9697 16.5303L8.96967 12.5303C8.67678 12.2374 8.67678 11.7626 8.96967 11.4697L12.9697 7.46967C13.2626 7.17678 13.7374 7.17678 14.0303 7.46967Z"/>
+		  </svg>All posts</a>
+	</div>
+
+	<section class="blog centering post">
+		<h1>Overview of masked spectrogram autoencoders for efficient pretraining</h1>
+		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Oct. 2024</div>
+
+		<hr class="squiggly-line"/>
+
+		<p>
+			Vision transformes (ViTs) have since their introduction in 2020 become the de facto standard tool for computer vision tasks. While they are both highly performant in general and scale well with increased parameters, just as just as their NLP counterparts, they require large amounts of data to train. To tackle this problem, the team at FAIR released the paper <a target="_blank" href="https://arxiv.org/abs/2111.06377">Masked Autoencoders Are Scalable Vision Learners</a> which proposed pretraining vision transforms with the self-supervised task of masked autoencoding - essentially infilling images. This was used to achieve state-of-the-art performance on ImageNet-1K without external data. We will discuss the main ideas in this paper as well as how the ideas have been adapted for audio tasks using spectrograms by building a simple implementation step-by-step.
+		</p>
+
+		<div class="figure_container_small">
+			<a data-fancybox="gallery0" href="media/structure.png">
+				<img class="figure" src="media/structure.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> Coarse illustration of the main principle of masked autoencoder applied to a spectrogram. Image taken from the <a target="_blank" href="https://arxiv.org/abs/2204.12768">Masked Spectrogram Prediction For Self-Supervised Audio Pre-Training</a> paper.
+		</div>
+
+		<p>
+			The first usage of vision transformer for spectrograms was the <a target="_blank" href="https://arxiv.org/abs/2104.01778">Audio Spectrogram Transformer</a> (AST) which pretrained on ImageNet to achieve state-of-the-art performace on a series of audio classification tasks after fine-tuning. The architecture of that model is essentially a standard vision transformer from the original paper <a target="_blank" href="https://arxiv.org/abs/2010.11929">An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale</a>, which at the time had been out for less than a year, applied to log-mel spectrograms of audio signals. More specialized models with stronger time-frequency inductive biases are not neccesarily as easy to pretrain on image data and as such would require another approach.
+		</p>
+
+		<p>
+			Masked autoencoding is essentially the (self-supervised) task of filling in the blanks of an image. As hinted at in the figure, the non-discarded patches of an image is passed to an encoder after which (learned) tokens corresponding to blank patches are inserted in the correct places and a decoder attempts to reconstruct the image. The network is trained by minimizing the mean squared error (MSE) on the patches initially blanked out. Before moving to implementing this and discussing the details of what changes need to be made for spectrograms, we discuss the basics of vision transformer to lay the groundwork.
+		</p>
+
+		<p class="comment">
+			Organization: We first go over the basics of <a href="#vit">vision transformers</a>, then detail an implementation of <a href="#mae">masked autoencoders</a> and finally present the results of <a href="#spec">applying it to spectrograms</a>.
+		</p>
+
+		<hr class="squiggly-line"/>
+		<h2 id="vit">Basics of vision transformers</h2>
+
+		<p>
+			Any data which can be mapped to a series of high dimensional tokens can be acted on by a series of transformer blocks. Instead of these tokens representing words or parts of words as in the NLP context, vision transformers split an image up into smaller patches which are each mapped to <code>d_model</code> dimensional vectors by a linear projection. From there, the remainder of the transformer architecture is essentially unchanged. Later developments have added various features such as local attention (<a target="_blank" href="https://arxiv.org/abs/2103.14030">Swin Transformer</a>) and translation-invariant convolution features (<a target="_blank" href="https://arxiv.org/abs/2103.15808">Convolutional vision Transformer</a>) but we will stay away from these variants in the interest of simplicity.
+		</p>
+
+		<div class="figure_container_small">
+			<a data-fancybox="gallery1" href="media/vit.png">
+				<img class="figure" src="media/vit.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> Illustration of the vision transformer from the original <a target="_blank" href="https://arxiv.org/abs/2010.11929">ViT paper</a>.
+		</div>
+
+	<p>
+		The patching and subsequent linear projection of an image into <code>d_model</code> dimensional space is most efficiently implemented as a convolution with stride equal to the kernel width. If the original image is <code>224×224</code> and we want pathes of size <code>14×14</code>, we get <code>16×16</code> pathes since <code>14×16=224</code>. This procedure is implemented in the following way.
+	</p>
+
+	<pre><code class="language-py">
+class PatchEmbedding(nn.Module):
+	def __init__(self, patch_size, embed_dim):
+		super(PatchEmbedding, self).__init__()
+		self.conv = nn.Conv2d(1, embed_dim, kernel_size=patch_size, stride=patch_size)
+		
+	def forward(self, x):
+		x = self.conv(x)
+		
+		x = x.flatten(2)
+		x = x.transpose(1, 2)
+		
+		return x
+	</code></pre>
+
+	<p>
+		Flattening and transposing makes it so our output tensor is of shape <code>[batch_size, num_patches, embed_dim]</code> which is what we want when this is passed to transformer blocks. The original ViT paper uses learned positional embeddings which for us is just a <code>[16×16, d_model]</code> tensor which we add onto the flattened patches. A good intuition behine why this is preferable to sinusoidal positional encodings is that some of the image topology can be encoded this way. After the positional embeddings, we prepend a learned <code>[cls]</code> token and put the resulting tensor through a series of encoder transformer blocks with full self-attention. Lastly the state of the <code>[cls]</code> token is passed through a MLP for classification via a vector of dimension <code>num_classes</code>.
+	</p>
+
+	<pre><code class="language-py">
+class ViT(nn.Module):
+	def __init__(
+		self,
+		width,
+		height,
+		num_classes,
+		input_channels,
+		patch_size,
+		d_model,
+		num_heads,
+		num_layers,
+		dropout,
+	):
+		super().__init__()
+		self.d_model = d_model
+
+		num_patches = (width // patch_size) * (height // patch_size)
+		self.num_tokens = num_patches + 1
+		self.patch_emb = PatchEmbedding(
+			patch_size=patch_size, input_channels=input_channels, embed_dim=d_model
+		)
+
+		self.transformer_layers = nn.ModuleList(
+			[
+				nn.TransformerEncoderLayer(
+					d_model,
+					num_heads,
+					dim_feedforward=d_model * 4,
+					dropout=dropout,
+					batch_first=True,
+				)
+				for _ in range(num_layers)
+			]
+		)
+
+		self.cls_token = nn.Parameter(torch.randn(1, 1, self.d_model))
+		self.pos_emb = nn.Parameter(torch.randn(1, self.num_tokens, self.d_model))
+
+		self.final_mlp = nn.Linear(self.d_model, num_classes)
+
+	def forward(self, x):
+		batch_size = x.size(0)
+
+		x = self.patch_emb(x)
+		cls_token = self.cls_token.expand(batch_size, 1, self.d_model)
+
+		x = torch.cat((cls_token, x), dim=1)
+		x = x + self.pos_emb.expand(batch_size, self.num_tokens, self.d_model)
+
+		for layer in self.transformer_layers:
+			x = layer(x)
+
+		x = self.final_mlp(x[:, 0, :])
+
+		return x
+	</code></pre>
+
+	<p>
+		The model is now ready to be trained. With the <a target="_blank" href="https://www.kaggle.com/c/tiny-imagenet">Tiny ImageNet</a> dataset consisting of <code>100,000</code> RGB images with resolution <code>64×64</code>, grouped into <code>200</code> classes, we can set up the following PyTorch <code>Dataset</code>:
+	</p>
+
+	<pre><code class="language-py">
+class TinyImageNetDataset(Dataset):
+	def __init__(self, dataset_split, transform=None):
+		self.dataset = dataset_split
+		self.transform = transform
+
+	def __len__(self):
+		return len(self.dataset)
+
+	def __getitem__(self, idx):
+		img = self.dataset[idx]['image']
+		label = self.dataset[idx]['label']
+				
+		if self.transform:
+			img = self.transform(img)
+		
+		return img, label
+	</code></pre>
+
+	<p>
+		For the transforms, we use a custom class <code>EnsureRGB</code> which deals with black and white images by essentially only calling <code>img.convert('RGB')</code> on the <code>PIL</code> image, <code>ToTensor</code> which maps the PIL image to a tensor and <code>Normalize</code> with the mean and standard deviation from the full ImageNet. We could have normalized using <code>mean = 0, std = 1</code> but the difference between channels is actual information which we have no reason to keep from the model.
+	</p>
+
+	<p>
+		Training a standard trainig loop (see <a target="_blank" href="https://github.com/SimonHalvdansson/Spec-MAE/blob/main/posts/post/vit.py">here</a> for further details) with <code>patch_size = 8, d_model = 256, num_heads = 4, num_layers = 4, dropout = 0.1</code> we get the following losses and accuracies:
+	</p>
+
+	<div class="figure_container_small">
+		<a data-fancybox="gallery1" href="media/vit_training_losses.png">
+			<img class="figure" src="media/vit_training_losses.png"></img>
+		</a>
+	</div>
+	<p>
+		We see that we get into overfitting territories after about 10 epochs and that the accuracy peaks at around 30% over the 200 classes.
+	</p>
+
+	<p class="comment">
+		Remark: This is a fairly weak result. State of the art for Tiny ImageNet is <a target="_blank" href="https://paperswithcode.com/sota/image-classification-on-tiny-imagenet-1">above 90%</a> and obviously benefits from extensive pretraining. However training a ResNet-18 model from scratch with the same setup results in an accuracy of ~32% so it is not the inherent drawbacks of vision transformers that we are limited by.
+	</p>
+
+	<hr class="squiggly-line"/>
+	<h2 id="mae">Masked autoencoders</h2>
+	
+	<p>
+		We will build a model which can be toggled between masked autoencoder mode and vision transformer mode which we will pretrain with <code>model.mode == 'mae'</code> and finetune with <code>model.mode == 'vit'</code>.
+	</p>
+
+	<p>
+		The encoder part of our masked autoencoder is for the most part the same as the vision transformer without the final MLP classification head. The crucial difference is that it should be able to act on a subset of all possible tokens. We use the same <code>PatchEmbedding</code> class to encode the image into a sequence of tokens and add positional encodings to all patches. For simplicity, we drop the <code>[CLS]</code> token and will instead use average pooling over the tokens as the input for our final classifier. Before acting on the tokens by the transform blocks, we randomly drop <code>mask_ratio×num_tokens</code> patches using the following function.
+	</p>
+
+	<pre><code class="language-py">
+def remove_tokens(x, mask):
+	batch_size, tokens, d_model = x.size()
+	kept_tokens = math.ceil(tokens * mask)
+
+	mask_indices = torch.zeros(batch_size, tokens, dtype=torch.bool, device=x.device)
+
+	for i in range(batch_size):
+		perm = torch.randperm(tokens, device=x.device)
+		selected = perm[:kept_tokens]
+		mask_indices[i, selected] = True
+
+	mask_expanded = mask_indices.unsqueeze(-1).expand(-1, -1, d_model)
+	shortened_tensor = x[mask_expanded].view(batch_size, kept_tokens, d_model)
+
+	return shortened_tensor, mask_indices
+	</code></pre>
+
+	<p>
+		Note that the <code>mask_indices</code> tensor is returned from this function. Without the <code>__init__()</code> method, the first part of our models <code>forward()</code> function will then look as follows.
+	</p>
+
+	<pre><code class="language-py">
+def forward(self, x):
+	batch_size = x.size(0)
+
+	x = self.patch_emb(x)
+	x = x + self.pos_emb_enc.expand(batch_size, self.num_patches, self.d_model)
+	
+	if self.mode == 'mae':
+		x, mask_indices = remove_tokens(x, self.mask_ratio)
+	
+	for layer in self.transformer_encoder_layers:
+		x = layer(x)
+		
+	encoded = x
+
+	if self.mode == 'vit':
+		x = torch.mean(x, dim=1)
+		x = self.classification_mlp(x)
+		return x
+	
+	...
+	</code></pre>
+
+	<p>
+		The <code>encoded</code> state will be passed to the transformer decoder blocks for cross-attention. Before passing <code>x</code> onto these blocks, we need to make it consist of <code>num_tokens</code> again by infilling the locations where tokens were removed. We do this using learned default tokens for each location.
+	</p>
+
+	<pre><code class="language-py">
+def infill_tokens(shortened_tensor, default_tensor, mask_indices):
+	batch_size = default_tensor.size(0)
+	reconstructed_tensor = default_tensor.clone()
+	
+	for i in range(batch_size):
+		reconstructed_tensor[i][mask_indices[i]] = shortened_tensor[i]
+
+	return reconstructed_tensor
+	</code></pre>
+
+	<p>
+		After infilling and adding positional embeddings, the core of the decoder is a series of decoder transformer blocks with cross-attention with the encoded state. To return to an image, we map each token to a patch with a <code>nn.Linear(d_model, patch_size**2 * channels)</code> and reshape to be of shape <code>[channels, width, height]</code>.
+	</p>
+
+<pre><code class="language-py">
+    def forward(self, x):
+        ...
+            
+        default_tokens = self.default_tokens.expand(batch_size, self.num_patches, self.d_model)
+        x = infill_tokens(x, default_tokens, mask_indices)
+        
+        x = x + self.pos_emb_dec.expand(batch_size, self.num_patches, self.d_model)
+
+        for layer in self.transformer_decoder_layers:
+            x = layer(tgt = x, memory = encoded)
+        
+        x = self.patchify_mlp(x)
+        x = self.reverse_patch_embedding(x)
+
+        return x
+</code></pre>
+
+	<p>
+		The function <code>reverse_patch_embedding</code> maps tensors from shape <code>[batch_size, num_patches, patch_size**2 * channels]</code> to <code>[batch_size, channels, width, height]</code>.
+	</p>
+
+	<pre><code class="language-py">
+def reverse_patch_embedding(self, x):
+	batch_size = x.size(0)
+	tokens = x.size(1)
+	H_p = self.height // self.patch_size
+	W_p = self.width // self.patch_size
+
+	x = x.view(batch_size, H_p, W_p, self.channels, self.patch_size, self.patch_size)
+	x = x.permute(0, 3, 1, 4, 2, 5).contiguous()
+	x = x.view(batch_size, self.channels, H_p * self.patch_size, W_p * self.patch_size)
+
+	return x
+	</code></pre>
+
+	The full model now looks as follows.
+
+	<pre><code class="language-py">
+class MAE(nn.Module):
+	def __init__(
+		self,
+		width,
+		height,
+		num_classes,
+		channels,
+		patch_size,
+		enc_num_heads,
+		enc_num_layers,
+		dec_num_heads,
+		dec_num_layers,
+		d_model,
+		dropout,
+		mask_ratio
+	):
+		super().__init__()
+		self.d_model = d_model
+
+		self.channels = channels
+		self.width = width
+		self.height = height
+		self.patch_size = patch_size
+		self.channels = channels
+		self.num_patches = (width // patch_size) * (height // patch_size)
+		self.patch_emb = PatchEmbedding(
+			patch_size=patch_size, input_channels=channels, embed_dim=d_model
+		)
+		self.mask_ratio = mask_ratio
+		self.mode = 'vit' if mask_ratio == 0.0 else 'mae'
+
+		self.transformer_encoder_layers = nn.ModuleList(
+			[
+				nn.TransformerEncoderLayer(
+					d_model,
+					enc_num_heads,
+					dim_feedforward=d_model * 4,
+					dropout=dropout,
+					batch_first=True,
+				)
+				for _ in range(enc_num_layers)
+			]
+		)
+		
+		self.transformer_decoder_layers = nn.ModuleList(
+			[
+				nn.TransformerDecoderLayer(
+					d_model,
+					dec_num_heads,
+					dim_feedforward=d_model * 4,
+					dropout=dropout,
+					batch_first=True,
+				)
+				for _ in range(dec_num_layers)
+			]
+		)
+
+		self.pos_emb_enc = nn.Parameter(torch.randn(1, self.num_patches, self.d_model))
+		self.pos_emb_dec = nn.Parameter(torch.randn(1, self.num_patches, self.d_model))
+		self.default_tokens = nn.Parameter(torch.rand(1, self.num_patches, self.d_model))
+
+		self.classification_mlp = nn.Linear(self.d_model, num_classes)
+		self.patchify_mlp = nn.Linear(self.d_model, self.patch_size**2 * self.channels)
+
+	def reverse_patch_embedding(self, x):
+		batch_size = x.size(0)
+		tokens = x.size(1)
+		H_p = self.height // self.patch_size
+		W_p = self.width // self.patch_size
+
+		x = x.view(batch_size, H_p, W_p, self.channels, self.patch_size, self.patch_size)
+		x = x.permute(0, 3, 1, 4, 2, 5).contiguous()
+		x = x.view(batch_size, self.channels, H_p * self.patch_size, W_p * self.patch_size)
+
+		return x
+
+	def forward(self, x):
+		batch_size = x.size(0)
+
+		x = self.patch_emb(x)
+		x = x + self.pos_emb_enc.expand(batch_size, self.num_patches, self.d_model)
+		
+		if self.mode == 'mae':
+			x, mask_indices = remove_tokens(x, self.mask_ratio)
+		
+		for layer in self.transformer_encoder_layers:
+			x = layer(x)
+			
+		encoded = x
+
+		if self.mode == 'vit':
+			x = torch.mean(x, dim=1)
+			x = self.classification_mlp(x)
+			return x
+		
+		default_tokens = self.default_tokens.expand(batch_size, self.num_patches, self.d_model)
+		x = infill_tokens(x, default_tokens, mask_indices)
+		
+		x = x + self.pos_emb_dec.expand(batch_size, self.num_patches, self.d_model)
+
+		for layer in self.transformer_decoder_layers:
+			x = layer(tgt = x, memory = encoded)
+		
+		x = self.patchify_mlp(x)
+		x = self.reverse_patch_embedding(x)
+
+		return x
+	</code></pre>
+
+	<p>
+		If we now run the model with <code>mask_ratio > 0</code> we get a working infilling model. This training target is very complex and for great results require some form of world model, a part of which is understanding what sort of object is pictured. Consequently the reconstruction loss keeps decreasing over many epochs and we get the following results with <code>mask_ratio = 0.75</code> which is reported as optimal in the ImageNet-1K case in the original paper.
+	</p>
+
+	<div class="figure_container_small">
+		<a data-fancybox="gallery5" href="media/mae_tiny_imagenet_example.png">
+			<img class="figure" src="media/mae_tiny_imagenet_example.png"></img>
+		</a>
+	</div>
+	<div class="figure_caption">
+		<span class="caption_title">Figure:</span> Input-output pair of trained masked autoencoder for an example from Tiny ImageNet with 75% of patches masked.
+	</div>
+
+	<p>
+		The above example is only illustrative and by pretraining on larger datasets much more convincing reconstructions can be obtained. Instead of focusing on that, we switch our focus to spectrograms where we will pretrain and finetune our model.
+	</p>
+
+	<hr class="squiggly-line"/>
+	<h2 id="spec">Application to spectrograms</h2>
+
+	<p>
+		The paradigm of applying computer vision methods to spectrogram or similar data for signal processing tasks such as classification, automatic speech recognition (ASR) and music information retrieval (MIR) has a long history and versions of it is used in state of the art systems. While earlier models relied on convolutional neural networks (CNNs), newer methods such as the Audio Spectrogram Transformer (AST) use a ViT backbone. Contemporary state of the art ASR methods such as Whisper and Conformer tokenize along the time dimension instead of evenly spaced patches in time and frequency but the underlying architecture is still similar.
+	</p>
+
+	<p>
+		We will train a ViT for audio classification on the <a href="https://www.kaggle.com/datasets/sylkaladin/speech-commands-v2" target="_blank">Speech Commands V2</a> dataset by first pretraining a masked autoencoder task on 360 hours of <a href="https://www.openslr.org/12" target="_blank">LibriSpeech</a> and compare with no pretraining. This is very similar to what was done in <a href="https://arxiv.org/pdf/2204.12768" target="_blank">Masked Spectrogram Prediction For Self-Supervised Audio Pre-Training</a> mentioned earlier, where pretraining was done on <a href="https://research.google.com/audioset/" target="_blank">AudioSet</a> and evaluated on a collection of downstream tasks. Meanwhile it differs from the pretraining setup in <a href="https://arxiv.org/abs/2104.01778" target="_blank">AST</a> where the pretraining on AudioSet only used a classification task.
+	</p>
+
+	<p>
+		The input spectrograms we will use are log-mel spectrograms with 128 mel filters and <code>n_fft = 1024</code> which corresponds to around 64 ms time windows, resulting in 1s spectrograms of resolution <code>64×128</code>. Our ViT encoder uses a slightly scaled down version of ViT-B with <code>d_model = 512</code>, <code>num_layers = 8</code> and <code>num_heads = 8</code> and <code>16×16</code> patches. With no pretraining and a basic data augmentation setup consisting of white noise, spectrogram blurring and time/frequency masking, we get a 91.89% test accuracy with the following train/validation curves.
+	</p>
+
+	<div class="figure_container_small">
+		<a data-fancybox="gallery3" href="media/vit-only_training.png">
+			<img class="figure" src="media/vit-only_training.png"></img>
+		</a>
+	</div>
+	<div class="figure_caption">
+		<span class="caption_title">Figure: </span> Losses and accuracies for a base ViT trained on SpeechCommands V2.
+	</div>
+
+	<p>
+		With this as our baseline we now move to the masked autoencoder version. As earlier, programmatically the masked autoencoder is the same model with <code>model.mode = 'mae'</code>. LibriSpeech works great for the initial pretraining as its contents is people talking and the recording environment is not too dissimilar to that of SpeechCommands V2. For each audioclip, we take a random 1 second snippet and train for 100 epochs. After this, we do the same pretraining on SpeechCommands V2 for another 100 epochs. The train/validation losses keep decreasing throughout but clearly we are getting into overfitting terriotory as can be seen in the figure.
+	</p>
+
+	<div class="figure_container_small">
+		<a data-fancybox="gallery4" href="media/mae_speechcommands_pretraining_losses.png">
+			<img class="figure" src="media/mae_speechcommands_pretraining_losses.png"></img>
+		</a>
+	</div>
+	<div class="figure_caption">
+		<span class="caption_title">Figure:</span> Train and validation reconstruction MSE losses for SpeechCommands V2 masked autoencoding with 75% masking.
+	</div>
+
+	<p>
+		With 75% of the spectrogram masked, the reconstructed spectrograms are far from perfect and reconstructing the noise of masked patches is obviously impossible.
+	</p>
+	
+	<div class="figure_container_small">
+		<a data-fancybox="gallery5" href="media/spectrogram_mae.png">
+			<img class="figure" src="media/spectrogram_mae.png"></img>
+		</a>
+	</div>
+	<div class="figure_caption">
+		<span class="caption_title">Figure:</span> An example of masked autoencoder output and ground truth from the SpeechCommands V2 dataset.
+	</div>
+
+	<p>
+		After the pretraining we set the model in ViT mode and train on SpeechCommands V2 classification again with significantly improved results. 
+	</p>
+
+	<div class="figure_container_small">
+		<a data-fancybox="gallery6" href="media/vit-only_vs_pretrained.png">
+			<img class="figure" src="media/vit-only_vs_pretrained.png"></img>
+		</a>
+	</div>
+	<div class="figure_caption">
+		<span class="caption_title">Figure:</span> Losses and accuracies for a ViT fine-tuned on SpeechCommands V2, pretrained as a masked autoencoder.
+	</div>
+	
+	<p>
+		The test accuracy for the checkpoint with the highest validation accuracy is 94.63% meaning that pretraining improved the classification result by about 3 percentage points.
+	</p>
+
+
+	<hr class="squiggly-line"/>
+	<h2></h2>
+	<!--
+	<button class="nice_button">
+		<a>
+			Link to full implementation
+		</a>
+	</button>
+  	-->
+
+	<link rel="stylesheet" href="../fancybox.css" />
+	<script src="../fancybox.umd.js"></script>
+
+	<script>
+		Fancybox.bind("[data-fancybox]", {
+			closeButton: false,
+		});
+	  </script>
+
+</body>
+</html>
