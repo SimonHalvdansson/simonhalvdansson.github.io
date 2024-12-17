@@ -254,12 +254,13 @@
 		</div>
 
 		<p>
-			Support near the center will indicate that the image consists of low-frequency features and alternatively, support away from the center indicates that the image is made up of high frequency details. Again, we can use the short-time Fourier transform to examine the local frequency contents instead of the global. The generalized for the of STFT definition we saw above for 2 dimensions is
+			Support near the center will indicate that the image consists of low-frequency features and alternatively, support away from the center indicates that the image is made up of high frequency details. Again, we can use the short-time Fourier transform to examine the local frequency contents instead of the global. The generalized form of the STFT definition we saw above for 2 dimensions is
 		</p>
 
 		<div class="equation">
 			\( V_g f(x, y, \omega_1, \omega_2) = \int_{\mathbb{R}^2} f(t_1, t_2) \overline{g((t_1, t_2) - (x,y))} e^{-2\pi i (\omega_1 t_1 + \omega_2 t_2)}\,dt \)
 		</div>
+		We will look at the modulus of this function for various values of \( (x, y) \).
 
 		<hr class="squiggly-line"/>
 		<h2 id="visualization">Visualization</h2>
