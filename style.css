@@ -166,6 +166,10 @@ h1 {
     box-shadow: 0px 10px 18px rgba(0, 0, 0, 0.11);
 }
 
+#plunge {
+    background-color: #FFD9D2;
+}
+
 #blurop {
     background-color: #DADDDA;
 }
