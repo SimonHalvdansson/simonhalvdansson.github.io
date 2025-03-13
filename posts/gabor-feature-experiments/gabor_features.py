@@ -36,6 +36,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if USE_AMP and device.type == 'cuda':
     scaler = torch.amp.GradScaler("cuda")
 else:
+    USE_AMP = False
     scaler = None
 
 criterion = nn.MSELoss()
@@ -129,8 +130,11 @@ if DO_IMAGE_EXPERIMENT:
         img_uint8 = (pred_img * 255).astype(np.uint8)
         pil_img = Image.fromarray(img_uint8)
         draw = ImageDraw.Draw(pil_img)
-        # Adjust the font path as needed
-        font = ImageFont.truetype("cour.ttf", 22)
+        # Try loading the desired font, fall back to default if unavailable
+        try:
+            font = ImageFont.truetype("cour.ttf", 22)
+        except OSError:
+            font = ImageFont.load_default()
         text = f"Epoch: {epoch} | Loss: {loss:.4e}"
         x_text, y_text = 10, 10
         for dx in [-1, 0, 1]:
@@ -391,10 +395,7 @@ if DO_CHIRP_EXPERIMENT:
                         pred = method["model"](x_chirp)
                 pred_np = pred.detach().cpu().numpy().flatten()
                 plt.plot(t_chirp, pred_np, label=m_name, color=loss_colors[m_name])
-            # Remove axis labels
-            # plt.xlabel("t")
-            # plt.ylabel("Amplitude")
-            plt.title(f"Chirp Approximation | Epoch: {epoch}")  # Title without methods info
+            plt.title(f"Chirp Approximation | Epoch: {epoch}")
             plt.legend()
             plt.tight_layout()
             
@@ -451,8 +452,6 @@ if DO_VIDEO_EXPERIMENT:
         print(f"Video file {video_file} not found; skipping video experiment.")
     else:
         print(f"Processing video file {video_file} ...")
-        # Use OpenCV to read the video file
-        import cv2
         cap = cv2.VideoCapture(video_file)
         video_frames = []
         frame_count = 0
@@ -460,7 +459,6 @@ if DO_VIDEO_EXPERIMENT:
             ret, frame = cap.read()
             if not ret:
                 break
-            # Convert from BGR (OpenCV default) to RGB
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             pil_frame = Image.fromarray(frame)
             pil_frame = pil_frame.resize((target_width, target_height))
@@ -478,11 +476,10 @@ if DO_VIDEO_EXPERIMENT:
             ys = np.linspace(0, 1, target_height)
             ts = np.linspace(0, 1, num_frames)
             grid_t, grid_y, grid_x = np.meshgrid(ts, ys, xs, indexing='ij')
-            coords = np.stack([grid_x, grid_y, grid_t], axis=-1)  # (num_frames, target_height, target_width, 3)
+            coords = np.stack([grid_x, grid_y, grid_t], axis=-1)
             coords = coords.reshape(-1, 3)
             video_gt = video_np.reshape(-1, 3)
 
-            # Convert ground truth data to torch tensors
             x_video = torch.tensor(coords, dtype=torch.float32).to(device)
             y_video = torch.tensor(video_gt, dtype=torch.float32).to(device)
 
@@ -528,8 +525,10 @@ if DO_VIDEO_EXPERIMENT:
                 img_uint8 = (frame_img * 255).astype(np.uint8)
                 pil_img = Image.fromarray(img_uint8)
                 draw = ImageDraw.Draw(pil_img)
-                # Use a smaller font size and adjust the text position
-                font = ImageFont.truetype("cour.ttf", 10)
+                try:
+                    font = ImageFont.truetype("cour.ttf", 10)
+                except OSError:
+                    font = ImageFont.load_default()
                 text = f"{method_name}\n{epoch}\n{loss:.3e}"
                 x_text, y_text = 5, 5
                 for dx in [-1, 0, 1]:
@@ -560,10 +559,8 @@ if DO_VIDEO_EXPERIMENT:
                         method["optimizer"].step()
                     method["loss_curve"].append(loss.item())
                     
-                    # Update tqdm progress bar with current loss
                     pbar.set_postfix(loss=f"{loss.item():.4e}")
 
-                    # Every 100 epochs, generate a GIF for the current method
                     if epoch % gif_snapshot_freq_video == 0:
                         with torch.no_grad():
                             if method["mapping"] is not None:
@@ -578,7 +575,6 @@ if DO_VIDEO_EXPERIMENT:
                         gif_filename = os.path.join(video_gif_folder, f"{method_name}_epoch{epoch}.gif")
                         imageio.mimsave(gif_filename, video_frames_pred, duration=1/target_fps, loop=0)
                 
-                # Clear GPU cache after finishing training one method
                 torch.cuda.empty_cache()
 
             # --- Create Ground Truth GIF for Reference ---
@@ -587,7 +583,10 @@ if DO_VIDEO_EXPERIMENT:
                 img_uint8 = (video_np[i] * 255).astype(np.uint8)
                 pil_img = Image.fromarray(img_uint8)
                 draw = ImageDraw.Draw(pil_img)
-                font = ImageFont.truetype("cour.ttf", 14)
+                try:
+                    font = ImageFont.truetype("cour.ttf", 14)
+                except OSError:
+                    font = ImageFont.load_default()
                 text = "Ground Truth"
                 x_text, y_text = 5, 5
                 for dx in [-1, 0, 1]:
@@ -601,7 +600,6 @@ if DO_VIDEO_EXPERIMENT:
             print(f"Saved ground truth video GIF: {ground_truth_gif_filename}")
 
             # --- Plot Loss Curves ---
-            import matplotlib.pyplot as plt
             plt.figure(figsize=(8, 6), dpi=150)
             for method_name, method in video_methods.items():
                 plt.plot(np.arange(1, num_epochs_video + 1), method["loss_curve"], label=method_name)
