@@ -476,6 +476,10 @@ h1 {
     overflow: hidden;
 }
 
+.blog .figure_container a, .blog .figure_container_small a {
+    border-bottom: none;
+}
+
 .blog .figure {
     width: 100%;
     display: block;
