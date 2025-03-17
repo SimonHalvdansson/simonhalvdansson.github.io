@@ -217,11 +217,11 @@
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure:</span> Snapshots from the training process of approximating an RGB image for identity (left), Fourier (middle) and Gabor (right) feature mappings. Original image by <a href="https://unsplash.com/photos/a-multicolored-letter-e-made-out-of-pencils--vGW9piQnm8" target="_blank">Chris G.</a>
+			<span class="caption_title">Figure:</span> Snapshots from the training process of approximating an RGB image with an MLP for identity (left), Fourier (middle) and Gabor (right) feature mappings. Original image by <a href="https://unsplash.com/photos/a-multicolored-letter-e-made-out-of-pencils--vGW9piQnm8" target="_blank">Chris G.</a>
 		</div>
 
 		<p>
-			A natural question to ask is <b>why</b> one might wish to approximate a function representing an image, a signal, a video or a 3D model by a neural network. After all, the "standard" setting of a neural network is to map <i>high</i> dimensional data into either a few dimensions (classification, segmentation, object detection) or many dimensions (style transfer, denoising, point cloud completion). The two motivating settings closest to my heart are physics-informed neural networks (PINNs) and neural texture compression. In the former, we learn a function which should minimize a PDE loss functional and in the latter, made famous by the recent <a href="https://developer.nvidia.com/blog/nvidia-rtx-neural-rendering-introduces-next-era-of-ai-powered-graphics-innovation/" target="_blank">NVIDIA launch</a>, we compress textures by expressing them as a neural network. In both of these cases, it is crucial that our networks are expressive in the sense that we can output functions without using too many parameters or epochs of training.
+			A natural question to ask is <b>why</b> one might wish to approximate a function representing an image, a signal, a video or a 3D model by a neural network. After all, the "standard" setting of a neural network is to map <i>high</i> dimensional data into either a few dimensions (classification, segmentation, object detection) or another high dimensional space (style transfer, denoising, point cloud completion). The two motivating settings closest to my heart are physics-informed neural networks (PINNs) and neural texture compression. In the former, we learn a function which should minimize a PDE loss functional and in the latter, made famous by the recent <a href="https://developer.nvidia.com/blog/nvidia-rtx-neural-rendering-introduces-next-era-of-ai-powered-graphics-innovation/" target="_blank">NVIDIA launch</a>, we compress textures by expressing them as a neural network. In both of these cases, it is crucial that our networks are expressive in the sense that we can output functions without using too many parameters or epochs of training.
 		</p>
 
 		<p>
@@ -232,7 +232,7 @@
 		<h2>Towards Fourier features</h2>
 
 		<p>
-			Machine learning methods are dependent on some source of non-linearity to be able to represent non-linear phenomena. We usually inject this in the form of the activation function. Still, without any further <a href="https://en.wikipedia.org/wiki/Inductive_bias" target="_blank">inductive bias</a>, a network is likely to struggle to minimize losses which vary rapidly with the input. With the <a href="https://en.wikipedia.org/wiki/Kernel_method">kernel method</a> (kernel trick) we move our inputs into a higher dimensional space where we believe our target function is likely to be easier to express. For example, to fit a ReLU MLP to a sine function, we would have to devote parameters to each of the many linear segments which would make up the approximation. Applying a sine transformation of the input variable is obviously cheating in this case but opens the door to sparser representation of data.
+			Machine learning methods are dependent on some source of non-linearity to be able to represent non-linear phenomena. We usually inject this in the form of the activation function. Still, without any further <a href="https://en.wikipedia.org/wiki/Inductive_bias" target="_blank">inductive bias</a>, a network is likely to struggle to minimize losses which vary rapidly with the input. With the <a href="https://en.wikipedia.org/wiki/Kernel_method">kernel method</a> (kernel trick) we can gain appropriate nonlinearity by moving our inputs into a higher dimensional space where we believe our target function is likely to be easier to express. For example, to fit a simple ReLU MLP to a sine function, we would have to devote parameters to each of the many line segments which would make up the approximation. Applying a sine transformation of the input variable shortcuts this and opens the door to sparser representation of the data.
 		</p>
 
 		<p>
@@ -244,7 +244,7 @@
 		</div>
 
 		<p>
-			The obvious way to utilize this relation for machine learning is perhaps to let the coefficients \( (\alpha_n)_n \) and \( (\beta_n)_n \) be the outputs of the neural network, i.e., \( \mathcal{N} : x \mapsto (\alpha_1, \dots, \beta_1, \dots)  \). This is a viable approach but suffers from the fact that Fourier series are best suited for representing functions with a clear periodicity and non-varying frequency contents. Taking a step back and just noting that sines and cosines are expressive, we can choose them to be our features. This means, in the 1D case, that our feature map is
+			The obvious way to utilize this relation for machine learning is perhaps to let the coefficients \( (\alpha_n)_n \) and \( (\beta_n)_n \) be the outputs of the neural network, i.e., \( \mathcal{N} : x \mapsto (\alpha_1, \dots, \beta_1, \dots)  \). This is a viable approach but suffers from the fact that Fourier series are best suited for representing functions with a clear periodicity and non-varying frequency contents. Thus we might need a very large amount of terms to represent the function. Taking a step back and just noting that sines and cosines are expressive, we can choose them to be our features. This means, in the 1D case, that our feature map is
 		</p>
 
 		<div class="equation">
@@ -252,7 +252,7 @@
 		</div>
 
 		<p>
-			It turns out that picking the parameters \( (a_n)_n,\, (b_n)_n \) randomly generally works, although they should be of comparable sizes to the Fourier series of the target function.
+			It turns out that picking the frequencies \( (a_n)_n,\, (b_n)_n \) randomly generally works, although they should be of comparable sizes to the Fourier series of the target function. Then combinations of these terms afford us greater freedom than just linear combinations of them.
 		</p>
 
 		<p>
@@ -268,7 +268,6 @@ class FourierFeatureMapping(nn.Module):
             self.freqs = nn.Parameter(freqs)
         else:
             self.register_buffer('freqs', freqs)
-        self.input_dim = input_dim
 
     def forward(self, x):
         projection = 2 * np.pi * (x @ self.freqs)
@@ -285,11 +284,11 @@ class FourierFeatureMapping(nn.Module):
 		</a>
 	</div>
 	<div class="figure_caption">
-		<span class="caption_title">Figure:</span> Learning a chirp signal with no features and Fourier features. 
+		<span class="caption_title">Figure:</span> Learning a chirp signal with no features versus fixed and trainable Fourier features. 
 	</div>
 
 	<p>
-		This problem is easy enough that we don't need to learn the Fourier coefficients but not having to rely on them being appropriate a priori means we're less dependent on hyperparameter tuning. If we would have chosen a smaller network, the Fourier features would still be able to learn the function but the naive method would struggle even more. Still, the low-frequency bias of the naive method is clearly visible in this example.
+		This problem is easy enough that we don't need to learn the Fourier coefficients but not having to rely on them being appropriate a priori means we're less dependent on hyperparameter tuning. If we would have chosen a smaller network, the Fourier features would still be able to learn the function but the naive method would struggle even more. For no feature mapping, the low-frequency bias of the output is clearly visible.
 	</p>
 
 
@@ -301,7 +300,7 @@ class FourierFeatureMapping(nn.Module):
 	</p>
 
 	<p>
-		To circumvent this problem, we can consider sinusoids which are localized in the input space through modulated Gaussians of the form \( e^{-|x-c|^2/\sigma^2}\sin(\omega x) \). Now we have three parameters instead, the center \( c \), the width \( \sigma \) and the frequency \( \omega \). For a fixed \( \sigma \), we would call this a Gabor atom in time-frequency analysis. The point is that we can use different frequencies at different parts of the input space instead of sinusoids which span the entire input. In the example at the top, we have the same number of features and the same number of parameters in our MLP yet the loss is lower with the Gabor feature mappings.
+		To circumvent this problem, we can consider sinusoids which are localized in the input space through modulated Gaussians of the form \( e^{-|x-c|^2/\sigma^2}\sin(\omega x) \). Now we have three parameters instead, the center \( c \), the width \( \sigma \) and the frequency \( \omega \). For a fixed \( \sigma \), we would call this a <i>Gabor atom</i> in time-frequency analysis. The point is that we can use different frequencies at different parts of the input space instead of sinusoids which span the entire input. In the example at the top, we have the same number of features and the same number of parameters in our MLP yet the loss is lower with the Gabor feature mappings.
 	</p>
 
 	<p>
@@ -320,15 +319,15 @@ class GaborFeatureMapping(nn.Module):
         if trainable:
             self.centers = nn.Parameter(centers)
             self.frequencies = nn.Parameter(frequencies)
-            self.sigma = nn.Parameter(sigmas)
+            self.sigmas = nn.Parameter(sigmas)
         else:
             self.register_buffer('centers', centers)
             self.register_buffer('frequencies', frequencies)
-            self.register_buffer('sigma', sigmas)
+            self.register_buffer('sigmas', sigmas)
 
     def forward(self, x):
         diff = x.unsqueeze(1) - self.centers.unsqueeze(0)
-        envelope = torch.exp(- (diff ** 2 / (self.sigma.unsqueeze(0) ** 2)).sum(dim=2) / 2)
+        envelope = torch.exp(- (diff ** 2 / (self.sigmas.unsqueeze(0) ** 2)).sum(dim=2) / 2)
         phase = 2 * np.pi * (diff * self.frequencies.unsqueeze(0)).sum(dim=2)
         cos_part = envelope * torch.cos(phase)
         sin_part = envelope * torch.sin(phase)
@@ -362,7 +361,7 @@ class GaborFeatureMapping(nn.Module):
 	<h2>Video data</h2>
 
 	<p>
-		Lastly we will take a look at expressing a video, i.e. a function \( (x, y, t) \mapsto (r, g, b) \) in this manner. The idea is to really challenge the network. In the example below, we use <code>64</code> features and an MLP with <code>3</code> hidden layers, each of dimension <code>256</code>. We downsample the video to be <code>128 x 128</code> to save on space.
+		Lastly we will take a look at expressing a video, i.e. a function \( (x, y, t) \mapsto (r, g, b) \) in this manner. The idea is to really challenge the network. In the example below, we use <code>64</code> features and an MLP with <code>3</code> hidden layers, each of dimension <code>256</code>. We downsample the video to be <code>128 x 128</code> to save on runtime.
 	</p>
 
 	<div class="figure_container">
