@@ -13,9 +13,9 @@ import cv2
 # =============================================================================
 # Experiment Toggles
 # =============================================================================
-DO_IMAGE_EXPERIMENT = True
+DO_IMAGE_EXPERIMENT = False
 DO_CHIRP_EXPERIMENT = False
-DO_VIDEO_EXPERIMENT = False
+DO_VIDEO_EXPERIMENT = True
 
 # =============================================================================
 # Configuration Parameters
@@ -111,7 +111,7 @@ class GaborFeatureMapping(nn.Module):
 # 3. IMAGE EXPERIMENT (Sequential Training)
 # =============================================================================
 num_epochs = 3000
-lr = 1e-3
+lr = 2e-3
 
 loss_colors = {
     "naive": "blue",
@@ -168,7 +168,7 @@ if DO_IMAGE_EXPERIMENT:
         fixed_fourier_img = MLP(input_dim=2*NUM_FEATURES, hidden_dim=HIDDEN_DIM, num_layers=NUM_LAYERS, output_dim=3, 
                                 activation=nn.ReLU(), final_activation=nn.Sigmoid()).to(device)
         fixed_gabor_img_map = GaborFeatureMapping(input_dim=2, num_features=NUM_FEATURES, sigma=0.3, sigma_freq=20.0, trainable=False).to(device)
-        fixed_gabor_img = MLP(input_dim=2*NUM_FEATURES, hidden_dim=HIDDEN_DIM, num_layers=NUM_LAYERS, output_dim=3, 
+        fixed_gabor_img = MLP(input_dim=2*NUM_FEATURES, hidden_dim=HIDDEN_DIM, num_layers=NUM_LAYERS, output_dim=3,
                               activation=nn.ReLU(), final_activation=nn.Sigmoid()).to(device)
         opt_fourier_img_map = FourierFeatureMapping(input_dim=2, num_features=NUM_FEATURES, sigma_freq=20.0, trainable=True).to(device)
         opt_fourier_img = MLP(input_dim=2*NUM_FEATURES, hidden_dim=HIDDEN_DIM, num_layers=NUM_LAYERS, output_dim=3, 
@@ -433,180 +433,201 @@ if DO_CHIRP_EXPERIMENT:
 # =============================================================================
 lr = 1e-3
 NUM_FEATURES = 64
-HIDDEN_DIM = 256
-num_epochs_video = 15000
+HIDDEN_DIM = 64
+num_epochs_video = 2000
 gif_snapshot_freq_video = 1000  # Save a GIF every 1000 epochs
 
-if DO_VIDEO_EXPERIMENT:
-    print("\nStarting Video Experiment...")
-
+def video_experiment():
     # --- Video Preprocessing Parameters ---
     video_file = "video.mp4"
     target_width = 128
     target_height = 128
-    target_fps = 24
-    video_duration = 2  # seconds
+    target_fps = 30
+    video_duration = 8  # seconds
     num_frames = target_fps * video_duration
+    
+    # Define batch size for mini-batch training (number of pixels per batch)
+    video_batch_size = 1024*32  # Adjust this value as needed
 
     if not os.path.exists(video_file):
         print(f"Video file {video_file} not found; skipping video experiment.")
-    else:
-        print(f"Processing video file {video_file} ...")
-        cap = cv2.VideoCapture(video_file)
-        video_frames = []
-        frame_count = 0
-        while cap.isOpened() and frame_count < num_frames:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            pil_frame = Image.fromarray(frame)
-            pil_frame = pil_frame.resize((target_width, target_height))
-            video_frames.append(np.array(pil_frame).astype(np.float32) / 255.0)
-            frame_count += 1
-        cap.release()
-        
-        if len(video_frames) == 0:
-            print(f"No frames were read from {video_file}. Please verify the file and its format.")
-        else:
-            video_np = np.array(video_frames)  # Shape: (num_frames, target_height, target_width, 3)
+        return
+    
+    print(f"Processing video file {video_file} ...")
+    cap = cv2.VideoCapture(video_file)
+    video_frames = []
+    frame_count = 0
+    while cap.isOpened() and frame_count < num_frames:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        pil_frame = Image.fromarray(frame)
+        pil_frame = pil_frame.resize((target_width, target_height))
+        video_frames.append(np.array(pil_frame).astype(np.float32) / 255.0)
+        frame_count += 1
+    cap.release()
+    
+    if len(video_frames) == 0:
+        print(f"No frames were read from {video_file}. Please verify the file and its format.")
+        return
+    
+    video_np = np.array(video_frames)  # Shape: (num_frames, target_height, target_width, 3)
 
-            # Create coordinate grid for video: (x, y, t)
-            xs = np.linspace(0, 1, target_width)
-            ys = np.linspace(0, 1, target_height)
-            ts = np.linspace(0, 1, num_frames)
-            grid_t, grid_y, grid_x = np.meshgrid(ts, ys, xs, indexing='ij')
-            coords = np.stack([grid_x, grid_y, grid_t], axis=-1)
-            coords = coords.reshape(-1, 3)
-            video_gt = video_np.reshape(-1, 3)
+    # Create coordinate grid for video: (x, y, t)
+    xs = np.linspace(0, 1, target_width)
+    ys = np.linspace(0, 1, target_height)
+    ts = np.linspace(0, 1, num_frames)
+    grid_t, grid_y, grid_x = np.meshgrid(ts, ys, xs, indexing='ij')
+    coords = np.stack([grid_x, grid_y, grid_t], axis=-1)
+    coords = coords.reshape(-1, 3)
+    video_gt = video_np.reshape(-1, 3)
 
-            x_video = torch.tensor(coords, dtype=torch.float32).to(device)
-            y_video = torch.tensor(video_gt, dtype=torch.float32).to(device)
+    x_video = torch.tensor(coords, dtype=torch.float32).to(device)
+    y_video = torch.tensor(video_gt, dtype=torch.float32).to(device)
+    dataset_size = x_video.shape[0]
 
-            # --- Setup Models for Video Experiment (Input dim = 3) ---
-            naive_video = MLP(input_dim=3, hidden_dim=HIDDEN_DIM, num_layers=NUM_LAYERS, output_dim=3,
-                               activation=nn.ReLU(), final_activation=nn.Sigmoid()).to(device)
-            opt_fourier_video_map = FourierFeatureMapping(input_dim=3, num_features=NUM_FEATURES, sigma_freq=20.0, trainable=True).to(device)
-            opt_fourier_video = MLP(input_dim=2*NUM_FEATURES, hidden_dim=HIDDEN_DIM, num_layers=NUM_LAYERS, output_dim=3,
-                                    activation=nn.ReLU(), final_activation=nn.Sigmoid()).to(device)
-            opt_gabor_video_map = GaborFeatureMapping(input_dim=3, num_features=NUM_FEATURES, sigma=0.3, sigma_freq=20.0, trainable=True).to(device)
-            opt_gabor_video = MLP(input_dim=2*NUM_FEATURES, hidden_dim=HIDDEN_DIM, num_layers=NUM_LAYERS, output_dim=3,
-                                  activation=nn.ReLU(), final_activation=nn.Sigmoid()).to(device)
+    # --- Setup Models for Video Experiment (Input dim = 3) ---
+    naive_video = MLP(input_dim=3, hidden_dim=HIDDEN_DIM, num_layers=NUM_LAYERS, output_dim=3,
+                       activation=nn.ReLU(), final_activation=nn.Sigmoid()).to(device)
+    opt_fourier_video_map = FourierFeatureMapping(input_dim=3, num_features=NUM_FEATURES, sigma_freq=20.0, trainable=True).to(device)
+    opt_fourier_video = MLP(input_dim=2*NUM_FEATURES, hidden_dim=HIDDEN_DIM, num_layers=NUM_LAYERS, output_dim=3,
+                            activation=nn.ReLU(), final_activation=nn.Sigmoid()).to(device)
+    opt_gabor_video_map = GaborFeatureMapping(input_dim=3, num_features=NUM_FEATURES, sigma=0.3, sigma_freq=20.0, trainable=True).to(device)
+    opt_gabor_video = MLP(input_dim=2*NUM_FEATURES, hidden_dim=HIDDEN_DIM, num_layers=NUM_LAYERS, output_dim=3,
+                          activation=nn.ReLU(), final_activation=nn.Sigmoid()).to(device)
 
-            # Set up optimizers for each video method
-            video_methods = {
-                "naive": {
-                    "model": naive_video,
-                    "mapping": None,
-                    "optimizer": optim.Adam(naive_video.parameters(), lr=lr),
-                    "loss_curve": []
-                },
-                "opt_fourier": {
-                    "model": opt_fourier_video,
-                    "mapping": opt_fourier_video_map,
-                    "optimizer": optim.Adam(list(opt_fourier_video.parameters()) + list(opt_fourier_video_map.parameters()), lr=lr),
-                    "loss_curve": []
-                },
-                "opt_gabor": {
-                    "model": opt_gabor_video,
-                    "mapping": opt_gabor_video_map,
-                    "optimizer": optim.Adam(list(opt_gabor_video.parameters()) + list(opt_gabor_video_map.parameters()), lr=lr),
-                    "loss_curve": []
-                }
-            }
+    # Set up optimizers for each video method
+    video_methods = {
+        "naive": {
+            "model": naive_video,
+            "mapping": None,
+            "optimizer": optim.Adam(naive_video.parameters(), lr=lr),
+            "loss_curve": []
+        },
+        "opt_fourier": {
+            "model": opt_fourier_video,
+            "mapping": opt_fourier_video_map,
+            "optimizer": optim.Adam(list(opt_fourier_video.parameters()) + list(opt_fourier_video_map.parameters()), lr=lr),
+            "loss_curve": []
+        },
+        "opt_gabor": {
+            "model": opt_gabor_video,
+            "mapping": opt_gabor_video_map,
+            "optimizer": optim.Adam(list(opt_gabor_video.parameters()) + list(opt_gabor_video_map.parameters()), lr=lr),
+            "loss_curve": []
+        }
+    }
 
-            # Create a folder to store video GIFs
-            video_gif_folder = "media/video_gifs"
-            if not os.path.exists(video_gif_folder):
-                os.makedirs(video_gif_folder)
+    # Create a folder to store video GIFs
+    video_gif_folder = "media/video_gifs"
+    if not os.path.exists(video_gif_folder):
+        os.makedirs(video_gif_folder)
 
-            # Helper function to overlay text on a single video frame
-            def create_video_frame(frame_img, epoch, loss, method_name):
-                img_uint8 = (frame_img * 255).astype(np.uint8)
-                pil_img = Image.fromarray(img_uint8)
-                draw = ImageDraw.Draw(pil_img)
-                try:
-                    font = ImageFont.truetype("cour.ttf", 10)
-                except OSError:
-                    font = ImageFont.load_default()
-                text = f"{method_name}\n{epoch}\n{loss:.3e}"
-                x_text, y_text = 5, 5
-                for dx in [-1, 0, 1]:
-                    for dy in [-1, 0, 1]:
-                        if dx != 0 or dy != 0:
-                            draw.text((x_text + dx, y_text + dy), text, font=font, fill="white")
-                draw.text((x_text, y_text), text, font=font, fill="black")
-                return np.array(pil_img)
+    # Helper function to overlay text on a single video frame
+    def create_video_frame(frame_img, epoch, loss, method_name):
+        img_uint8 = (frame_img * 255).astype(np.uint8)
+        pil_img = Image.fromarray(img_uint8)
+        draw = ImageDraw.Draw(pil_img)
+        try:
+            font = ImageFont.truetype("cour.ttf", 10)
+        except OSError:
+            font = ImageFont.load_default()
+        text = f"{method_name}\n{epoch}\n{loss:.3e}"
+        x_text, y_text = 5, 5
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                if dx != 0 or dy != 0:
+                    draw.text((x_text + dx, y_text + dy), text, font=font, fill="white")
+        draw.text((x_text, y_text), text, font=font, fill="black")
+        return np.array(pil_img)
 
-            # --- Sequential Training Loop for Video Experiment ---
-            for method_name, method in video_methods.items():
-                print(f"\nTraining Video Experiment method: {method_name}")
-                pbar = tqdm(range(1, num_epochs_video + 1), desc=f"Training {method_name}")
-                for epoch in pbar:
-                    method["optimizer"].zero_grad()
-                    with torch.amp.autocast("cuda", enabled=USE_AMP):
-                        if method["mapping"] is not None:
-                            pred = method["model"](method["mapping"](x_video))
-                        else:
-                            pred = method["model"](x_video)
-                        loss = criterion(pred, y_video)
-                    if USE_AMP:
-                        scaler.scale(loss).backward()
-                        scaler.step(method["optimizer"])
-                        scaler.update()
+    # --- Sequential Training Loop for Video Experiment ---
+    for method_name, method in video_methods.items():
+        print(f"\nTraining Video Experiment method: {method_name}")
+        pbar = tqdm(range(1, num_epochs_video + 1), desc=f"Training {method_name}")
+        for epoch in pbar:
+            total_loss_epoch = 0.0
+            # Shuffle the indices for mini-batching
+            perm = torch.randperm(dataset_size)
+            for i in range(0, dataset_size, video_batch_size):
+                batch_indices = perm[i: i + video_batch_size]
+                x_batch = x_video[batch_indices]
+                y_batch = y_video[batch_indices]
+                method["optimizer"].zero_grad()
+                with torch.amp.autocast("cuda", enabled=USE_AMP):
+                    if method["mapping"] is not None:
+                        pred = method["model"](method["mapping"](x_batch))
                     else:
-                        loss.backward()
-                        method["optimizer"].step()
-                    method["loss_curve"].append(loss.item())
-                    
-                    pbar.set_postfix(loss=f"{loss.item():.4e}")
+                        pred = method["model"](x_batch)
+                    loss = criterion(pred, y_batch)
+                if USE_AMP:
+                    scaler.scale(loss).backward()
+                    scaler.step(method["optimizer"])
+                    scaler.update()
+                else:
+                    loss.backward()
+                    method["optimizer"].step()
+                # Accumulate weighted loss
+                total_loss_epoch += loss.item() * (x_batch.size(0) / dataset_size)
+            
+            method["loss_curve"].append(total_loss_epoch)
+            pbar.set_postfix(loss=f"{total_loss_epoch:.4e}")
 
-                    if epoch % gif_snapshot_freq_video == 0:
-                        with torch.no_grad():
-                            if method["mapping"] is not None:
-                                pred = method["model"](method["mapping"](x_video))
-                            else:
-                                pred = method["model"](x_video)
-                        pred_np = pred.detach().cpu().numpy().reshape(num_frames, target_height, target_width, 3)
-                        video_frames_pred = []
-                        for i in range(num_frames):
-                            frame_with_overlay = create_video_frame(pred_np[i], epoch, method["loss_curve"][-1], method_name)
-                            video_frames_pred.append(frame_with_overlay)
-                        gif_filename = os.path.join(video_gif_folder, f"{method_name}_epoch{epoch}.gif")
-                        imageio.mimsave(gif_filename, video_frames_pred, duration=1/target_fps, loop=0)
-                
-                torch.cuda.empty_cache()
+            if epoch % gif_snapshot_freq_video == 0:
+                with torch.no_grad():
+                    if method["mapping"] is not None:
+                        pred = method["model"](method["mapping"](x_video))
+                    else:
+                        pred = method["model"](x_video)
+                pred_np = pred.detach().cpu().numpy().reshape(num_frames, target_height, target_width, 3)
+                video_frames_pred = []
+                for i in range(num_frames):
+                    frame_with_overlay = create_video_frame(pred_np[i], epoch, method["loss_curve"][-1], method_name)
+                    video_frames_pred.append(frame_with_overlay)
+                gif_filename = os.path.join(video_gif_folder, f"{method_name}_epoch{epoch}.gif")
+                imageio.mimsave(gif_filename, video_frames_pred, duration=1/target_fps, loop=0)
+        
+        torch.cuda.empty_cache()
 
-            # --- Create Ground Truth GIF for Reference ---
-            ground_truth_frames = []
-            for i in range(num_frames):
-                img_uint8 = (video_np[i] * 255).astype(np.uint8)
-                pil_img = Image.fromarray(img_uint8)
-                draw = ImageDraw.Draw(pil_img)
-                try:
-                    font = ImageFont.truetype("cour.ttf", 14)
-                except OSError:
-                    font = ImageFont.load_default()
-                text = "Ground Truth"
-                x_text, y_text = 5, 5
-                for dx in [-1, 0, 1]:
-                    for dy in [-1, 0, 1]:
-                        if dx != 0 or dy != 0:
-                            draw.text((x_text + dx, y_text + dy), text, font=font, fill="white")
-                draw.text((x_text, y_text), text, font=font, fill="black")
-                ground_truth_frames.append(np.array(pil_img))
-            ground_truth_gif_filename = os.path.join(video_gif_folder, "ground_truth.gif")
-            imageio.mimsave(ground_truth_gif_filename, ground_truth_frames, duration=1/target_fps, loop=0)
-            print(f"Saved ground truth video GIF: {ground_truth_gif_filename}")
+    # --- Create Ground Truth GIF for Reference ---
+    ground_truth_frames = []
+    for i in range(num_frames):
+        img_uint8 = (video_np[i] * 255).astype(np.uint8)
+        pil_img = Image.fromarray(img_uint8)
+        draw = ImageDraw.Draw(pil_img)
+        try:
+            font = ImageFont.truetype("cour.ttf", 14)
+        except OSError:
+            font = ImageFont.load_default()
+        text = "Ground Truth"
+        x_text, y_text = 5, 5
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                if dx != 0 or dy != 0:
+                    draw.text((x_text + dx, y_text + dy), text, font=font, fill="white")
+        draw.text((x_text, y_text), text, font=font, fill="black")
+        ground_truth_frames.append(np.array(pil_img))
+    ground_truth_gif_filename = os.path.join(video_gif_folder, "ground_truth.gif")
+    imageio.mimsave(ground_truth_gif_filename, ground_truth_frames, duration=1/target_fps, loop=0)
+    print(f"Saved ground truth video GIF: {ground_truth_gif_filename}")
 
-            # --- Plot Loss Curves ---
-            plt.figure(figsize=(8, 6), dpi=150)
-            for method_name, method in video_methods.items():
-                plt.plot(np.arange(1, num_epochs_video + 1), method["loss_curve"], label=method_name)
-            plt.yscale("log")
-            plt.xlabel("Epoch")
-            plt.ylabel("MSE Loss")
-            plt.title("Video Training Loss Curves")
-            plt.legend()
-            plt.tight_layout()
-            plt.show()
+    # --- Plot Loss Curves ---
+    plt.figure(figsize=(8, 6), dpi=150)
+    for method_name, method in video_methods.items():
+        plt.plot(np.arange(1, num_epochs_video + 1), method["loss_curve"], label=method_name)
+    plt.yscale("log")
+    plt.xlabel("Epoch")
+    plt.ylabel("MSE Loss")
+    plt.title("Video Training Loss Curves")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+if DO_VIDEO_EXPERIMENT:
+    print("\nStarting Video Experiment...")
+    video_experiment()
+
+
+    
