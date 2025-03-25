@@ -58,20 +58,21 @@ a:hover {
 }
 
 .boldened {
-        font-weight: 900;
+    font-weight: 900;
 }
 
-@font-face{font-family:product sans;
-    font-style:normal;
-    font-weight:400;
-    src:local('Product Sans'),url(https://fonts.cdnfonts.com/s/13998/ProductSans-Regular.woff) format('woff')
+@font-face {
+    font-family: product sans;
+    font-style: normal;
+    font-weight: 400;
+    src: local('Product Sans'), url(https://fonts.cdnfonts.com/s/13998/ProductSans-Regular.woff) format('woff');
 }
 
 .links {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-start; /* Align items to the start of the container */
-    justify-content: flex-start; /* Align content to the start of the container */
+    align-items: flex-start;
+    justify-content: flex-start;
     margin-bottom: 46px;
     user-select: none;
 }
@@ -117,55 +118,25 @@ h1 {
     font-size: 50px;
 }
 
+/* --- Papers Masonry Layout --- */
 .masonry-grid {
-    display: block; /* Stack columns on small screens */
+    column-count: 2;
+    column-gap: 16px;
+    margin-bottom: 24px;
 }
 
-.column {
-    margin-right: 0;
-    margin-left: 0;
-    padding: 0;
-}
-
-.paper {
-    color: #512725;
-    margin-bottom: 24px; 
+.masonry-grid .paper {
+    display: inline-block;
+    width: 100%;
+    margin-bottom: 16px;
     padding: 28px;
     border-radius: 36px;
     transition: all 300ms;
     box-shadow: 0px 10px 22px rgba(0, 0, 0, 0.07);
-}
-
-@media (min-width: 768px) {
-    .masonry-grid {
-        display: flex;
-    }
-
-    .column {
-        flex: 1;
-        padding: 0;
-        margin-right: 12px;
-    }
-
-    .column:last-child {
-        margin-right: 0;
-        margin-left: 12px;
-    }
-}
-
-.paper {
     color: #512725;
-    margin-bottom: 24px; 
-    padding: 28px;
-    border-radius: 36px;
-    transition: all 300ms;
-    box-shadow: 0px 10px 22px rgba(0, 0, 0, 0.07);
 }
 
-.paper:hover {
-    box-shadow: 0px 10px 18px rgba(0, 0, 0, 0.11);
-}
-
+/* Custom background colors for individual papers */
 #quantization {
     background-color: #BAD3C9;
 }
@@ -198,9 +169,8 @@ h1 {
     background-color: #C4B5D8;
 }
 
-.papers h1 {
-    margin-top: 8px;
-    margin-bottom: 36px;
+.paper:hover {
+    box-shadow: 0px 10px 18px rgba(0, 0, 0, 0.11);
 }
 
 .paper .title {
@@ -210,7 +180,7 @@ h1 {
 
 .paper .subtitle {
     font-size: 14px;
-    font-family: 'Roboto Mono', 'monospace';
+    font-family: 'Roboto Mono', monospace;
 }
 
 .paper a {
@@ -242,24 +212,25 @@ h1 {
     background-repeat: repeat-x;
 }
 
+/* --- Talks Section --- */
 .timeline {
     position: relative;
-    padding-left: 30px; /* Adjust as needed */
+    padding-left: 30px;
 }
 
 .talk::before {
     content: '';
     position: absolute;
-    left: -9px; /* Center the line with the dot */
+    left: -9px;
     top: 20px;
     bottom: -20px;
-    width: 2px; /* Thickness of the line */
-    background-color: #623D3F; /* Color of the line */
+    width: 2px;
+    background-color: #623D3F;
     z-index: 1;
 }
 
 .talk:last-child::before {
-    display: none; /* Hide line for the last .talk item */
+    display: none;
 }
 
 .talk {
@@ -272,13 +243,13 @@ h1 {
 .talk::after {
     content: '';
     position: absolute;
-    left: -15px; /* Adjust this to align with the timeline */
+    left: -15px;
     top: 26px;
     transform: translateY(-50%);
-    width: 14px; /* Size of the dot */
-    height: 14px; /* Size of the dot */
-    background-color: #623D3F; /* Color of the dot */
-    border-radius: 50%; /* Makes it round */
+    width: 14px;
+    height: 14px;
+    background-color: #623D3F;
+    border-radius: 50%;
     z-index: 2;
 }
 
@@ -313,22 +284,24 @@ h1 {
     font-family: 'Roboto Mono', monospace;
 }
 
+/* --- Posts Masonry Layout --- */
 .posts {
-    display: flex;                /* Enable Flexbox */
-    flex-wrap: wrap;              /* Allow items to wrap to the next line */
-    gap: 16px;                    /* Space between items */
+    column-count: 2;
+    column-gap: 16px;
     padding-bottom: 0;
-    justify-content: center;      /* Center items horizontally */
 }
 
 .posts .post {
-    flex: 1 1 calc(50% - 16px);   /* Two columns with gap consideration */
-    box-sizing: border-box;       /* Include padding and border in width */
+    display: inline-block;
+    width: 100%;
+    margin-bottom: 16px;
+    box-sizing: border-box;
     border-radius: 30px;
     border: 1px solid #512725;
     padding: 10px 20px;
     font-size: 15px;
-    transition: transform 0.2s, box-shadow 0.2s; /* Smooth hover effects */
+    transition: transform 0.2s, box-shadow 0.2s;
+    vertical-align: top;
 }
 
 .posts .post a {
@@ -337,18 +310,16 @@ h1 {
     font-family: 'Roboto Mono', monospace;
     text-decoration: none;
     color: #512725;
-    display: block;               /* Make the link fill the entire post area */
-    height: 100%;                 /* Ensure the link covers the full height */
+    display: block;
 }
 
 .posts .post:hover {
     text-decoration: underline;
-    /* Optional: add more hover effects */
     transform: translateY(-1px);
     box-shadow: 0 4px 18px rgba(0,0,0,0.1);
 }
 
-
+/* --- Projects Section --- */
 .projects {
     padding-bottom: 24px;
 }
@@ -367,14 +338,10 @@ h1 {
     margin-right: 6px;
     user-select: none;
     border: 1.5px solid #512725;
-    padding-left: 18px;
-    padding-right: 18px;
-    padding-top: 6px;
-    padding-bottom: 6px;
+    padding: 6px 18px;
     border-radius: 12px;
     font-size: 14px;
     transition: all 200ms;
-    user-select: none;
     font-family: 'Roboto Mono', monospace;
 }
 
@@ -404,46 +371,39 @@ h1 {
 }
 
 @media (max-width: 600px) {
-    .posts .post {
-        flex: 1 1 100%;
+    .masonry-grid {
+        column-count: 1;
     }
-
+    .posts {
+        column-count: 1;
+    }
     .about {
         font-size: 19px;
     }
-
     .paper {
         padding: 20px;
     }
-
     .paper a {
         font-size: 12px;
     }
-
     .links a {
         font-size: 14px;
     }
-
     h1 {
         font-size: 44px;
     }
-
     .paper .subtitle {
         font-size: 12px;
     }
-
     .project .description {
         font-size: 17px;
     }
-
     .talk .date_loc {
         font-size: 12px;
     }
-
     .talk .link {
         font-size: 12px;
     }
-
     .talk .name {
         font-size: 21px;
     }
