@@ -202,71 +202,15 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			This post is meant to serve as a gentle introduction to physics-informed neural networks (PINNs) for a reader proficient in machine learning techniques and partial differential equations (PDEs) but not necessarily their intersection. The idea underpinning PINNs is tantalizingly simple; PDE's can be formulated as the solutions to equations of the form \( Pf = 0 \) where \( P \) is a partial differential operators, so let's try and minimize \( \Vert Pf \Vert \) where \( f \) is the output of some neural network. In this post, we will go over how to incorporate boundary and initial conditions, evaluate the norm and properly set up the model and its training process.
+			This post is meant to serve as a gentle introduction to physics-informed neural networks (PINNs) for a reader proficient in machine learning techniques and partial differential equations (PDEs) but not necessarily their intersection. The idea underpinning PINNs is tantalizingly simple; PDE's can be formulated as the solutions to equations of the form \( Pf = 0 \) where \( P \) is a partial differential operators, so let's try and minimize \( \Vert Pf \Vert \) where \( f \) is formulated with a neural network. In this post, we will go over how to incorporate boundary and initial conditions, evaluate the norm and properly set up the model and its training process.
 		</p>
 
 		<p>
-			
-			
-		</p>
-
-		<p>
-			Neural networks are well known to be <a href="https://en.wikipedia.org/wiki/Universal_approximation_theorem">universal function approximators</a>, meaning roughly that for any not-too-badly-behaved function \( f \) and \(\varepsilon > 0\), we can find a neural network \( \mathcal{N} \) such that \( \Vert f - \mathcal{N} \Vert < \varepsilon\). However, the neural network \( \mathcal{N} \) might have to be unfeasibly large to approximate some functions. To mitigate this problem, we can first apply a <i>feature mapping</i> where instead of applying the neural network to the input coordinate \( \boldsymbol{x} \) directly, we apply some preprocessing \(F\) to \( \boldsymbol{x} \) and approximate the target function by \( \mathcal{N}(F(\boldsymbol{x}))\) instead. Specifically, we will be interested in feature mappings \( F \) that treat position (time) and frequency separately.
-		</p>
-
-		<div class="figure_container" id="fig3">
-			<a style="width: 33.3%; float:left;" data-fancybox="gallery0" href="media/image2_naive_progress.gif">
-				<img class="figure"  src="media/image2_naive_progress.gif"></img>
-			</a>
-			<a style="width: 33.3%; float:left;" data-fancybox="gallery0" href="media/image2_opt_fourier_progress.gif">
-				<img class="figure"  src="media/image2_opt_fourier_progress.gif"></img>
-			</a>
-			<a style="width: 33.3%; float:left;" data-fancybox="gallery0" href="media/image2_opt_gabor_progress.gif">
-				<img class="figure"  src="media/image2_opt_gabor_progress.gif"></img>
-			</a>
-		</div>
-		<div class="figure_caption">
-			<span class="caption_title">Figure:</span> Snapshots from the training process of approximating an RGB image with an MLP for identity (left), Fourier (middle) and Gabor (right) feature mappings. Original image by <a href="https://unsplash.com/photos/a-multicolored-letter-e-made-out-of-pencils--vGW9piQnm8" target="_blank">Chris G.</a>
-		</div>
-
-		<p>
-			A natural question to ask is <b>why</b> one might wish to approximate a function representing an image, a signal, a video or a 3D model by a neural network. After all, the "standard" setting of a neural network is to map <i>high</i> dimensional data into either a few dimensions (classification, segmentation, object detection) or another high dimensional space (style transfer, denoising, point cloud completion). The two motivating settings closest to my heart are physics-informed neural networks (PINNs) and neural texture compression. In the former, we learn a function which should minimize a PDE loss functional and in the latter, made famous by the recent <a href="https://developer.nvidia.com/blog/nvidia-rtx-neural-rendering-introduces-next-era-of-ai-powered-graphics-innovation/" target="_blank">NVIDIA launch</a>, we compress textures by expressing them as a neural network. In both of these cases, it is crucial that our networks are expressive in the sense that we can output functions without using too many parameters or epochs of training.
-		</p>
-
-		<p>
-			The most influential paper on this topic is the seminal 2020 paper <a href="https://arxiv.org/abs/2006.10739" target="_blank">Fourier Features Let Networks Learn High Frequency Functions in Low Dimensional Domains</a>. In this post, we will go over some of the empirical insights from that paper and discuss an extension to a form of Gabor atoms.
+			First up is the simplest differential equation around, \( y' = y \). We let \( y \) be a function of one variable
 		</p>
 
 		<hr class="squiggly-line"/>
-		<h2>Towards Fourier features</h2>
-
-		<p>
-			Machine learning methods are dependent on some source of non-linearity to be able to represent non-linear phenomena. We usually inject this in the form of the activation function. Still, without any further <a href="https://en.wikipedia.org/wiki/Inductive_bias" target="_blank">inductive bias</a>, a network is likely to struggle to minimize losses which vary rapidly with the input. With the <a href="https://en.wikipedia.org/wiki/Kernel_method">kernel method</a> (kernel trick) we can gain appropriate nonlinearity by moving our inputs into a higher dimensional space where we believe our target function is likely to be easier to express. For example, to fit a simple ReLU MLP to a sine function, we would have to devote parameters to each of the many line segments which would make up the approximation. Applying a sine transformation of the input variable shortcuts this and opens the door to sparser representation of the data.
-		</p>
-
-		<p>
-			In Fourier analysis, we represent functions as sums of sines and cosines
-		</p>
-
-		<div class="equation">
-			\( f(x) = \sum\limits_n \alpha_n \cos(nx) + \beta_n \sin(n x). \)
-		</div>
-
-		<p>
-			The obvious way to utilize this relation for machine learning is perhaps to let the coefficients \( (\alpha_n)_n \) and \( (\beta_n)_n \) be the outputs of the neural network, i.e., \( \mathcal{N} : x \mapsto (\alpha_1, \dots, \beta_1, \dots)  \). This is a viable approach but suffers from the fact that Fourier series are best suited for representing functions with a clear periodicity and non-varying frequency contents. Thus we might need a very large amount of terms to represent the function. Taking a step back and just noting that sines and cosines are expressive, we can choose them to be our features. This means, in the 1D case, that our feature map is
-		</p>
-
-		<div class="equation">
-			\( F(f)(x) = \big(\cos(a_1 x),\, \sin(b_1 x),\, \dots \cos(a_N x),\, \sin(b_N x)\big). \)
-		</div>
-
-		<p>
-			It turns out that picking the frequencies \( (a_n)_n,\, (b_n)_n \) randomly generally works, although they should be of comparable sizes to the Fourier series of the target function. Then combinations of these terms afford us greater freedom than just linear combinations of them.
-		</p>
-
-		<p>
-			We now try this out on a simple example of a chirp function, meaning a sinusoidal function with increasing frequency. Our MLP is standard and for the Fourier feature mapping we will use the following class.
-		</p>
+		
 
 	<pre><code class="language-py">
 class FourierFeatureMapping(nn.Module):
@@ -283,9 +227,6 @@ class FourierFeatureMapping(nn.Module):
         return torch.cat([torch.cos(projection), torch.sin(projection)], dim=-1)
 	</code></pre>
 
-	<p>
-		Note that this code works for higher dimensions and that we have a flag for if the frequencies should be trainable or fixed. Now training this, together with an MLP with <code>3</code> hidden layers, all of dimension <code>256</code>, we get the following progress over the epochs.
-	</p>
 
 	<div class="figure_container">
 		<a data-fancybox="gallery1" href="media/chirp_progress.gif">
@@ -296,152 +237,10 @@ class FourierFeatureMapping(nn.Module):
 		<span class="caption_title">Figure:</span> Learning a chirp signal with no features versus fixed and trainable Fourier features. 
 	</div>
 
-	<p>
-		This problem is easy enough that we don't need to learn the Fourier coefficients but not having to rely on them being appropriate a priori means we're less dependent on hyperparameter tuning. If we would have chosen a smaller network, the Fourier features would still be able to learn the function but the naive method would struggle even more. For no feature mapping, the low-frequency bias of the output is clearly visible.
-	</p>
+	
 
 
-	<hr class="squiggly-line"/>
-	<h2>Adding localization</h2>
-
-	<p>
-		Fourier features clearly are very powerful and a staple of the field. Looking at weaknesses from a time-frequency perspective though, the standard argument against using tools based on Fourier series is that if I want to represent non-smooth and highly localized data I will need to use very high frequency building blocks. These building blocks are then hard to cancel out, resulting in noise. For an example of this, look at the uneven background in the middle image of the <a href="#fig3">first figure of this post</a>.
-	</p>
-
-	<p>
-		To circumvent this problem, we can consider sinusoids which are localized in the input space through modulated Gaussians of the form \( e^{-|x-c|^2/\sigma^2}\sin(\omega x) \). Now we have three parameters instead, the center \( c \), the width \( \sigma \) and the frequency \( \omega \). For a fixed \( \sigma \), we would call this a <i>Gabor atom</i> in time-frequency analysis. The point is that we can use different frequencies at different parts of the input space instead of sinusoids which span the entire input. In the example at the top, we have the same number of features and the same number of parameters in our MLP yet the loss is lower with the Gabor feature mappings.
-	</p>
-
-	<p>
-		Setting up this feature mapping is similar in nature to the <code>FourierFeatureMapping</code> example earlier. We initialize the centers in the interval \( [0,1] \) and make sure to transform our data to this domain beforehand and initialize all the widths as <code>0.1</code>
-	</p>
-
-	<pre><code class="language-py">
-class GaborFeatureMapping(nn.Module):
-    def __init__(self, input_dim, num_features=16, sigma=0.1, sigma_freq=20.0, trainable=False):
-        super(GaborFeatureMapping, self).__init__()
-        
-        centers = torch.rand(num_features, input_dim)
-        frequencies = torch.randn(num_features, input_dim) * sigma_freq
-        sigmas = torch.full((num_features, input_dim), sigma)
-
-        if trainable:
-            self.centers = nn.Parameter(centers)
-            self.frequencies = nn.Parameter(frequencies)
-            self.sigmas = nn.Parameter(sigmas)
-        else:
-            self.register_buffer('centers', centers)
-            self.register_buffer('frequencies', frequencies)
-            self.register_buffer('sigmas', sigmas)
-
-    def forward(self, x):
-        diff = x.unsqueeze(1) - self.centers.unsqueeze(0)
-        envelope = torch.exp(- (diff ** 2 / (self.sigmas.unsqueeze(0) ** 2)).sum(dim=2) / 2)
-        phase = 2 * np.pi * (diff * self.frequencies.unsqueeze(0)).sum(dim=2)
-        cos_part = envelope * torch.cos(phase)
-        sin_part = envelope * torch.sin(phase)
-        return torch.cat([cos_part, sin_part], dim=-1)
-	</code></pre>
-    
-	<p>
-		We try this mapping out on another image which has a good mixture of low- and high-frequency details below with <code>48</code> features, <code>3</code> layers and a hidden dimension of <code>128</code>.
-	</p>
-
-	<div class="figure_container">
-		<a style="width: 33.3%; float:left;" data-fancybox="gallery9" href="media/image4_naive_progress.gif">
-			<img class="figure"  src="media/image4_naive_progress.gif"></img>
-		</a>
-		<a style="width: 33.3%; float:left;" data-fancybox="gallery9" href="media/image4_opt_fourier_progress.gif">
-			<img class="figure"  src="media/image4_opt_fourier_progress.gif"></img>
-		</a>
-		<a style="width: 33.3%; float:left;" data-fancybox="gallery9" href="media/image4_opt_gabor_progress.gif">
-			<img class="figure"  src="media/image4_opt_gabor_progress.gif"></img>
-		</a>
-	</div>
-	<div class="figure_caption">
-		<span class="caption_title">Figure:</span> Process of learning an image with no features (left), Fourier features (middle) and Gabor features (right). Original image by <a href="https://unsplash.com/photos/a-long-exposure-photo-of-a-star-trail-kF3zlKu4npE" target="_blank">Brian McMahon</a>.
-	</div>
-
-	<p>
-		It is worth stressing that we use the same number of Fourier features as Gabor features and so the computational load of these methods are comparable. In testing for this example and others, we have seen that setting Fourier features parameters as trainable is not always beneficial while for Gabor features this seems to always be the case. This is most likely because the Gabor transform of an image is likely to be sparser than its Fourier transform.
-	</p>
-
-	<hr class="squiggly-line"/>
-	<h2>Video data</h2>
-
-	<p>
-		Lastly we will take a look at expressing a video, i.e. a function \( (x, y, t) \mapsto (r, g, b) \) in this manner. The idea is to really challenge the network. In the example below, we use <code>64</code> features and an MLP with <code>3</code> hidden layers, each of dimension <code>256</code>. We downsample the video to be <code>128 x 128</code> to save on runtime.
-	</p>
-
-	<div class="figure_container">
-		<a style="width: 25%; float:left;" data-fancybox="gallery2" href="media/video_gifs/ground_truth.gif">
-			<img class="figure"  src="media/video_gifs/ground_truth.gif"></img>
-		</a>
-		<a style="width: 25%; float:left;" data-fancybox="gallery2" href="media/video_gifs/naive_epoch1000.gif">
-			<img class="figure"  src="media/video_gifs/naive_epoch1000.gif"></img>
-		</a>
-		<a style="width: 25%; float:left;" data-fancybox="gallery2" href="media/video_gifs/naive_epoch2000.gif">
-			<img class="figure"  src="media/video_gifs/naive_epoch2000.gif"></img>
-		</a>
-		<a style="width: 25%; float:left;" data-fancybox="gallery2" href="media/video_gifs/naive_epoch15000.gif">
-			<img class="figure"  src="media/video_gifs/naive_epoch15000.gif"></img>
-		</a>
-		<a style="width: 25%; float:left;" data-fancybox="gallery3" href="media/video_gifs/ground_truth.gif">
-			<img class="figure"  src="media/video_gifs/ground_truth.gif"></img>
-		</a>
-		<a style="width: 25%; float:left;" data-fancybox="gallery3" href="media/video_gifs/opt_fourier_epoch1000.gif">
-			<img class="figure"  src="media/video_gifs/opt_fourier_epoch1000.gif"></img>
-		</a>
-		<a style="width: 25%; float:left;" data-fancybox="gallery3" href="media/video_gifs/opt_fourier_epoch2000.gif">
-			<img class="figure"  src="media/video_gifs/opt_fourier_epoch2000.gif"></img>
-		</a>
-		<a style="width: 25%; float:left;" data-fancybox="gallery3" href="media/video_gifs/opt_fourier_epoch15000.gif">
-			<img class="figure"  src="media/video_gifs/opt_fourier_epoch15000.gif"></img>
-		</a>
-		<a style="width: 25%; float:left;" data-fancybox="gallery4" href="media/video_gifs/ground_truth.gif">
-			<img class="figure"  src="media/video_gifs/ground_truth.gif"></img>
-		</a>
-		<a style="width: 25%; float:left;" data-fancybox="gallery4" href="media/video_gifs/opt_gabor_epoch1000.gif">
-			<img class="figure"  src="media/video_gifs/opt_gabor_epoch1000.gif"></img>
-		</a>
-		<a style="width: 25%; float:left;" data-fancybox="gallery4" href="media/video_gifs/opt_gabor_epoch2000.gif">
-			<img class="figure"  src="media/video_gifs/opt_gabor_epoch2000.gif"></img>
-		</a>
-		<a style="width: 25%; float:left;" data-fancybox="gallery4" href="media/video_gifs/opt_gabor_epoch15000.gif">
-			<img class="figure"  src="media/video_gifs/opt_gabor_epoch15000.gif"></img>
-		</a>
-	</div>
-	<div class="figure_caption">
-		<span class="caption_title">Figure:</span> Learning a video using no features (naive), Fourier features (opt_fourier) and Gabor features (opt_gabor). Snapshots from 1000, 2000 and 15000 epochs. Refresh page if videos are not synced. Original video by <a href="https://www.pexels.com/video/waves-crashing-1390942/" target="_blank">Ruvim Miksanskiy</a>.
-	</div>
-
-	<p>
-		In this example the Gabor features perform substantially better than the Fourier features and the issue with noise for the Fourier features is very pronounced. In the loss curve below this phenomenon is quantified.
-	</p>	
-
-	<div class="figure_container_small">
-		<a data-fancybox="gallery5" href="media/video_loss.png">
-			<img class="figure"  src="media/video_loss.png"></img>
-		</a>
-	</div>
-	<div class="figure_caption">
-		<span class="caption_title">Figure:</span> Loss curves for the video experiment above.
-	</div>
-
-	<p>
-		In a way, the network can be seen as a (lossy) video encoding scheme. Combining the learnable feature mapping with an MLP means that we can tune where in the encoding we want to place our parameters. This particular video example has parameters taking up around <code>260 kB</code> with <code>fp16</code>. This is smaller than the original video file with no compression but still very lossy. Still, it speaks to the expressiveness of networks of this type, especially for PINN applications.
-	</p>
-
-	<hr class="squiggly-line"/>
-	<h2>Conclusion</h2>
-
-	<p>
-		We have seen how we via a rather simple change can improve the standard Fourier feature mapping, especially for more complicated data. Apart from the code blocks in this post, the code to generate all the figures is standard boilerplate. Without more ablation studies and examples in different domains we cannot draw too strong conclusions but the point has been more to confirm the value of the general idea of using features from time-frequency analysis for these types of problems. 
-	</p>
-
-	<p>
-		The code for all the figures in this post can be found <a href="https://github.com/SimonHalvdansson/simonhalvdansson.github.io/blob/master/posts/gabor-feature-experiments/gabor_features.py">here</a>.
-	</p>
+	
 
 	</section>
 	
