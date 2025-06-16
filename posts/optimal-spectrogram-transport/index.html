@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Optimal spectrogram transport</title>
+
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#FBEDEA" />
+
+	<link rel="shortcut icon" type="image/x-icon"  href="../../favicon.ico?">
+	<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+
+	<link rel="stylesheet" href="style.css">
+
+	<script>
+	window.MathJax = {
+	tex: {
+		inlineMath: [['$', '$'], ['\\(', '\\)']]
+	}
+	};
+	</script>
+
+	<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+	<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+	<link rel="stylesheet" href="../atom-one-dark.min.css">
+	<script src="../highlight.min.js"></script>
+
+	<script>hljs.highlightAll();</script>
+
+	<style>
+		.theorem {
+			border: 1px solid #00000077;
+			padding-top: 16px;
+			padding-bottom: 16px;
+			padding-left: 20px;
+			padding-right: 20px;
+			border-radius: 24px;
+			background: #fff;
+		}
+
+		.theorem .title {
+			font-weight: bold;
+			font-size: 20px;
+			text-decoration: underline;
+		}
+
+		.equation {
+			text-align: center;
+			max-width: 100%;
+			overflow-x: auto;
+			overflow-y: hidden;
+			padding-left: 16px;
+			padding-right: 16px;
+		}
+
+		.qed {
+			border: 2px solid black;
+			width: 18px;
+			height: 18px;
+			margin-right: 0;
+			margin-left: auto;
+		}
+	</style>
+
+
+</head>
+<body>
+	<div class="blog centering" id="back_container">
+		<a href="../index.html" class="back"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="14" fill="currentColor" class="bi bi-caret-left" viewBox="0 0 22 18">
+			<path fill-rule="evenodd" clip-rule="evenodd" d="M14.0303 7.46967C14.3232 7.76256 14.3232 8.23744 14.0303 8.53033L10.5607 12L14.0303 15.4697C14.3232 15.7626 14.3232 16.2374 14.0303 16.5303C13.7374 16.8232 13.2626 16.8232 12.9697 16.5303L8.96967 12.5303C8.67678 12.2374 8.67678 11.7626 8.96967 11.4697L12.9697 7.46967C13.2626 7.17678 13.7374 7.17678 14.0303 7.46967Z"/>
+		  </svg>All posts</a>
+	</div>
+
+	<section class="blog centering post">
+		<h1>Notions of time-aware signal distance functions - optimal spectrogram transport</h1>
+		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Aug. 2025</div>
+
+		<hr class="squiggly-line"/>
+
+		<p>
+			In the high dimensional space of signals, the standard notions of <i>distance </i> are oftentimes insufficent. Indeed, for simple three dimensional vectors, summing up the squares of the differences of each component oftentimes suffice, but for a signal, which we might encode as a vector of dimensionality in the thousands, there are many representations which are functionally identical but which are far apart in the standard $\ell^2$ norm. In this post, we are particularly interested in those signals which exhibits some form of <i>time-frequency</i> structure such as those related to audio, radar, EEG, seismic activity or vibrations.
+		</p>
+
+		<div class="figure_container_small">
+			<a data-fancybox="gallery0" href="media/02_gaussian_speed_warp.png">
+				<img class="figure" src="media/02_gaussian_speed_warp.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> We'll probably change this image but something not too dissimilar from this.
+		</div>
+
+		<p>
+			We will go over the problems with naive Euclidean $\ell^2$ distance, the standard solution which is called <i>dynamic time warping (DWT)</i>, why it does not work when frequency changes are involved, and one way to solve it using the tools from optimal transport applied to spectrograms.
+		</p>
+
+		<hr class="squiggly-line"/>
+		<h2>Why look at distances between signals?</h2>
+
+		<p>
+			The standard motivation for looking at distances between signals is to perform some sort of clustering/classification/anomaly detection task. Let's go through an example for each of these.
+			<ul>
+				<li><b>Clustering:</b> Suppose we have vibration data from a washing machine and want cluster the different modes of a washing cycle. Then you would have a continuous time signal which varies in frequency over time which would be partitioned and each partition would be associated to one cluster. This could allow us to analyze the amount of time the machine spends in different modes for example.</li>
+				<li><b>Classification: </b></li>
+				<li><b>Anomaly detection:</b></li>
+			</ul>
+		</p>
+
+		<hr class="squiggly-line"/>
+		<h2>The problem with Euclidean distance</h2>
+
+		<hr class="squiggly-line"/>
+		<h2>Dynamic time warping (DWT)</h2>
+
+		<hr class="squiggly-line"/>
+		<h2>Optimal transport</h2>
+
+		<p>
+			The ideas behind optimal transport, sometimes called the <i>earth mover's distance</i> or <i>Wasserstein distance</i> originate 
+		</p>
+
+		<hr class="squiggly-line"/>
+		<h2>Optimal spectrogram transport</h2>
+
+		<p>
+			The <a href="https://en.wikipedia.org/wiki/Spectrogram">spectrogram</a> of a signal
+		</p>
+	
+
+	</section>
+	
+	<link rel="stylesheet" href="../fancybox.css" />
+	<script src="../fancybox.umd.js"></script>
+
+	<script>
+		Fancybox.bind("[data-fancybox]", {
+			closeButton: false,
+		});
+	  </script>
+
+
+</body>
+</html>
