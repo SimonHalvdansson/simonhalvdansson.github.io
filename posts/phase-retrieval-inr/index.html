@@ -40,64 +40,15 @@
 	</div>
 
 	<section class="blog centering post">
-		<h1>Notions of time-aware signal distance functions - optimal spectrogram transport</h1>
-		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Aug. 2025</div>
+		<h1>Spectrogram phase retrieval with implicit neural representations</h1>
+		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Sep. 2025</div>
 
 		<hr class="squiggly-line"/>
 
 		<p>
-			In the high dimensional space of signals, the standard notions of <i>distance </i> are oftentimes insufficent. Indeed, for simple three dimensional vectors, summing up the squares of the differences of each component oftentimes suffice, but for a signal, which we might encode as a vector of dimensionality in the thousands, there are many representations which are functionally identical but which are far apart in the standard $\ell^2$ norm. In this post, we are particularly interested in those signals which exhibits some form of <i>time-frequency</i> structure such as those related to audio, radar, EEG, seismic activity or vibrations.
+			Let investigate doing phase retrieval 
 		</p>
 
-		<div class="figure_container_small">
-			<a data-fancybox="gallery0" href="media/02_gaussian_speed_warp.png">
-				<img class="figure" src="media/02_gaussian_speed_warp.png"></img>
-			</a>
-		</div>
-		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> We'll probably change this image but something not too dissimilar from this.
-		</div>
-
-		<p>
-			We will go over the problems with naive Euclidean $\ell^2$ distance, the standard solution which is called <i>dynamic time warping (DWT)</i>, why it does not work when frequency changes are involved, and one way to solve it using the tools from optimal transport applied to spectrograms.
-		</p>
-
-		<hr class="squiggly-line"/>
-		<h2>Why look at distances between signals?</h2>
-
-		<p>
-			The standard motivation for looking at distances between signals is to perform some sort of clustering/classification/anomaly detection task. Let's go through an example for each of these.
-			<ul>
-				<li><b>Clustering:</b> Suppose we have vibration data from a washing machine and want cluster the different modes of a washing cycle. Then you would have a continuous time signal which varies in frequency over time which would be partitioned and each partition would be associated to one cluster. This could allow us to analyze the amount of time the machine spends in different modes for example.</li>
-				<li><b>Classification: </b></li>
-				<li><b>Anomaly detection:</b></li>
-			</ul>
-		</p>
-
-		<hr class="squiggly-line"/>
-		<h2>The problem with Euclidean distance</h2>
-
-		<hr class="squiggly-line"/>
-		<h2>Dynamic time warping (DTW)</h2>
-
-		<hr class="squiggly-line"/>
-		<h2>Optimal transport</h2>
-
-		<p>
-			The ideas behind optimal transport, sometimes called the <i>earth mover's distance</i> or <i>Wasserstein distance</i> originate.
-		</p>
-
-		<p>
-			Say something about perhaps seeing waveform-level OT as a generalization of DTW
-		</p>
-
-		<hr class="squiggly-line"/>
-		<h2>Optimal spectrogram transport</h2>
-
-		<p>
-			The <a href="https://en.wikipedia.org/wiki/Spectrogram">spectrogram</a> of a signal is a 2-dimensional representation where the axes represent time and frequency. 
-		</p>
-	
 
 	</section>
 	

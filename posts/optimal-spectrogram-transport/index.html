@@ -46,7 +46,11 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			In the high dimensional space of signals, the standard notions of <i>distance </i> are oftentimes insufficent. Indeed, for simple three dimensional vectors, summing up the squares of the differences of each component oftentimes suffice, but for a signal, which we might encode as a vector of dimensionality in the thousands, there are many representations which are functionally identical but which are far apart in the standard $\ell^2$ norm. In this post, we are particularly interested in those signals which exhibits some form of <i>time-frequency</i> structure such as those related to audio, radar, EEG, seismic activity or vibrations.
+			Determining if two vectors are near each other is generally a straightforward problem - Euclidean distance or cosine similarity are standard solutions. We are interested in the special case where the vector indices indicate time, i.e., vectors which represent time series data or signals. There are specialized metrics available for this class of vectors but as we will see their preference for translations over modulations poses an issue for signals which exhibits some form of <i>time-frequency</i> structure or time-warying oscillations such as those related to audio, radar, EEG, seismic activity or vibrations.
+		</p>
+
+		<p>
+			We will make the case that an appropriate solution is <i>optimal transport distance between spectrograms</i> through examples where other methods fail.
 		</p>
 
 		<div class="figure_container_small">
@@ -55,7 +59,7 @@
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> We'll probably change this image but something not too dissimilar from this.
+			<span class="caption_title">Figure: </span> We'll probably change this image but something not too dissimilar from this. Preferably an animation I guess.
 		</div>
 
 		<p>
@@ -66,16 +70,23 @@
 		<h2>Why look at distances between signals?</h2>
 
 		<p>
-			The standard motivation for looking at distances between signals is to perform some sort of clustering/classification/anomaly detection task. Let's go through an example for each of these.
-			<ul>
-				<li><b>Clustering:</b> Suppose we have vibration data from a washing machine and want cluster the different modes of a washing cycle. Then you would have a continuous time signal which varies in frequency over time which would be partitioned and each partition would be associated to one cluster. This could allow us to analyze the amount of time the machine spends in different modes for example.</li>
-				<li><b>Classification: </b></li>
-				<li><b>Anomaly detection:</b></li>
-			</ul>
+			The standard motivation for looking at distances between signals is to perform some sort of clustering/classification/anomaly detection task. We could get around the need for a distance function by first applying some form of encoding. The machine learning approach would then be to use a learned encoding, such as either simple fully connected or convolutions layers or something more involved like <a href="example.com">wav2vec</a>, to obtain a latent representation of the data which is easier to work with directly. 
+		</p>
+		
+		<p>
+			There are obvious interpretability benefits to a distance function which works directly on the signal, being able to directly query the distance between two signals makes a model considerably more explainable. A distance function which makes sense for the domain of the data also ideally improved the inductive bias of the model and can help reduce complexity. 
 		</p>
 
 		<hr class="squiggly-line"/>
 		<h2>The problem with Euclidean distance</h2>
+
+		<p>
+			From a time-frequency perspective there are two insurmountable problems with looking at Euclidean distance between signals (one in time, one in frequency), both best explained by examples. Consider first the case of two signals, each with a well localized peak at slightly different locations. A (low-dimensional) one would be $x_1 = (0,0,0,1,0)$ and $x_2 = (0,0,1,0,0)$. Clearly the Euclidean distance between these two vectors is $2$ but they are considerably closer than $(1,0,0,0,0)$ and $(0,0,0,0,1)$ as any sane person should conclude. Note that this is not necessarily the case if the indices do not have some temporal meaning.
+		</p>
+
+		<p>
+			The other problem with Euclidean distance is a direct corollary of <a href="example.com">Parseval identity</a> and boils down to pure tone sinusoids being orthogonal. This means that a 101 Hz pure tone and a 200 Hz pure tone both have the same distance to a 100 Hz pure tone.
+		</p>
 
 		<hr class="squiggly-line"/>
 		<h2>Dynamic time warping (DTW)</h2>
@@ -95,7 +106,7 @@
 		<h2>Optimal spectrogram transport</h2>
 
 		<p>
-			The <a href="https://en.wikipedia.org/wiki/Spectrogram">spectrogram</a> of a signal is a 2-dimensional representation where the axes represent time and frequency. 
+			The <a href="https://en.wikipedia.org/wiki/Spectrogram">spectrogram</a> of a signal is a 2-dimensional representation, meaning a function $\mathbb{R} \times \mathbb{R} \to \mathbb{R}$, where the axes represent time and frequency. 
 		</p>
 	
 
