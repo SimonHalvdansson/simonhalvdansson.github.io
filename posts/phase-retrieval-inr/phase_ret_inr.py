@@ -13,11 +13,11 @@ from PIL import Image
 from tqdm import tqdm
 
 # --- Configuration ---------------------------------------------------------
-HIDDEN_DIM      = 64      # MLP hidden size
-NUM_LAYERS      = 2       # Number of MLP layers
+HIDDEN_DIM      = 192      # MLP hidden size
+NUM_LAYERS      = 3       # Number of MLP layers
 NUM_FEATURES    = 24      # Number of Fourier/Gabor features
-NUM_EPOCHS      = 400
-LEARNING_RATE   = 5e-3
+NUM_EPOCHS      = 2000
+LEARNING_RATE   = 8e-5
 SNAPSHOT_FREQ   = 20
 
 # Device selection
@@ -32,7 +32,64 @@ LOSS_COLORS = {
 	"fixed_gabor":    "green",
 	"opt_fourier":    "orange",
 	"opt_gabor":      "purple",
+    "siren":          "magenta",
 }
+
+# ——— SIREN from Sitzmann et al. ———
+class SineLayer(nn.Module):
+    def __init__(self, in_features, out_features, bias=True,
+                 is_first=False, omega_0=30):
+        super().__init__()
+        self.omega_0 = omega_0
+        self.is_first = is_first
+
+        self.in_features = in_features
+        self.linear = nn.Linear(in_features, out_features, bias=bias)
+        self.init_weights()
+
+    def init_weights(self):
+        with torch.no_grad():
+            if self.is_first:
+                self.linear.weight.uniform_(-1 / self.in_features,
+                                             1 / self.in_features)
+            else:
+                bound = np.sqrt(6 / self.in_features) / self.omega_0
+                self.linear.weight.uniform_(-bound, bound)
+
+    def forward(self, x):
+        return torch.sin(self.omega_0 * self.linear(x))
+
+    def forward_with_intermediate(self, x):
+        inter = self.omega_0 * self.linear(x)
+        return torch.sin(inter), inter
+
+
+class Siren(nn.Module):
+    def __init__(self, in_features, hidden_features, hidden_layers,
+                 out_features, outermost_linear=False,
+                 first_omega_0=30, hidden_omega_0=30.):
+        super().__init__()
+        layers = []
+        layers.append(SineLayer(in_features, hidden_features,
+                                is_first=True, omega_0=first_omega_0))
+        for _ in range(hidden_layers):
+            layers.append(SineLayer(hidden_features, hidden_features,
+                                    is_first=False, omega_0=hidden_omega_0))
+
+        if outermost_linear:
+            lin = nn.Linear(hidden_features, out_features)
+            with torch.no_grad():
+                bound = np.sqrt(6 / hidden_features) / hidden_omega_0
+                lin.weight.uniform_(-bound, bound)
+            layers.append(lin)
+        else:
+            layers.append(SineLayer(hidden_features, out_features,
+                                    is_first=False, omega_0=hidden_omega_0))
+
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.net(x)
 
 # --- Loss ---------------------------------------------------------------
 class SpectrogramPhaseRetrievalLoss(nn.Module):
@@ -99,21 +156,19 @@ class GaborFeatureMapping(nn.Module):
 		return torch.cat([env * torch.cos(phase), env * torch.sin(phase)], dim=-1)
 
 # --- Prepare Data ------------------------------------------------------
-"""
-audio_len = 512
-xs  = torch.linspace(0, 1, audio_len)
-ys  = torch.sin(xs * xs * 200)
-"""
-ys = torchaudio.load("audio.wav")[0][0]
-audio_len = ys.shape[0]
-xs = torch.linspace(0, 100, audio_len)
+ys, sr = torchaudio.load("audio.wav")
 
+ys = ys[0][:sr]
+audio_len = sr
+
+xs = torch.linspace(0, 1, audio_len)
 
 x_t  = xs.unsqueeze(1).to(device)
 y_t  = ys.unsqueeze(1).to(device)
 
 # --- Instantiate models, mappings, and optimizers ----------------------
 methods = {}
+"""
 for name, fmap_class, trainable in [
 	("naive",        None,                  False),
 	("fixed_fourier",  FourierFeatureMapping, False),
@@ -135,53 +190,80 @@ for name, fmap_class, trainable in [
 	opt    = optim.Adam(params, lr=LEARNING_RATE)
 
 	methods[name] = {"model": model, "map": fmap, "opt": opt, "loss_curve": []}
+"""
+siren_model = Siren(
+    in_features=1,
+    hidden_features=HIDDEN_DIM,
+    hidden_layers=NUM_LAYERS,
+    out_features=1,
+    outermost_linear=True,
+    first_omega_0=3000,
+    hidden_omega_0=30.
+).to(device)
+
+siren_opt = optim.Adam(siren_model.parameters(), lr=LEARNING_RATE)
+
+methods["siren"] = {
+    "model": siren_model,
+    "map":   None,
+    "opt":   siren_opt,
+    "loss_curve": []
+}
 
 # --- Training & GIF creation ------------------------------------------
 criterion = SpectrogramPhaseRetrievalLoss().to(device)
+#criterion = torch.nn.MSELoss().to(device)
+
 waveform_frames    = []
 spectrogram_frames = []
 spec_tf            = torchaudio.transforms.Spectrogram(power=1).to(device)
 target_spec       = spec_tf(y_t.squeeze(1)).abs().cpu().numpy()
 
-for ep in tqdm(range(1, NUM_EPOCHS+1), desc="Training waveform & spectrograms"):
-	# training step
-	for m in methods.values():
-		m['opt'].zero_grad()
-		inp = x_t if m['map'] is None else m['map'](x_t)
-		pred = m['model'](inp)
-		loss = criterion(pred, y_t)
-		loss.backward()
-		m['opt'].step()
-		m['loss_curve'].append(loss.item())
+pbar = tqdm(range(1, NUM_EPOCHS+1), desc="Training", ncols=120)
+for ep in pbar:
+    for name, m in methods.items():
+        m['opt'].zero_grad()
+        inp = x_t if m['map'] is None else m['map'](x_t)
+        pred = m['model'](inp)
+        loss = criterion(pred, y_t)
+        loss.backward()
+        m['opt'].step()
+        m['loss_curve'].append(loss.item())
+
+    # show latest loss for each method in tqdm
+    pbar.set_postfix({
+        nm: f"{m['loss_curve'][-1]:.4f}"
+        for nm, m in methods.items()
+    })
 
 	# snapshots
-	if ep % SNAPSHOT_FREQ == 0:
+    if ep % SNAPSHOT_FREQ == 0:
 		# waveform plot
-		plt.figure(figsize=(15,4), dpi=150)
-		plt.plot(xs, ys, 'k--', label="Target")
-		for nm, m in methods.items():
-			with torch.no_grad():
-				inp = x_t if m['map'] is None else m['map'](x_t)
-				p = m['model'](inp).cpu().numpy().flatten()
-				plt.plot(xs, p, label=nm, color=LOSS_COLORS[nm])
-		plt.title(f"Waveform Approximation | Epoch {ep}")
-		plt.legend(); plt.tight_layout()
-		buf = io.BytesIO(); plt.savefig(buf, format='png'); buf.seek(0)
-		waveform_frames.append(np.array(Image.open(buf))); plt.close()
+        plt.figure(figsize=(15,4), dpi=150)
+        plt.plot(xs, ys, 'k--', label="Target")
+        for nm, m in methods.items():
+            with torch.no_grad():
+                inp = x_t if m['map'] is None else m['map'](x_t)
+                p = m['model'](inp).cpu().numpy().flatten()
+                plt.plot(xs, p, label=nm, color=LOSS_COLORS[nm])
+        plt.title(f"Waveform Approximation | Epoch {ep}")
+        plt.legend(); plt.tight_layout()
+        buf = io.BytesIO(); plt.savefig(buf, format='png'); buf.seek(0)
+        waveform_frames.append(np.array(Image.open(buf))); plt.close()
 
 		# spectrogram grid
-		fig, axes = plt.subplots(1, len(methods)+1, figsize=(15,4), dpi=100)
-		axes[0].imshow(target_spec, aspect='auto', origin='lower')
-		axes[0].set_title("Target Spec")
-		for i, (nm, m) in enumerate(methods.items()):
-			with torch.no_grad():
-				inp = x_t if m['map'] is None else m['map'](x_t)
-				spec = spec_tf(m['model'](inp).squeeze(1)).abs().cpu().numpy()
-			axes[i+1].imshow(spec, aspect='auto', origin='lower')
-			axes[i+1].set_title(nm)
-		plt.tight_layout()
-		buf = io.BytesIO(); plt.savefig(buf, format='png'); buf.seek(0)
-		spectrogram_frames.append(np.array(Image.open(buf))); plt.close()
+        fig, axes = plt.subplots(1, len(methods)+1, figsize=(15,4), dpi=100)
+        axes[0].imshow(target_spec, aspect='auto', origin='lower')
+        axes[0].set_title("Target Spec")
+        for i, (nm, m) in enumerate(methods.items()):
+            with torch.no_grad():
+                inp = x_t if m['map'] is None else m['map'](x_t)
+                spec = spec_tf(m['model'](inp).squeeze(1)).abs().cpu().numpy()
+            axes[i+1].imshow(spec, aspect='auto', origin='lower')
+            axes[i+1].set_title(nm)
+        plt.tight_layout()
+        buf = io.BytesIO(); plt.savefig(buf, format='png'); buf.seek(0)
+        spectrogram_frames.append(np.array(Image.open(buf))); plt.close()
 
 # ensure output directory
 os.makedirs('media', exist_ok=True)
@@ -200,3 +282,21 @@ for nm, m in methods.items():
 	plt.plot(epochs, m['loss_curve'], label=nm, color=LOSS_COLORS[nm])
 plt.yscale("log"); plt.xlabel("Epoch"); plt.ylabel("Loss (L1 spec)")
 plt.title("Training Loss Curves"); plt.legend(); plt.tight_layout(); plt.show()
+
+
+# --- Save final prediction as MP3 ----------------------------------------
+# get final output (1×audio_len) tensor on CPU
+with torch.no_grad():
+	pred = methods["siren"]["model"](x_t).squeeze(1).cpu()        # shape: [audio_len]
+
+# normalize to ±0.9 to avoid clipping
+pred = pred / pred.abs().max() * 0.9
+
+# add channel dimension -> shape [1, audio_len]
+pred = pred.unsqueeze(0)
+
+# write out
+torchaudio.save("media/prediction.mp3", pred, sample_rate=sr, format="mp3")
+print("Saved MP3: media/prediction.mp3")
+
+

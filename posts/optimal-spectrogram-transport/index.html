@@ -88,8 +88,22 @@
 			The other problem with Euclidean distance is a direct corollary of <a href="example.com">Parseval identity</a> and boils down to pure tone sinusoids being orthogonal. This means that a 101 Hz pure tone and a 200 Hz pure tone both have the same distance to a 100 Hz pure tone.
 		</p>
 
+		<p></p>
+
 		<hr class="squiggly-line"/>
 		<h2>Dynamic time warping (DTW)</h2>
+		<p>
+			Romain Tavenard wrote an excellent <a href="https://rtavenar.github.io/blog/dtw.html" target="_blank">overview</a> of DTW which I would refer to for details. On a high level, the dynamic time warping distance between two signals $x_1$ and $x_2$ is realized by minimizing the distance between $\pi(x_1)$ and $x_2$ where $\pi$ is a sequence of index pairs which 
+		</p>
+		<div class="figure_container_small">
+			<a data-fancybox="gallery0" href="media/02_gaussian_speed_warp.png">
+				<img class="figure" src="media/02_gaussian_speed_warp.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> TODO: Do my own version of RT's DTW image here.
+		</div>
+		
 
 		<hr class="squiggly-line"/>
 		<h2>Optimal transport</h2>
