@@ -93,16 +93,19 @@
 		<hr class="squiggly-line"/>
 		<h2>Dynamic time warping (DTW)</h2>
 		<p>
-			Romain Tavenard wrote an excellent <a href="https://rtavenar.github.io/blog/dtw.html" target="_blank">overview</a> of DTW which I would refer to for details. On a high level, the dynamic time warping distance between two signals $x_1$ and $x_2$ is realized by minimizing the distance between $\pi(x_1)$ and $x_2$ where $\pi$ is a sequence of index pairs which 
+			Romain Tavenard wrote an excellent <a href="https://rtavenar.github.io/blog/dtw.html" target="_blank">overview</a> of DTW which I would refer to for details. On a high level, the dynamic time warping distance between two signals $x_1$ and $x_2$ is realized by minimizing the Euclidean distance between $x_1$ and $x_2$ over all non-decreasing index permutations. The figure below illustrated the concept nicely.
 		</p>
 		<div class="figure_container_small">
-			<a data-fancybox="gallery0" href="media/02_gaussian_speed_warp.png">
-				<img class="figure" src="media/02_gaussian_speed_warp.png"></img>
+			<a data-fancybox="gallery0" href="media/dtw_vs_euc.svg">
+				<img class="figure" src="media/dtw_vs_euc.svg"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
 			<span class="caption_title">Figure: </span> TODO: Do my own version of RT's DTW image here.
 		</div>
+		<p>
+			This is the "standard" smart solution but as we will see, for signals with a frequency components, rearranging the indices does not allow us to align signals with close frequencies.
+		</p>
 		
 
 		<hr class="squiggly-line"/>

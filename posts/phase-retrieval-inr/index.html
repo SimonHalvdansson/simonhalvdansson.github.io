@@ -31,6 +31,19 @@
 
 	<script>hljs.highlightAll();</script>
 
+	<style>
+		.audio-title {
+			font-weight: 400;
+			font-size: 15px;
+			font-family: 'Roboto Mono', monospace;
+		}
+
+		audio {
+			margin-top: 4px;
+			margin-bottom: 10px;
+		}
+	</style>
+
 </head>
 <body>
 	<div class="blog centering" id="back_container">
@@ -40,14 +53,150 @@
 	</div>
 
 	<section class="blog centering post">
-		<h1>Spectrogram phase retrieval with implicit neural representations</h1>
+		<h1>Neural spectrogram phase retrieval with SIRENs</h1>
 		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Sep. 2025</div>
 
 		<hr class="squiggly-line"/>
 
 		<p>
-			Let investigate doing phase retrieval 
+			Modifying or producing spectrograms instead of working directly on a signal or short-time Fourier transform is powerful for applications such as phase vocoders, source separation, masking and TTS systems because you have a low-dimensional representation of your signal. Going from a spectrogram to an actual signal is the process of <i>phase retrieval</i> and is a well studied problem. Many algorithms and approaches have been proposed over the last few decades and in this post we will propose a very simple yet highly effective one based on <a href="../gabor-feature-experiments/index.html" target="_blank">implicit neural representations</a> (INRs) and more specifically the <a href="https://www.vincentsitzmann.com/siren/" target="_blank">SIREN</a> architecture by Sitzmann et. al. from 2020.
 		</p>
+
+		<div class="figure_container_small">
+			<a data-fancybox="gallery0" href="media/02_gaussian_speed_warp.png">
+				<img class="figure" src="media/02_gaussian_speed_warp.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> We'll probably change this image but something not too dissimilar from this. Preferably an animation I guess.
+		</div>
+
+		<p>
+			The SIREN architecture is essentially just a standard MLP with sine activation functions in each layer which has been shown to be very parameter effective for approximating real world signals such as audio, images, videos and 3D models. In the original paper, the authors show that the quantity
+		</p>
+		$\sum_i |\mathcal{N}(i) - y(i)|^2,$
+		<p>
+			where $\mathcal{N}$ is a SIREN neural network and $y$ is some signal, can be minimized to a smaller loss with fewer parameters and fewer steps than other comparable models. Note of course that any universal function approximator can minimize this quantity but it is the effectiveness of SIRENs which is remarkable. 
+		</p>
+
+		<p>
+			The idea of using some implicit neural representation to parametrize the target signal for phase retrieval is not new, at least for non-spectrogram phase retrieval (see <a href="https://arxiv.org/abs/2311.14925" target="_blank">SCAN</a> or <a href="https://www.spiedigitallibrary.org/journals/advanced-photonics-nexus/volume-3/issue-05/056005/NeuPh--scalable-and-generalizable-neural-phase-retrieval-with-local/10.1117/1.APN.3.5.056005.full" target="_blank">NeuPh</a>). The novelty here is mostly the observations that we do not need to perform any additional engineering or supply special scaffolding but can rather apply a very direct model and that SIRENs are particularly well suited to the problem, at least in the audio case.
+		</p>
+		
+		<hr class="squiggly-line">
+
+		<h2>Model and loss</h2>
+
+		<p>
+			The SIREN paper website has an implementation of SIREN which we use a barebones version of as our model.
+		</p>
+
+
+	<pre><code class="language-py">
+class SineLayer(nn.Module):
+	def __init__(self, in_features, out_features, bias=True,
+				 is_first=False, omega_0=30):
+		super().__init__()
+		self.omega_0 = omega_0
+		self.is_first = is_first
+		self.linear = nn.Linear(in_features, out_features, bias=bias)
+		with torch.no_grad():
+			if is_first:
+				self.linear.weight.uniform_(-1/in_features, 1/in_features)
+			else:
+				bound = np.sqrt(6/in_features) / omega_0
+				self.linear.weight.uniform_(-bound, bound)
+
+	def forward(self, x):
+		return torch.sin(self.omega_0 * self.linear(x))
+
+class Siren(nn.Module):
+	def __init__(self, in_features, hidden_features, hidden_layers,
+			     out_features, outermost_linear=True,
+			     first_omega_0=3000, hidden_omega_0=30.):
+		super().__init__()
+		layers = [SineLayer(in_features, hidden_features,
+					    is_first=True, omega_0=first_omega_0)]
+		for _ in range(hidden_layers):
+			layers.append(SineLayer(hidden_features, hidden_features,
+						    is_first=False, omega_0=hidden_omega_0))
+		if outermost_linear:
+			lin = nn.Linear(hidden_features, out_features)
+			with torch.no_grad():
+				bound = np.sqrt(6/hidden_features) / hidden_omega_0
+				lin.weight.uniform_(-bound, bound)
+			layers.append(lin)
+		else:
+			layers.append(SineLayer(hidden_features, out_features,
+						    is_first=False, omega_0=hidden_omega_0))
+		self.net = nn.Sequential(*layers)
+
+	def forward(self, x):
+		return self.net(x)
+	</code></pre>
+	
+	<p>
+		Note the first $\omega_0$ hyperparameter which rescales the time variable to be suitable as input to a sinusoid and hence corresponds to a change of variables. The later $\omega_0$ variables rescale the outputs of the linear layers and is empirically chosen (see the SIREN paper A.1.5 for more details).
+	</p>
+
+	<p>
+		For our loss we will simply look at the sum of absolute differences between our target and candidate spectrograms. This very general formulation can obviously be applied to other forms of phase retrieval.
+	</p>
+	<pre><code class="language-py">
+class SpectrogramPhaseRetrievalLoss(nn.Module):
+	def __init__(self, spec_transform):
+		super().__init__()
+		self.spec = spec_transform
+
+	def forward(self, pred, target):
+		sp_pred   = self.spec(pred.squeeze(1))
+		sp_target = self.spec(target.squeeze(1))
+		return torch.mean(torch.abs(sp_pred - sp_target))
+	</code></pre>
+
+	<p>
+		This is essentially all there is to this approach, we optimize with <code>ADAM</code> and use <code>3</code> hidden layers, each of dimensionality <code>256</code>.
+	</p>
+	
+	<hr class="squiggly-line">
+
+	<h2>Baselines</h2>
+
+	<p>
+		The Griffin-Lim algorithm is an iterative algorithm which is the most classical solution of the phase retrieval problem, classical enough that PyTorch has a built in <code>torchaudio.transforms.GriffinLim</code> transform. Our other baseline will be a straight forward gradient descent algorithm on on short-time Fourier transform. This means that we optimize two tensors of the same shape as the spectrogram, corresponding to the real and imaginary parts, and then compute the resulting signal as the inverse short-time Fourier transform. We call this method <i>Complex gradient descent</i>.
+	</p>
+
+	
+	<hr class="squiggly-line">
+
+	<h2>Results</h2>
+
+	
+		<div>
+			<div class="audio-title">Ground truth</div>
+			<audio controls>
+				<source src="media/ground_truth.mp3" type="audio/mpeg">
+			</audio>
+		</div>
+		<div>
+			<div class="audio-title">SIREN</div>
+			<audio controls>
+				<source src="media/siren.mp3" type="audio/mpeg">
+			</audio>
+		</div>
+		<div>
+			<div class="audio-title">Griffin-Lim</div>
+			<audio controls>
+				<source src="media/griffin_lim.mp3" type="audio/mpeg">
+			</audio>
+		</div>
+		<div>
+			<div class="audio-title">Complex gradient descent</div>
+			<audio controls>
+				<source src="media/complex_spec.mp3" type="audio/mpeg">
+			</audio>
+		</div>
+
 
 
 	</section>
