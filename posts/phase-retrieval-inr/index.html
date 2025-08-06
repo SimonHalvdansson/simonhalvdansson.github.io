@@ -73,7 +73,7 @@
 
 	<section class="blog centering post">
 		<h1>Neural spectrogram phase retrieval with SIRENs</h1>
-		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Sep. 2025</div>
+		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Aug. 2025</div>
 
 		<hr class="squiggly-line"/>
 
@@ -82,12 +82,12 @@
 		</p>
 
 		<div class="figure_container_small">
-			<a data-fancybox="gallery0" href="media/spectrogram_progress.gif">
-				<img class="figure" src="media/spectrogram_progress.gif"></img>
+			<a data-fancybox="gallery0" href="media/beepboop_spectrogram_progress.gif">
+				<img class="figure" src="media/beepboop_spectrogram_progress.gif"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> We'll probably change this image but something not too dissimilar from this. Preferably an animation I guess.
+			<span class="caption_title">Figure: </span> Learning process of a SIREN network in spectrograms.
 		</div>
 
 		<p>
@@ -202,7 +202,7 @@ imag_init = mag * torch.sin(phi)
 real_part = real_init.clone().detach().requires_grad_(True)
 imag_part = imag_init.clone().detach().requires_grad_(True)
 
-optimizer_complex = optim.Adam([real_part, imag_part], lr=LEARNING_RATE_PHASE)
+optimizer_complex = optim.Adam([real_part, imag_part], lr=5e-4)
 complex_loss_curve = []
 
 # gradient‐descent loop on full complex spectrogram
@@ -245,39 +245,71 @@ for ep in pbar:
 	<div class="result_group">
 		<div class="audio-title">Ground truth</div>
 		<audio controls>
-			<source src="media/ground_truth.mp3" type="audio/mpeg">
+			<source src="media/beepboop_ground_truth.mp3" type="audio/mpeg">
 		</audio>
-		<img src="media/ground_truth_spec.png"/>
+		<img src="media/beepboop_ground_truth_spec.png"/>
 	</div>
 	<div class="result_group">
 		<div class="audio-title">SIREN</div>
 		<audio controls>
-			<source src="media/siren.mp3" type="audio/mpeg">
+			<source src="media/beepboop_siren.mp3" type="audio/mpeg">
 		</audio>
-		<img src="media/siren_mag.png"/>
+		<img src="media/beepboop_siren_mag.png"/>
 	</div>
 	<div class="result_group">
 		<div class="audio-title">Griffin-Lim</div>
 		<audio controls>
-			<source src="media/griffin_lim.mp3" type="audio/mpeg">
+			<source src="media/beepboop_griffin_lim.mp3" type="audio/mpeg">
 		</audio>
-		<img src="media/griffin_lim_spec.png"/>
+		<img src="media/beepboop_griffin_lim_spec.png"/>
 	</div>
 	<div class="result_group">
 		<div class="audio-title">Complex gradient descent</div>
 		<audio controls>
-			<source src="media/complex_spec.mp3" type="audio/mpeg">
+			<source src="media/beepboop_complex_spec.mp3" type="audio/mpeg">
 		</audio>
-		<img src="media/spec_gd_mag.png"/>
+		<img src="media/beepboop_spec_gd_mag.png"/>
 	</div>
 
+	<p>
+		Next up we look at a more involved audio clip.
+	</p>
+
+	<div class="result_group">
+		<div class="audio-title">Ground truth</div>
+		<audio controls>
+			<source src="media/jazz_ground_truth.mp3" type="audio/mpeg">
+		</audio>
+		<img src="media/jazz_ground_truth_spec.png"/>
+	</div>
+	<div class="result_group">
+		<div class="audio-title">SIREN</div>
+		<audio controls>
+			<source src="media/jazz_siren.mp3" type="audio/mpeg">
+		</audio>
+		<img src="media/jazz_siren_mag.png"/>
+	</div>
+	<div class="result_group">
+		<div class="audio-title">Griffin-Lim</div>
+		<audio controls>
+			<source src="media/jazz_griffin_lim.mp3" type="audio/mpeg">
+		</audio>
+		<img src="media/jazz_griffin_lim_spec.png"/>
+	</div>
+	<div class="result_group">
+		<div class="audio-title">Complex gradient descent</div>
+		<audio controls>
+			<source src="media/jazz_complex_spec.mp3" type="audio/mpeg">
+		</audio>
+		<img src="media/jazz_spec_gd_mag.png"/>
+	</div>
 
 	<hr class="squiggly-line">
 
 	<h2>Discussion</h2>
 
 	<p>
-		We have seen that the SIREN based network generally performs better than both pure complex gradient descent and the Griffin-Lim algorithm. It is also much faster to train and can better utilize hardware acceleration by virtue of doing more matrix multiplications and less fast Fourier transforms behind the scenes. 
+		We have seen that the SIREN based network generally performs better than both pure complex gradient descent and the Griffin-Lim algorithm. It is also much faster to train and can better utilize hardware acceleration by virtue of doing more matrix multiplications and less fast Fourier transforms behind the scenes. For implementation details see the <a href="https://github.com/SimonHalvdansson/simonhalvdansson.github.io/tree/master/posts/phase-retrieval-inr">GitHub folder</a> for this post.
 	</p>
 
 

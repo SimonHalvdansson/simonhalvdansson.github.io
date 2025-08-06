@@ -21,13 +21,17 @@ def save_audio(name, audio, sample_rate):
     # Normalize to max amplitude of 0.9
     audio = audio / audio.abs().max() * 0.9
     # Save as MP3
-    path = f"media/{name}.mp3"
+    path = f"media/{audio_name}_{name}.mp3"
     torchaudio.save(path, audio.cpu(), sample_rate=sample_rate, format='mp3')
     print(f"Saved MP3: {path}")
 
 # --- Configuration ---------------------------------------------------------
 # Audio file and method toggles
-audio_file          = 'audio.wav'    # Path to input audio
+audio_name =        "jazz"
+audio_filetype =    ".mp3"
+audio_file =        audio_name + audio_filetype    # Path to input audio
+seconds_to_include = 1
+freq_bins_max_plot = 40
 include_siren    = True            # Toggle SIREN model
 include_griffin  = True            # Toggle Griffin-Lim reconstruction
 include_phase    = True             # Toggle phase gradient descent
@@ -38,11 +42,11 @@ generate_spectrogram_gif = True  # Toggle spectrogram grid GIF
 # Model/training settings
 HIDDEN_DIM      = 256      # Hidden dimension for MLP/SIREN
 NUM_LAYERS      = 3        # Number of hidden layers
-NUM_EPOCHS      = 400
+NUM_EPOCHS      = 1000
 LEARNING_RATE   = 1e-4
 SNAPSHOT_FREQ   = 20       # Epochs between GIF snapshots
 
-NUM_EPOCHS_PHASE = 2000
+NUM_EPOCHS_PHASE = 10000
 LEARNING_RATE_PHASE = 5e-4
 
 # Spectrogram/Griffin-Lim configuration
@@ -121,9 +125,9 @@ class SpectrogramPhaseRetrievalLoss(nn.Module):
 
 # --- Prepare Data ---------------------------------------------------------
 ys, sr = torchaudio.load(audio_file)
-# mono + first second
-ys = ys[0][:sr]
-audio_len = sr
+
+audio_len = sr*seconds_to_include
+ys = ys[0][:audio_len]
 x = torch.linspace(0, 1, audio_len).unsqueeze(1)
 x_t = x.to(device)
 y_t = ys.unsqueeze(1).to(device)
@@ -177,7 +181,7 @@ for ep in pbar:
             
 if generate_spectrogram_gif and spec_frames:
     os.makedirs('media', exist_ok=True)
-    gif_path = 'media/spectrogram_progress.gif'
+    gif_path = f'media/{audio_name}_spectrogram_progress.gif'
     imageio.mimsave(gif_path, spec_frames, fps=10, loop=0)   # or duration=0.5, etc.
     print(f"Saved spectrogram GIF: {gif_path}")
 
@@ -215,19 +219,19 @@ if include_griffin:
     
     # Plot only the first 40 frequency bins for each
     plt.figure(figsize=(8, 2), dpi=150)
-    plt.imshow(gt_spec[:40, :], aspect='auto', origin='lower')
+    plt.imshow(gt_spec[:100, :], aspect='auto', origin='lower')
     plt.title('Ground Truth Spectrogram (MSE = 0)')
     plt.xticks([]); plt.yticks([])
     plt.tight_layout()
-    plt.savefig("media/ground_truth_spec.png")
+    plt.savefig(f"media/{audio_name}_ground_truth_spec.png")
     plt.show()
     
     plt.figure(figsize=(8, 2), dpi=150)
-    plt.imshow(gl_spec[:40, :], aspect='auto', origin='lower')
+    plt.imshow(gl_spec[:freq_bins_max_plot, :], aspect='auto', origin='lower')
     plt.title(f'Griffin–Lim Spectrogram (MSE = {gl_loss:.5f})')
     plt.xticks([]); plt.yticks([])
     plt.tight_layout()
-    plt.savefig("media/griffin_lim_spec.png")
+    plt.savefig(f"media/{audio_name}_griffin_lim_spec.png")
     plt.show()
 
 # --- Plot loss curve and final spec ------------------------------------------
@@ -251,7 +255,7 @@ if include_siren:
         siren_spec = spec_transform(siren_out.unsqueeze(0).squeeze(0)).abs().cpu().numpy()
 
     plt.figure(figsize=(8, 2), dpi=150)
-    plt.imshow(siren_spec[:40, :], aspect='auto', origin='lower')
+    plt.imshow(siren_spec[:freq_bins_max_plot, :], aspect='auto', origin='lower')
     
     final_siren_loss = methods["siren"]["loss_curve"][-1]
     
@@ -259,7 +263,7 @@ if include_siren:
     plt.xticks([])   # drop x‐ticks
     plt.yticks([])   # drop y‐ticks
     plt.tight_layout()
-    plt.savefig("media/siren_mag.png")
+    plt.savefig(f"media/{audio_name}_siren_mag.png")
     plt.show()
 
 # --- Phase Gradient Descent on Full STFT --------------------------------
@@ -339,15 +343,15 @@ if include_phase:
     plt.title('Complex Spectrogram GD Loss Curve')
     plt.legend()
     plt.tight_layout()
-    plt.savefig("media/spec_gd_loss.png")
+    plt.savefig(f"media/{audio_name}spec_gd_loss.png")
     plt.show()
 
     final_mag = final_spec.abs().cpu().numpy()
     plt.figure(figsize=(8, 2), dpi=150)
-    plt.imshow(final_mag[:40, :], aspect='auto', origin='lower')
+    plt.imshow(final_mag[:freq_bins_max_plot, :], aspect='auto', origin='lower')
     plt.title(f'Complex Gradient Descent Spectrogram (MSE={complex_loss_curve[-1]:.5f})')
     plt.xticks([])
     plt.yticks([])
     plt.tight_layout()
-    plt.savefig("media/spec_gd_mag.png")
+    plt.savefig(f"media/{audio_name}_spec_gd_mag.png")
     plt.show()
