@@ -235,7 +235,7 @@ for ep in pbar:
 	<h2>Results</h2>
 
 	<p>
-		In all cases we train the SIREN based network for <code>1000</code> epochs and let the complex gradient descent method iterate <code>10000</code> times. At our empirically decided learning rates this is where the loss has mostly plateaued.
+		In all cases we train the SIREN based network for <code>2000</code> epochs and let the complex gradient descent method iterate <code>20000</code> times. At our empirically decided learning rates this is where the loss has mostly plateaued. The SIREN training takes just under 30 seconds on an RTX 3070 while the complex gradient descent takes just under 90 seconds.
 	</p>
 
 	<p>
@@ -304,6 +304,10 @@ for ep in pbar:
 		<img src="media/jazz_spec_gd_mag.png"/>
 	</div>
 
+	<p>
+		Here the defects are more clearly noticable yet smaller in the case of the SIREN model. A larger model or a shorter audio clip would likely have improved the results further.
+	</p>
+
 	<hr class="squiggly-line">
 
 	<h2>Discussion</h2>
@@ -311,7 +315,6 @@ for ep in pbar:
 	<p>
 		We have seen that the SIREN based network generally performs better than both pure complex gradient descent and the Griffin-Lim algorithm. It is also much faster to train and can better utilize hardware acceleration by virtue of doing more matrix multiplications and less fast Fourier transforms behind the scenes. For implementation details see the <a href="https://github.com/SimonHalvdansson/simonhalvdansson.github.io/tree/master/posts/phase-retrieval-inr">GitHub folder</a> for this post.
 	</p>
-
 
 	</section>
 	

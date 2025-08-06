@@ -37,16 +37,16 @@ include_griffin  = True            # Toggle Griffin-Lim reconstruction
 include_phase    = True             # Toggle phase gradient descent
 
 # GIF generation toggles
-generate_spectrogram_gif = True  # Toggle spectrogram grid GIF
+generate_spectrogram_gif = False  # Toggle spectrogram grid GIF
 
 # Model/training settings
 HIDDEN_DIM      = 256      # Hidden dimension for MLP/SIREN
 NUM_LAYERS      = 3        # Number of hidden layers
-NUM_EPOCHS      = 1000
+NUM_EPOCHS      = 2000
 LEARNING_RATE   = 1e-4
 SNAPSHOT_FREQ   = 20       # Epochs between GIF snapshots
 
-NUM_EPOCHS_PHASE = 10000
+NUM_EPOCHS_PHASE = 20000
 LEARNING_RATE_PHASE = 5e-4
 
 # Spectrogram/Griffin-Lim configuration
@@ -219,7 +219,7 @@ if include_griffin:
     
     # Plot only the first 40 frequency bins for each
     plt.figure(figsize=(8, 2), dpi=150)
-    plt.imshow(gt_spec[:100, :], aspect='auto', origin='lower')
+    plt.imshow(gt_spec[:freq_bins_max_plot, :], aspect='auto', origin='lower')
     plt.title('Ground Truth Spectrogram (MSE = 0)')
     plt.xticks([]); plt.yticks([])
     plt.tight_layout()
