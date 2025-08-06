@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>INR phase retrieval</title>
+	<title>Neural spectrogram phase retrieval with SIRENs</title>
 
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="theme-color" content="#FBEDEA" />
@@ -33,14 +33,33 @@
 
 	<style>
 		.audio-title {
-			font-weight: 400;
-			font-size: 15px;
+			text-align: center;
+			font-weight: 900;
+			width: 100%;
+			font-size: 24px;
 			font-family: 'Roboto Mono', monospace;
 		}
 
 		audio {
+			display: block;
+			margin-left: auto;
+			margin-right: auto;
 			margin-top: 4px;
 			margin-bottom: 10px;
+		}
+
+		.equation {
+			text-align: center;
+			max-width: 100%;
+			overflow-x: auto;
+			overflow-y: hidden;
+			padding-left: 16px;
+			padding-right: 16px;
+		}
+
+		.result_group img {
+			width: 100%;
+			margin-bottom: 36px;
 		}
 	</style>
 
@@ -63,8 +82,8 @@
 		</p>
 
 		<div class="figure_container_small">
-			<a data-fancybox="gallery0" href="media/02_gaussian_speed_warp.png">
-				<img class="figure" src="media/02_gaussian_speed_warp.png"></img>
+			<a data-fancybox="gallery0" href="media/spectrogram_progress.gif">
+				<img class="figure" src="media/spectrogram_progress.gif"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
@@ -72,9 +91,11 @@
 		</div>
 
 		<p>
-			The SIREN architecture is essentially just a standard MLP with sine activation functions in each layer which has been shown to be very parameter effective for approximating real world signals such as audio, images, videos and 3D models. In the original paper, the authors show that the quantity
+			The SIREN architecture is (up to minor details) just a standard MLP with sine activation functions in each layer which has been shown to be very parameter effective for approximating real world signals such as audio, images, videos and 3D models. In the original paper, the authors show that the quantity
 		</p>
-		$\sum_i |\mathcal{N}(i) - y(i)|^2,$
+		<div class="equation">
+			$\sum_i |\mathcal{N}(i) - y(i)|^2,$
+		</div>
 		<p>
 			where $\mathcal{N}$ is a SIREN neural network and $y$ is some signal, can be minimized to a smaller loss with fewer parameters and fewer steps than other comparable models. Note of course that any universal function approximator can minimize this quantity but it is the effectiveness of SIRENs which is remarkable. 
 		</p>
@@ -94,45 +115,42 @@
 
 	<pre><code class="language-py">
 class SineLayer(nn.Module):
-	def __init__(self, in_features, out_features, bias=True,
-				 is_first=False, omega_0=30):
-		super().__init__()
-		self.omega_0 = omega_0
-		self.is_first = is_first
-		self.linear = nn.Linear(in_features, out_features, bias=bias)
-		with torch.no_grad():
-			if is_first:
-				self.linear.weight.uniform_(-1/in_features, 1/in_features)
-			else:
-				bound = np.sqrt(6/in_features) / omega_0
-				self.linear.weight.uniform_(-bound, bound)
+    def __init__(self, in_features, out_features, bias=True,
+                 is_first=False, omega_0=30):
+        super().__init__()
+        self.omega_0 = omega_0
+        self.is_first = is_first
+        self.linear = nn.Linear(in_features, out_features, bias=bias)
+        with torch.no_grad():
+            if is_first:
+                self.linear.weight.uniform_(-1/in_features, 1/in_features)
+            else:
+                bound = np.sqrt(6/in_features) / omega_0
+                self.linear.weight.uniform_(-bound, bound)
 
-	def forward(self, x):
-		return torch.sin(self.omega_0 * self.linear(x))
+    def forward(self, x):
+        return torch.sin(self.omega_0 * self.linear(x))
 
 class Siren(nn.Module):
-	def __init__(self, in_features, hidden_features, hidden_layers,
-			     out_features, outermost_linear=True,
-			     first_omega_0=3000, hidden_omega_0=30.):
-		super().__init__()
-		layers = [SineLayer(in_features, hidden_features,
-					    is_first=True, omega_0=first_omega_0)]
-		for _ in range(hidden_layers):
-			layers.append(SineLayer(hidden_features, hidden_features,
-						    is_first=False, omega_0=hidden_omega_0))
-		if outermost_linear:
-			lin = nn.Linear(hidden_features, out_features)
-			with torch.no_grad():
-				bound = np.sqrt(6/hidden_features) / hidden_omega_0
-				lin.weight.uniform_(-bound, bound)
-			layers.append(lin)
-		else:
-			layers.append(SineLayer(hidden_features, out_features,
-						    is_first=False, omega_0=hidden_omega_0))
-		self.net = nn.Sequential(*layers)
+    def __init__(self, in_features, hidden_features, hidden_layers,
+                 out_features, first_omega_0=3000, hidden_omega_0=30.):
+        super().__init__()
+        layers = [SineLayer(in_features, hidden_features,
+                    is_first=True, omega_0=first_omega_0)]
+        for _ in range(hidden_layers):
+            layers.append(SineLayer(hidden_features, hidden_features,
+                        is_first=False, omega_0=hidden_omega_0))
+        
+        lin = nn.Linear(hidden_features, out_features)
+        with torch.no_grad():
+            bound = np.sqrt(6/hidden_features) / hidden_omega_0
+            lin.weight.uniform_(-bound, bound)
+        layers.append(lin)
+       
+        self.net = nn.Sequential(*layers)
 
-	def forward(self, x):
-		return self.net(x)
+    def forward(self, x):
+        return self.net(x)
 	</code></pre>
 	
 	<p>
@@ -166,37 +184,101 @@ class SpectrogramPhaseRetrievalLoss(nn.Module):
 		The Griffin-Lim algorithm is an iterative algorithm which is the most classical solution of the phase retrieval problem, classical enough that PyTorch has a built in <code>torchaudio.transforms.GriffinLim</code> transform. Our other baseline will be a straight forward gradient descent algorithm on on short-time Fourier transform. This means that we optimize two tensors of the same shape as the spectrogram, corresponding to the real and imaginary parts, and then compute the resulting signal as the inverse short-time Fourier transform. We call this method <i>Complex gradient descent</i>.
 	</p>
 
+		<pre><code class="language-py">
+# set up target magnitude
+mag = spec_transform(y_t.squeeze(1)).abs().detach()
+
+# initialize learnable real & imaginary parts of the STFT
+shape = mag.shape
+
+# random phase in [0, 2π)
+phi = torch.rand(shape, device=device) * 2 * np.pi
+
+# build real & imaginary parts with correct magnitudes
+real_init = mag * torch.cos(phi)
+imag_init = mag * torch.sin(phi)
+
+# make them leaf tensors requiring gradients
+real_part = real_init.clone().detach().requires_grad_(True)
+imag_part = imag_init.clone().detach().requires_grad_(True)
+
+optimizer_complex = optim.Adam([real_part, imag_part], lr=LEARNING_RATE_PHASE)
+complex_loss_curve = []
+
+# gradient‐descent loop on full complex spectrogram
+pbar = tqdm(range(1, NUM_EPOCHS_PHASE+1), desc="Complex Spec GD", ncols=90)
+for ep in pbar:
+	optimizer_complex.zero_grad()
+
+	# assemble complex spectrogram
+	complex_spec = torch.complex(real_part, imag_part)
+
+	# inverse STFT back to time‐domain waveform
+	audio_pred = torch.istft(
+		complex_spec,
+		n_fft=SPECTROGRAM_CONFIG["n_fft"],
+		hop_length=SPECTROGRAM_CONFIG["hop_length"],
+		win_length=SPECTROGRAM_CONFIG["win_length"],
+		window=win,
+		length=audio_len
+	)
+
+	# compute loss against target spectrogram
+	loss = criterion(audio_pred.unsqueeze(1), y_t)
+	loss.backward()
+	optimizer_complex.step()
+	</code></pre>
+
 	
 	<hr class="squiggly-line">
 
 	<h2>Results</h2>
 
-	
-		<div>
-			<div class="audio-title">Ground truth</div>
-			<audio controls>
-				<source src="media/ground_truth.mp3" type="audio/mpeg">
-			</audio>
-		</div>
-		<div>
-			<div class="audio-title">SIREN</div>
-			<audio controls>
-				<source src="media/siren.mp3" type="audio/mpeg">
-			</audio>
-		</div>
-		<div>
-			<div class="audio-title">Griffin-Lim</div>
-			<audio controls>
-				<source src="media/griffin_lim.mp3" type="audio/mpeg">
-			</audio>
-		</div>
-		<div>
-			<div class="audio-title">Complex gradient descent</div>
-			<audio controls>
-				<source src="media/complex_spec.mp3" type="audio/mpeg">
-			</audio>
-		</div>
+	<p>
+		In all cases we train the SIREN based network for <code>1000</code> epochs and let the complex gradient descent method iterate <code>10000</code> times. At our empirically decided learning rates this is where the loss has mostly plateaued.
+	</p>
 
+	<p>
+		First we look at a very simple audio clip with isolated pure tones of varying frequency. In this simple case the SIREN model significantly outperforms the two baselines.
+	</p>
+	
+	<div class="result_group">
+		<div class="audio-title">Ground truth</div>
+		<audio controls>
+			<source src="media/ground_truth.mp3" type="audio/mpeg">
+		</audio>
+		<img src="media/ground_truth_spec.png"/>
+	</div>
+	<div class="result_group">
+		<div class="audio-title">SIREN</div>
+		<audio controls>
+			<source src="media/siren.mp3" type="audio/mpeg">
+		</audio>
+		<img src="media/siren_mag.png"/>
+	</div>
+	<div class="result_group">
+		<div class="audio-title">Griffin-Lim</div>
+		<audio controls>
+			<source src="media/griffin_lim.mp3" type="audio/mpeg">
+		</audio>
+		<img src="media/griffin_lim_spec.png"/>
+	</div>
+	<div class="result_group">
+		<div class="audio-title">Complex gradient descent</div>
+		<audio controls>
+			<source src="media/complex_spec.mp3" type="audio/mpeg">
+		</audio>
+		<img src="media/spec_gd_mag.png"/>
+	</div>
+
+
+	<hr class="squiggly-line">
+
+	<h2>Discussion</h2>
+
+	<p>
+		We have seen that the SIREN based network generally performs better than both pure complex gradient descent and the Griffin-Lim algorithm. It is also much faster to train and can better utilize hardware acceleration by virtue of doing more matrix multiplications and less fast Fourier transforms behind the scenes. 
+	</p>
 
 
 	</section>
