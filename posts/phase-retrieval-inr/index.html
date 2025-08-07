@@ -91,7 +91,7 @@
 		</div>
 
 		<p>
-			The SIREN architecture is (up to minor details) just a standard MLP with sine activation functions in each layer which has been shown to be very parameter-effective for approximating real world signals such as audio, images, videos and 3D models. In the original paper, the authors show that the quantity
+			The SIREN architecture is (up to minor details) just a standard MLP with sine activation functions in each layer which has been shown to be very parameter-efficient for approximating real-world signals such as audio, images, videos and 3D models. In the original paper, the authors show that the quantity
 		</p>
 		<div class="equation">
 			$\sum_i |\mathcal{N}(i) - y(i)|^2,$
@@ -154,7 +154,7 @@ class Siren(nn.Module):
 	</code></pre>
 	
 	<p>
-		Note the first $\omega_0$ hyperparameter which rescales the time variable to be suitable as input to a sinusoid and hence corresponds to a change of variables. The later $\omega_0$ variables rescale the outputs of the linear layers and is empirically chosen (see the SIREN paper A.1.5 for more details).
+		Note the first $\omega_0$ hyperparameter which rescales the time variable to be suitable as input to a sinusoid and hence corresponds to a change of variables. The latter $\omega_0$ variables rescale the outputs of the linear layers and are empirically chosen (see the SIREN paper A.1.5 for more details).
 	</p>
 
 	<p>
@@ -181,7 +181,7 @@ class SpectrogramPhaseRetrievalLoss(nn.Module):
 	<h2>Baselines</h2>
 
 	<p>
-		The Griffin-Lim algorithm is an iterative algorithm which is the most classical solution of the phase retrieval problem, classical enough that PyTorch has a built in <code>torchaudio.transforms.GriffinLim</code> transform. Our other baseline will be a straightforward gradient descent algorithm on the short-time Fourier transform. This means that we optimize two tensors of the same shape as the spectrogram, corresponding to the real and imaginary parts, and then compute the resulting signal as the inverse short-time Fourier transform. We call this method <i>Complex gradient descent</i>.
+		The Griffin-Lim algorithm is an iterative algorithm which is the most classical solution of the phase retrieval problem, classical enough that PyTorch has a built-in <code>torchaudio.transforms.GriffinLim</code> transform. Our other baseline will be a straightforward gradient descent algorithm on the short-time Fourier transform. This means that we optimize two tensors of the same shape as the spectrogram, corresponding to the real and imaginary parts, and then compute the resulting signal as the inverse short-time Fourier transform. We call this method <i>Complex gradient descent</i>.
 	</p>
 
 		<pre><code class="language-py">
@@ -235,7 +235,7 @@ for ep in pbar:
 	<h2>Results</h2>
 
 	<p>
-		In all cases we train the SIREN-based network for <code>2000</code> epochs and let the complex gradient descent method iterate <code>20000</code> times. At our empirically decided learning rates this is where the loss has mostly plateaued. The SIREN training takes just under 30 seconds on an RTX 3070 while the complex gradient descent takes just under 90 seconds.
+		In all cases we train the SIREN-based network for <code>2,000</code> epochs and let the complex gradient descent method iterate <code>20,000</code> times. At our empirically decided learning rates this is where the loss has mostly plateaued. The SIREN training takes just under 30 seconds on an RTX 3070 while the complex gradient descent takes just under 90 seconds.
 	</p>
 
 	<p>
@@ -313,7 +313,7 @@ for ep in pbar:
 	<h2>Discussion</h2>
 
 	<p>
-		We have seen that the SIREN based network generally performs better than both pure complex gradient descent and the Griffin-Lim algorithm. It is also much faster to train and can better utilize hardware acceleration by virtue of doing more matrix multiplications and less fast Fourier transforms behind the scenes. For implementation details see the <a href="https://github.com/SimonHalvdansson/simonhalvdansson.github.io/tree/master/posts/phase-retrieval-inr">GitHub folder</a> for this post.
+		We have seen that the SIREN-based network generally performs better than both pure complex gradient descent and the Griffin-Lim algorithm. It is also much faster to train and can better utilize hardware acceleration by virtue of doing more matrix multiplications and fewer fast Fourier transforms behind the scenes. For implementation details see the <a href="https://github.com/SimonHalvdansson/simonhalvdansson.github.io/tree/master/posts/phase-retrieval-inr">GitHub folder</a> for this post.
 	</p>
 
 	</section>
