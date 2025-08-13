@@ -302,6 +302,7 @@ h1 {
     font-size: 15px;
     transition: transform 0.2s, box-shadow 0.2s;
     vertical-align: top;
+    background: white;
 }
 
 .posts .post a {
@@ -311,6 +312,23 @@ h1 {
     text-decoration: none;
     color: #512725;
     display: block;
+}
+
+.posts .post .date {
+    font-size: 14px;
+    font-family: 'Roboto Mono', monospace;
+    color: #512725;
+    margin-top: 2px;
+    text-decoration: underline;
+    text-transform: uppercase;
+}
+
+.posts .post_image {
+    width: 100%;
+    height: auto;
+    margin-top: 10px;
+    border-radius: 16px;
+    margin-bottom: 10px;
 }
 
 .posts .post:hover {
