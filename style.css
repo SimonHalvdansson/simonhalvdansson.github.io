@@ -300,8 +300,8 @@ h1 {
     border: 1px solid #512725;
     padding-left: 20px;
     padding-right: 20px;
-    padding-top: 12px;
-    padding-bottom: 8px;
+    padding-top: 14px;
+    padding-bottom: 10px;
     font-size: 15px;
     transition: transform 0.2s, box-shadow 0.2s;
     vertical-align: top;
@@ -331,7 +331,6 @@ h1 {
     height: auto;
     margin-top: 10px;
     border-radius: 16px;
-    margin-bottom: 10px;
 }
 
 .posts .post:hover {
