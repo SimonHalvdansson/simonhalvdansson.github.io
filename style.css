@@ -298,7 +298,10 @@ h1 {
     box-sizing: border-box;
     border-radius: 30px;
     border: 1px solid #512725;
-    padding: 10px 20px;
+    padding-left: 20px;
+    padding-right: 20px;
+    padding-top: 12px;
+    padding-bottom: 8px;
     font-size: 15px;
     transition: transform 0.2s, box-shadow 0.2s;
     vertical-align: top;
@@ -315,7 +318,7 @@ h1 {
 }
 
 .posts .post .date {
-    font-size: 14px;
+    font-size: 12px;
     font-family: 'Roboto Mono', monospace;
     color: #512725;
     margin-top: 2px;
