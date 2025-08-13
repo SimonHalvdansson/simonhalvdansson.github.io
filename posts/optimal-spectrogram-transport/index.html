@@ -41,12 +41,12 @@
 
 	<section class="blog centering post">
 		<h1>Notions of time-aware signal distance functions - optimal spectrogram transport</h1>
-		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Aug. 2025</div>
+		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Sep. 2025</div>
 
 		<hr class="squiggly-line"/>
 
 		<p>
-			Determining if two vectors are near each other is generally a straightforward problem - Euclidean distance or cosine similarity are standard solutions. We are interested in the special case where the vector indices indicate time, i.e., vectors which represent time series data or signals. There are specialized metrics available for this class of vectors but as we will see their preference for translations over modulations poses an issue for signals which exhibits some form of <i>time-frequency</i> structure or time-warying oscillations such as those related to audio, radar, EEG, seismic activity or vibrations.
+			Determining if two vectors are near each other is generally a straightforward problem - Euclidean distance or cosine similarity are standard solutions. In this post, we are interested in the special case where the vector indices indicate time, i.e., vectors which represent time series data or signals. There are specialized metrics available for this class of vectors but as we will see their preference for translations over modulations poses an issue for signals which exhibits some form of <i>time-frequency</i> structure or time-warying oscillations such as those related to audio, radar, EEG, seismic activity or vibrations.
 		</p>
 
 		<p>
@@ -70,11 +70,11 @@
 		<h2>Why look at distances between signals?</h2>
 
 		<p>
-			The standard motivation for looking at distances between signals is to perform some sort of clustering/classification/anomaly detection task. We could get around the need for a distance function by first applying some form of encoding. The machine learning approach would then be to use a learned encoding, such as either simple fully connected or convolutions layers or something more involved like <a href="example.com">wav2vec</a>, to obtain a latent representation of the data which is easier to work with directly. 
+			The standard motivation for looking at distances between signals is to perform some sort of clustering/classification/anomaly detection task. We could get around the need for a distance function by first applying some form of encoding and computing a standard distance in a latent space. In a machine learning setting, this latent representation would be the output of some neural network like in <a target="_blank" href="https://ai.meta.com/blog/wav2vec-20-learning-the-structure-of-speech-from-raw-audio/">wav2vec</a>.
 		</p>
 		
 		<p>
-			There are obvious interpretability benefits to a distance function which works directly on the signal, being able to directly query the distance between two signals makes a model considerably more explainable. A distance function which makes sense for the domain of the data also ideally improved the inductive bias of the model and can help reduce complexity. 
+			There are obvious interpretability benefits to a distance function which works directly on the signal - it should be considerably more explainable than a neural encoding. A distance function which makes sense for the domain of the data also ideally improved the inductive bias of the model and can help reduce complexity. 
 		</p>
 
 		<hr class="squiggly-line"/>
@@ -85,15 +85,21 @@
 		</p>
 
 		<p>
-			The other problem with Euclidean distance is a direct corollary of <a href="example.com">Parseval identity</a> and boils down to pure tone sinusoids being orthogonal. This means that a 101 Hz pure tone and a 200 Hz pure tone both have the same distance to a 100 Hz pure tone.
+			The other problem with Euclidean distance is a direct corollary of <a href="example.com">Parseval identity</a> and boils down to pure tone sinusoids being orthogonal. This means that a 101 Hz pure tone and a 200 Hz pure tone both have the same distance to a 100 Hz pure tone. Mathematically,
 		</p>
 
-		<p></p>
+		<div class="equation">
+			$\big\langle \sin(n\,\cdot), \sin(m\,\cdot)\big\rangle = \begin{cases} 1\qquad m=n,\\ 0 \qquad m \neq n \end{cases}$
+		</div>
+
+		<p>
+			for integers $m, n$.
+		</p>
 
 		<hr class="squiggly-line"/>
 		<h2>Dynamic time warping (DTW)</h2>
 		<p>
-			Romain Tavenard wrote an excellent <a href="https://rtavenar.github.io/blog/dtw.html" target="_blank">overview</a> of DTW which I would refer to for details. On a high level, the dynamic time warping distance between two signals $x_1$ and $x_2$ is realized by minimizing the Euclidean distance between $x_1$ and $x_2$ over all non-decreasing index permutations. The figure below illustrates the concept nicely.
+			Romain Tavenard wrote an excellent <a href="https://rtavenar.github.io/blog/dtw.html" target="_blank">overview</a> of DTW which I will refer to for details. On a high level, the dynamic time warping distance between two signals $x_1$ and $x_2$ is realized by minimizing the Euclidean distance between $x_1$ and $x_2$ over all non-decreasing index permutations. The figure below illustrates the concept nicely.
 		</p>
 		<div class="figure_container_small">
 			<a data-fancybox="gallery0" href="media/dtw_vs_euc.svg">
@@ -104,9 +110,8 @@
 			<span class="caption_title">Figure: </span> TODO: Do my own version of RT's DTW image here.
 		</div>
 		<p>
-			This is the "standard" smart solution but as we will see, for signals with a frequency components, rearranging the indices does not allow us to align signals with close frequencies.
+			This is the "standard" smart solution but as we will see in the <a href="#examples">examples</a> below, rearranging the indices does not allow us to align signals with close frequencies.
 		</p>
-		
 
 		<hr class="squiggly-line"/>
 		<h2>Optimal transport</h2>
@@ -123,6 +128,12 @@
 			The <a href="https://en.wikipedia.org/wiki/Spectrogram">spectrogram</a> of a signal is a 2-dimensional representation, meaning a function $\mathbb{R} \times \mathbb{R} \to \mathbb{R}$, where the axes represent time and frequency. 
 		</p>
 	
+		<hr class="squiggly-line"/>
+		<h2 id="examples">Examples</h2>
+
+		<p>
+			The <a href="https://en.wikipedia.org/wiki/Spectrogram">spectrogram</a> of a signal is a 2-dimensional representation, meaning a function $\mathbb{R} \times \mathbb{R} \to \mathbb{R}$, where the axes represent time and frequency. 
+		</p>
 
 	</section>
 	
