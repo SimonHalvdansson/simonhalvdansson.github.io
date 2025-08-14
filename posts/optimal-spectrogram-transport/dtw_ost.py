@@ -26,7 +26,11 @@ from fastdtw import fastdtw
 import ot
 import matplotlib.gridspec as gridspec
 from tqdm import tqdm
-import os # Added for directory and file path operations
+import os
+from matplotlib.animation import FuncAnimation, PillowWriter
+from matplotlib.lines import Line2D
+
+
 
 # --- Configuration ---
 # High resolution and smaller fonts
@@ -433,16 +437,140 @@ def experiment_noise_robustness():
     plt.show()
     plt.close(fig)
 
+def experiment_sinusoid_distance_gif():
+    """
+    GIF of sinusoid distance (10–40 Hz sweep):
+      - Left 2/3: waveform (top, ref in red) + spectrogram (bottom, current image + ref red contours)
+      - Right 1/3: bar chart with normalized L², DTW, OST in [0,1]
+    Output: media/07_sinusoid_distance.gif
+    """
+    fs, duration = 1000.0, 1.0
+    t = np.linspace(0, duration, int(fs*duration), endpoint=False)
+
+    # Reference and sweep
+    f_ref = 10.0
+    base = np.sin(2*np.pi*f_ref*t)
+    freqs = np.linspace(10.0, 40.0, 60)  # 10 → 40 Hz
+
+    # Spectrogram settings (higher-res, less blocky)
+    nperseg, noverlap, nfft = 512, 448, 2048  # heavy overlap + zero-padding
+
+    # Precompute signals, distances, spectrograms
+    sigs, d_l2, d_dtw, d_ost, S_list = [], [], [], [], []
+    for f in tqdm(freqs, desc="GIF: Sinusoid sweep (precompute)"):
+        sig = np.sin(2*np.pi*f*t)
+        sigs.append(sig)
+        d_l2.append(l2_distance(base, sig, t))
+        d_dtw.append(dtw_distance(base, sig))
+        d_ost.append(ost_distance(base, sig, fs))
+        f_spec, t_spec, Sxx = spectrogram(sig, fs=fs, nperseg=nperseg, noverlap=noverlap, nfft=nfft)
+        S_list.append((f_spec, t_spec, Sxx))
+
+    # Reference spectrogram (for contours)
+    f_spec_ref, t_spec_ref, S_ref = spectrogram(base, fs=fs, nperseg=nperseg, noverlap=noverlap, nfft=nfft)
+
+    # Normalize distances once (fix bar axis across frames)
+    d_l2  = np.array(d_l2);  d_l2  = d_l2  / (d_l2.max()  if d_l2.max()  > 0 else 1.0)
+    d_dtw = np.array(d_dtw); d_dtw = d_dtw / (d_dtw.max() if d_dtw.max() > 0 else 1.0)
+    d_ost = np.array(d_ost); d_ost = d_ost / (d_ost.max() if d_ost.max() > 0 else 1.0)
+
+    # Fixed waveform y-limits across frames
+    max_abs = max(np.max(np.abs(s)) for s in sigs + [base])
+    ypad = 0.05 * max_abs
+    ylo, yhi = -max_abs - ypad, max_abs + ypad
+
+    # Fixed spectrogram frequency band & color scale
+    fmax = 60.0
+    vmax = max(Sxx[f_spec <= fmax, :].max() for (f_spec, _, Sxx) in S_list)
+    vmin = 0.0
+    fmask_ref = f_spec_ref <= fmax
+    S_ref_band = S_ref[fmask_ref, :]
+    ref_max = S_ref_band.max() if S_ref_band.size else 1.0
+    ref_levels = [0.2*ref_max, 0.4*ref_max, 0.6*ref_max, 0.8*ref_max]
+    extent = [t_spec_ref.min(), t_spec_ref.max(), 0.0, fmax]
+
+    # Wider figure; make waveform row less tall
+    fig = plt.figure(constrained_layout=True, dpi=DPI, figsize=(8, 3.5))
+    gs = gridspec.GridSpec(2, 3, figure=fig,
+                           width_ratios=[1, 1, 1],
+                           height_ratios=[1, 3])  # waveform shorter than spectrogram
+
+    # Left 2/3
+    ax_wave = fig.add_subplot(gs[0, :2])
+    ax_spec = fig.add_subplot(gs[1, :2])
+
+    # Right 1/3 (bars)
+    ax_bar = fig.add_subplot(gs[:, 2])
+
+    # Waveform init: plot reference (red) and current (default color)
+    ax_wave.plot(t, base, lw=1.25, color='red', label='Ref 10 Hz')
+    cur_line, = ax_wave.plot(t, sigs[0], lw=1.25, label='Current f')
+    ax_wave.set_xlim(0, duration)
+    ax_wave.set_ylim(ylo, yhi)
+    ax_wave.set_title("Sinusoid waveform (ref=10 Hz, sweep 10–40 Hz)")
+    ax_wave.set_xlabel("Time (s)")
+    ax_wave.set_ylabel("Amplitude")
+    ax_wave.legend(loc='upper right', fontsize=7)
+
+    # Spectrogram init: current as image, reference as red contours on top
+    f_spec0, t_spec0, S0_full = S_list[0]
+    fmask0 = f_spec0 <= fmax
+    S0 = S0_full[fmask0, :]
+    im = ax_spec.imshow(
+        S0, origin="lower", aspect="auto", extent=extent,
+        vmin=vmin, vmax=vmax, interpolation="bilinear"
+    )
+    ax_spec.contour(t_spec_ref, f_spec_ref[fmask_ref], S_ref_band,
+                    levels=ref_levels, colors='red', linewidths=0.6)
+    ax_spec.set_xlim(extent[0], extent[1])
+    ax_spec.set_ylim(0.0, fmax)
+    ax_spec.set_title("Spectrogram (current image + ref contours)")
+    ax_spec.set_xlabel("Time (s)")
+    ax_spec.set_ylabel("Frequency (Hz)")
+    proxy = Line2D([0], [0], color='red', lw=1.0)
+    ax_spec.legend([proxy], ['Ref spec (contours)'], loc='upper right', fontsize=7)
+
+    # Bars init
+    labels = ["L²", "DTW", "OST"]
+    vals0 = [d_l2[0], d_dtw[0], d_ost[0]]
+    bars = ax_bar.bar(labels, vals0)
+    ax_bar.set_ylim(0, 1.0)
+    ax_bar.set_title("Normalized distances")
+    ax_bar.set_ylabel("Value")
+
+    def update(i):
+        # Waveform: update current
+        cur_line.set_ydata(sigs[i])
+        # Spectrogram: update current image
+        f_spec_i, t_spec_i, S_full = S_list[i]
+        fmask_i = f_spec_i <= fmax
+        Si = S_full[fmask_i, :]
+        im.set_data(Si)
+        # Bars
+        for b, v in zip(bars, (d_l2[i], d_dtw[i], d_ost[i])):
+            b.set_height(v)
+        return (cur_line, im, *bars)
+
+    # 7 fps
+    anim = FuncAnimation(fig, update, frames=len(sigs), interval=1000/7, blit=False)
+    out_path = os.path.join(SAVE_DIR, "07_sinusoid_distance.gif")
+    writer = PillowWriter(fps=7)  # no loop parameter
+    anim.save(out_path, writer=writer)
+    plt.close(fig)
+    print(f"Saved GIF to: {out_path}")
+
+
 if __name__ == "__main__":
     # Create the output directory if it doesn't exist
     os.makedirs(SAVE_DIR, exist_ok=True)
     print(f"Running experiments. Figures will be saved to '{SAVE_DIR}/' and displayed.")
 
-    experiment_sinusoids()
-    experiment_gaussian_speed()
-    experiment_gaussian_shift()
-    experiment_chirp_alignment()
-    experiment_composite_gap()
-    experiment_noise_robustness()
+    experiment_sinusoid_distance_gif()
+    #experiment_sinusoids()
+    #experiment_gaussian_speed()
+    #experiment_gaussian_shift()
+    #experiment_chirp_alignment()
+    #experiment_composite_gap()
+    #experiment_noise_robustness()
 
     print("\nAll experiments complete.")
