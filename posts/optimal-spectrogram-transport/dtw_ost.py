@@ -35,7 +35,7 @@ from matplotlib.lines import Line2D
 # --- Configuration ---
 # High resolution and smaller fonts
 plt.rcParams.update({'font.size': 8})
-DPI = 300
+DPI = 200
 SAVE_DIR = "media" # Directory to save figures
 
 # --- Helper Functions ---
@@ -558,6 +558,135 @@ def experiment_sinusoid_distance_gif():
     anim.save(out_path, writer=writer)
     plt.close(fig)
     print(f"Saved GIF to: {out_path}")
+    
+
+def experiment_ot_morph_mp4():
+    """
+    Optimal Transport morph animation (MP4):
+      Left  : source distribution morphs over frames via displacement interpolation
+              (using the optimal transport plan) toward the target.
+      Right : fixed target distribution (2D Gaussian centered in the middle).
+
+    Output: media/08_ot_morph.mp4
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib.gridspec as gridspec
+    from matplotlib.animation import FuncAnimation, FFMpegWriter
+    import ot
+    import os
+
+    SAVE_DIR = "media"
+    DPI = 150
+    os.makedirs(SAVE_DIR, exist_ok=True)
+
+    # ----- Grid (use cell centers in [0,1]x[0,1]) -----
+    G = 150
+    xs = (np.arange(G) + 0.5) / G
+    ys = (np.arange(G) + 0.5) / G
+    X, Y = np.meshgrid(xs, ys, indexing="xy")
+    coords = np.column_stack([X.ravel(), Y.ravel()])   # (G^2, 2)
+
+    # ----- Source: "ring + two blobs" -----
+    cx, cy = 0.35, 0.50
+    r0, sig_r = 0.28, 0.05
+    R = np.sqrt((X - cx) ** 2 + (Y - cy) ** 2)
+    ring = np.exp(-0.5 * ((R - r0) / sig_r) ** 2)
+
+    blob1 = np.exp(-0.5 * (((X - 0.75) / 0.08) ** 2 + ((Y - 0.25) / 0.06) ** 2))
+    blob2 = np.exp(-0.5 * (((X - 0.78) / 0.07) ** 2 + ((Y - 0.75) / 0.07) ** 2))
+    skew = 0.3 + 1.0 / (1.0 + np.exp((X - 0.45) / 0.04))
+
+    A = (0.6 * ring + 0.8 * blob1 + 0.7 * blob2) * skew
+    A = np.clip(A, 0.0, None)
+    a = A.ravel()
+    a = a / a.sum()
+
+    # ----- Target: centered 2D Gaussian -----
+    B = np.exp(-0.5 * (((X - 0.5) / 0.14) ** 2 + ((Y - 0.5) / 0.14) ** 2))
+    B = np.clip(B, 0.0, None)
+    b = B.ravel()
+    b = b / b.sum()
+
+    # ----- Optimal transport plan -----
+    M = ot.dist(coords, coords, metric="euclidean") ** 2
+    Gamma = ot.emd(a, b, M)
+
+    I, J = np.where(Gamma > 0)
+    m_ij = Gamma[I, J]
+    xi = coords[I]
+    yj = coords[J]
+
+    A_grid = a.reshape(G, G)
+    B_grid = b.reshape(G, G)
+    vmin, vmax = 0.0, max(A_grid.max(), B_grid.max())
+
+    # ----- Figure -----
+    fig = plt.figure(constrained_layout=True, dpi=DPI, figsize=(6.8, 3.2))
+    gs = gridspec.GridSpec(1, 2, figure=fig, width_ratios=[1, 1])
+
+    ax_left = fig.add_subplot(gs[0, 0])
+    ax_right = fig.add_subplot(gs[0, 1])
+
+    im_right = ax_right.imshow(
+        B_grid,
+        origin="lower",
+        extent=[0, 1, 0, 1],
+        vmin=vmin,
+        vmax=vmax,
+        aspect="equal",
+        interpolation="bilinear",
+    )
+    ax_right.set_title("Target distribution (2D Gaussian)")
+    ax_right.set_xlabel("x")
+    ax_right.set_ylabel("y")
+
+    im_left = ax_left.imshow(
+        A_grid,
+        origin="lower",
+        extent=[0, 1, 0, 1],
+        vmin=vmin,
+        vmax=vmax,
+        aspect="equal",
+        interpolation="bilinear",
+    )
+    ttl = ax_left.set_title("OT displacement interpolation: t = 0.00")
+    ax_left.set_xlabel("x")
+    ax_left.set_ylabel("y")
+
+    # ----- Animation -----
+    frames = 120
+
+    def _positions_at(tau):
+        tau = tau**2 * (2 - tau**2)  # easing
+        return (1.0 - tau) * xi + tau * yj
+
+    def _grid_index_from_pos(pos):
+        ix = np.rint(pos[:, 0] * G - 0.5).astype(int)
+        iy = np.rint(pos[:, 1] * G - 0.5).astype(int)
+        np.clip(ix, 0, G - 1, out=ix)
+        np.clip(iy, 0, G - 1, out=iy)
+        return iy, ix
+
+    def update(f):
+        tau = f / (frames - 1)
+        pos = _positions_at(tau)
+        iy, ix = _grid_index_from_pos(pos)
+
+        Z = np.zeros((G, G), dtype=float)
+        np.add.at(Z, (iy, ix), m_ij)
+
+        im_left.set_data(Z)
+        ttl.set_text(f"OT displacement interpolation: t = {tau:0.2f}")
+        return (im_left, ttl)
+
+    anim = FuncAnimation(fig, update, frames=frames, interval=1000 / 20, blit=False)
+
+    out_path = os.path.join(SAVE_DIR, "08_ot_morph.mp4")
+    writer = FFMpegWriter(fps=20, codec="h264", bitrate=1800)
+    anim.save(out_path, writer=writer)
+    plt.close(fig)
+    print(f"Saved MP4 to: {out_path}")
 
 
 if __name__ == "__main__":
@@ -565,7 +694,9 @@ if __name__ == "__main__":
     os.makedirs(SAVE_DIR, exist_ok=True)
     print(f"Running experiments. Figures will be saved to '{SAVE_DIR}/' and displayed.")
 
-    experiment_sinusoid_distance_gif()
+    experiment_ot_morph_mp4()
+    #experiment_ot_morph_gif()
+    #experiment_sinusoid_distance_gif()
     #experiment_sinusoids()
     #experiment_gaussian_speed()
     #experiment_gaussian_shift()

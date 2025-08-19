@@ -53,13 +53,13 @@
 			We will make the case that an appropriate solution is <i>optimal transport distance between spectrograms</i> through examples where other methods fail.
 		</p>
 
-		<div class="figure_container_small">
+		<div class="figure_container_small" id="main_fig">
 			<a data-fancybox="gallery0" href="media/07_sinusoid_distance.gif">
 				<img class="figure" src="media/07_sinusoid_distance.gif"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> We'll probably change this image but something not too dissimilar from this. Preferably an animation I guess.
+			<span class="caption_title">Figure: </span> Euclidean $\ell^2$, dynamic time warping and optimal spectrogram distances for a family of sinusoids of increasing frequency.
 		</div>
 
 		<p>
@@ -72,6 +72,15 @@
 		<p>
 			The standard motivation for looking at distances between signals is to perform some sort of clustering/classification/anomaly detection task. We could get around the need for a distance function by first applying some form of encoding and computing a standard distance in a latent space. In a machine learning setting, this latent representation would be the output of some neural network like in <a target="_blank" href="https://ai.meta.com/blog/wav2vec-20-learning-the-structure-of-speech-from-raw-audio/">wav2vec</a>.
 		</p>
+
+		<div class="figure_container_small"  style="padding: 0;">
+			<a data-fancybox="gallery0" href="media/wav2vec.jpg">
+				<img class="figure" src="media/wav2vec.jpg"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> 2D PCA wav2vec 2.0 embeddings for text from different languages, from the wav2vec 2.0 <a target="_blank" href="https://ai.meta.com/blog/wav2vec-20-learning-the-structure-of-speech-from-raw-audio/">blog post</a>.
+		</div>
 		
 		<p>
 			There are obvious interpretability benefits to a distance function which works directly on the signal - it should be considerably more explainable than a neural encoding. A distance function which makes sense for the domain of the data also ideally improved the inductive bias of the model and can help reduce complexity. 
@@ -85,7 +94,7 @@
 		</p>
 
 		<p>
-			The other problem with Euclidean distance is a direct corollary of <a href="example.com">Parseval identity</a> and boils down to pure tone sinusoids being orthogonal. This means that a 101 Hz pure tone and a 200 Hz pure tone both have the same distance to a 100 Hz pure tone. Mathematically,
+			The other problem with Euclidean distance is a direct corollary of <a href="https://en.wikipedia.org/wiki/Parseval%27s_identity" target="_blank">Parseval's identity</a> and boils down to pure tone sinusoids being orthogonal. This means that a 101 Hz pure tone and a 200 Hz pure tone both have the same distance to a 100 Hz pure tone. Mathematically,
 		</p>
 
 		<div class="equation">
@@ -93,7 +102,7 @@
 		</div>
 
 		<p>
-			for integers $m, n$.
+			for integers $m, n$. This is what is illustrated in the <a href="#main_fig">figure</a> at the start of the post.
 		</p>
 
 		<hr class="squiggly-line"/>
@@ -117,8 +126,20 @@
 		<h2>Optimal transport</h2>
 
 		<p>
-			For optimal transport, sometimes called the <i>earth mover's distance</i> or <i>Wasserstein distance</i>, the underlying idea is to consider how much work it is to go from one function to another. Specifically, 
+			For optimal transport, sometimes called the <i>earth mover's distance</i> or <i>Wasserstein distance</i>, the underlying idea is to consider how much work it is to go from one distribution to another, both of the same mass. In the simplest case where the two distributions are point masses, this required work is equal to the distance between the two points. For more complex distributions $\mu, \nu : X \to \mathbb{R}$, a <i>transport plan</i> $\pi : X \times X \to \mathbb{R}$ tells us how much mass to move for each pair of points. In order to preserve mass, this means that for any point $y$, the mass of $\nu$ at $y$, $\nu(y)$, must match the mass which is moved from $X$ to $y$, i.e., $$\nu(y) = \int_X \pi(x,y)\,dx.$$ There can be many such transport plans but the optimal transport distance is the minimal <i>cost</i> $\int_{X \times Y} |x-y| \pi(x,y)\,dx\,dy$ over all possible transport plans. The concept is most easily demonstrated by an animation like the following.
 		</p>
+		<div class="figure_container_small">
+			<a data-fancybox="gallery0" href="media/08_ot_morph.mp4">
+				<video class="figure" src="media/08_ot_morph.mp4" autoplay muted playsinline loop preload="metadata"></video>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Continuous morphing along straight lines for an optimal transport plan between two distributions. Dottiness is a consequence of numerical inexactness.
+		</div>
+		<p>
+			There are extensions where we can punish distance nonlinearly also but for the purpose of this post we can think of it as the sum of all the distances moved multiplied by the mass moved at each point.
+		</p>
+
 
 
 		<hr class="squiggly-line"/>

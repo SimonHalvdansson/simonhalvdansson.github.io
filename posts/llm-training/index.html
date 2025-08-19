@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Neural spectrogram phase retrieval with SIRENs</title>
+
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#FBEDEA" />
+
+	<link rel="shortcut icon" type="image/x-icon"  href="../../favicon.ico?">
+	<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+
+	<link rel="stylesheet" href="style.css">
+
+	<script>
+	window.MathJax = {
+	tex: {
+		inlineMath: [['$', '$'], ['\\(', '\\)']]
+	}
+	};
+	</script>
+
+	<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+	<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+	<link rel="stylesheet" href="../atom-one-dark.min.css">
+	<script src="../highlight.min.js"></script>
+
+	<script>hljs.highlightAll();</script>
+
+	<style>
+		.audio-title {
+			text-align: center;
+			font-weight: 900;
+			width: 100%;
+			font-size: 24px;
+			font-family: 'Roboto Mono', monospace;
+		}
+
+		audio {
+			display: block;
+			margin-left: auto;
+			margin-right: auto;
+			margin-top: 4px;
+			margin-bottom: 10px;
+		}
+		
+		.result_group img {
+			width: 100%;
+			margin-bottom: 36px;
+		}
+	</style>
+
+</head>
+<body>
+	<div class="blog centering" id="back_container">
+		<a href="../index.html" class="back"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="14" fill="currentColor" class="bi bi-caret-left" viewBox="0 0 22 18">
+			<path fill-rule="evenodd" clip-rule="evenodd" d="M14.0303 7.46967C14.3232 7.76256 14.3232 8.23744 14.0303 8.53033L10.5607 12L14.0303 15.4697C14.3232 15.7626 14.3232 16.2374 14.0303 16.5303C13.7374 16.8232 13.2626 16.8232 12.9697 16.5303L8.96967 12.5303C8.67678 12.2374 8.67678 11.7626 8.96967 11.4697L12.9697 7.46967C13.2626 7.17678 13.7374 7.17678 14.0303 7.46967Z"/>
+		  </svg>All posts</a>
+	</div>
+
+	<section class="blog centering post">
+		<h1>Training a good LLM in five minutes</h1>
+		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Sep. 2025</div>
+
+		<hr class="squiggly-line"/>
+
+		<p>
+			Over the past few years there has been many innovations in LLM design; smart pretraining recipies, substantial posttraining RL, and architectural improvements. In this post, we'll look at how these architectural improvements translate to small models trained for short amounts of time. If you're making a truly optimal model constrained to a certain size, something like <a href="https://developers.googleblog.com/en/introducing-gemma-3-270m/" target="_blank">Gemma 3 270M</a> is a better place to look. The recent post <a href="https://www.seangoedecke.com/model-on-a-mbp/">What's the strongest AI model you can train on a laptop in five minutes?</a> by Sean Goedecke was a strong inspiration for this post but my aim here is to iterate more on the model.
+		</p>
+
+		<div class="figure_container_small">
+			<a data-fancybox="gallery0" href="media/beepboop_spectrogram_progress.gif">
+				<img class="figure" src="media/beepboop_spectrogram_progress.gif"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Want a scatter plot of preplexity for different models here.
+		</div>
+
+		<p>
+			Starting from a GPT-2-type model, we will work through the following set of techniques to see what affects validation preplexity on the <a href="https://arxiv.org/abs/2305.07759" target="_blank">TinyStories</a> dataset:
+			<ul>
+				<li>Dropout</li>
+				<li>Pre/post norm</li>
+				<li>FFN archtecture (SwiGLU)</li>
+				<li>LayerNorm / RMSNorm</li>
+				<li>Mixed-precision (AMP)</li>
+				<li>Wide/deep blocks</li>
+				<li>Grouped Query Attention (GQA)</li>
+				<li>Optimizers (Muon)</li>
+				<li>Schedulers</li>
+			</ul>
+			Before starting, we'll say a couple of things about modern archtectures and the methodology. If you just want the results, jump to them <a href="#results">here</a>.
+		</p>
+
+		<hr class="squiggly-line"/>
+		
+		<h2>Modern models</h2>
+
+		<p>
+			
+			The excellent <a href="https://magazine.sebastianraschka.com/p/from-gpt-2-to-gpt-oss-analyzing-the" target="_blank">overview</a> by Sebastian Raschka.
+		</p>
+
+		<hr class="squiggly-line"/>
+
+		<h2>Methodology</h2>
+
+		<hr class="squiggly-line"/>
+
+		<h2 id="results">Results</h2>
+		
+		<p>text</p>
+		
+
+
+	</section>
+	
+	<link rel="stylesheet" href="../fancybox.css" />
+	<script src="../fancybox.umd.js"></script>
+
+	<script>
+		Fancybox.bind("[data-fancybox]", {
+			closeButton: false,
+		});
+	  </script>
+
+
+</body>
+</html>
