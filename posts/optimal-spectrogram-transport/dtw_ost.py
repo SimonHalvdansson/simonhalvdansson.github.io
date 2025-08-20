@@ -688,13 +688,536 @@ def experiment_ot_morph_mp4():
     plt.close(fig)
     print(f"Saved MP4 to: {out_path}")
 
+def experiment_dtw_alignment_mp4():
+    """
+    Dynamic Time Warping (DTW) — signals + warping map (no cost matrix).
+    Produces:
+      • media/09_dtw_illustration.png (static, two panels)
+      • media/09_dtw_alignment.mp4    (animated, H.264)
+    """
+    import os
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib.gridspec as gridspec
+    from matplotlib.animation import FuncAnimation, FFMpegWriter
+
+    # ---------- helpers ----------
+    def _build_time_warp(t):
+        """
+        Smooth monotone piecewise-linear warp on t∈[0,1]:
+        compress early part, stretch later part, average slope ~1.
+        """
+        t0, t1 = 0.45, 0.55
+        s0, s1 = 0.75, 1.35
+        sm = (1.0 - s0 * t0 - s1 * (1.0 - t1)) / (t1 - t0)
+        c0 = 0.0
+        c1 = c0 + s0 * t0
+        c2 = c1 + sm * (t1 - t0)
+        tau = np.where(
+            t < t0,
+            c0 + s0 * t,
+            np.where(t < t1, c1 + sm * (t - t0), c2 + s1 * (t - t1)),
+        )
+        return np.clip(tau + 0.02, 0.0, 1.0)
+
+    def _dtw_full(a, b):
+        """
+        Classic O(nm) DTW with |a_i - b_j| local cost.
+        Returns D (local), C (cum), and optimal path as [(i,j), ...].
+        """
+        n, m = len(a), len(b)
+        D = np.abs(a[:, None] - b[None, :])
+        C = np.full((n + 1, m + 1), np.inf, dtype=float)
+        C[0, 0] = 0.0
+        ptr = np.zeros((n, m), dtype=np.uint8)  # 0=diag, 1=up, 2=left
+        for i in range(1, n + 1):
+            ci = i - 1
+            row_prev = C[i - 1]
+            row_cur = C[i]
+            for j in range(1, m + 1):
+                cj = j - 1
+                choices = (row_prev[j - 1], row_prev[j], row_cur[j - 1])
+                k = int(np.argmin(choices))
+                C[i, j] = D[ci, cj] + choices[k]
+                ptr[ci, cj] = k
+        # Backtrack
+        i, j = n, m
+        path = []
+        while i > 0 and j > 0:
+            ci, cj = i - 1, j - 1
+            path.append((ci, cj))
+            k = ptr[ci, cj]
+            if k == 0:
+                i -= 1; j -= 1
+            elif k == 1:
+                i -= 1
+            else:
+                j -= 1
+        while i > 0:
+            i -= 1; path.append((i, 0))
+        while j > 0:
+            j -= 1; path.append((0, j))
+        path.reverse()
+        return D, C[1:, 1:], np.asarray(path, dtype=int)
+
+    def _warping_map_from_path(path, n, m):
+        """Average j for each i along the path; linearly interpolate gaps."""
+        j_lists = [[] for _ in range(n)]
+        for i, j in path:
+            j_lists[i].append(j)
+        j_of_i = np.full(n, np.nan, dtype=float)
+        for i in range(n):
+            if j_lists[i]:
+                j_of_i[i] = np.mean(j_lists[i])
+        if np.isnan(j_of_i).any():
+            idx = np.arange(n)
+            good = ~np.isnan(j_of_i)
+            j_of_i = np.interp(idx, idx[good], j_of_i[good])
+        return j_of_i
+
+    # ---------- signals ----------
+    fs = 400.0
+    duration = 1.5
+    t = np.linspace(0, duration, int(fs * duration), endpoint=False)
+    tn = (t - t.min()) / (t.max() - t.min())
+
+    # Reference: Gaussian envelope × slow-FM sinusoid
+    env = np.exp(-0.5 * ((tn - 0.5) / 0.18) ** 2)
+    f0, f1 = 6.0, 12.0
+    inst_f = f0 + (f1 - f0) * (0.5 * (1 + np.sin(2 * np.pi * (tn - 0.25))))
+    phase = 2 * np.pi * np.cumsum(inst_f) / fs
+    a = env * np.sin(phase)
+
+    # Warped by resampling reference at warped times
+    tau = _build_time_warp(tn)
+    idx = np.linspace(0, len(tn) - 1, len(tn))
+    b = np.interp(tau * (len(tn) - 1), idx, a)
+
+    # Downsample for DTW matrix size (display still uses full-res curves)
+    reduce = 2  # 1: none; 2: half; 4: quarter, etc.
+    ai, bi, ti = a[::reduce], b[::reduce], t[::reduce]
+
+    # ---------- DTW & warping map ----------
+    _, _, path = _dtw_full(ai, bi)
+    n, m = len(ai), len(bi)
+    j_of_i = _warping_map_from_path(path, n, m)
+
+    # ---------- Static figure (signals + warping map) ----------
+    os.makedirs(SAVE_DIR, exist_ok=True)
+    fig = plt.figure(constrained_layout=True, dpi=DPI, figsize=(8.6, 4.6))
+    gs = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[1.15, 1.0])
+
+    ax_sig = fig.add_subplot(gs[0, 0])
+    ax_map = fig.add_subplot(gs[1, 0])
+
+    ymax = max(np.max(np.abs(a)), np.max(np.abs(b)))
+    yshift = 1.4 * ymax
+    ax_sig.plot(t, a, lw=1.2, label="Reference")
+    ax_sig.plot(t, b + yshift, lw=1.2, label="Warped (offset)")
+    ax_sig.set_title("DTW Illustration: signals & warping map")
+    ax_sig.set_xlabel("Time (s)")
+    ax_sig.set_ylabel("Amplitude")
+    ax_sig.legend(loc="upper right", fontsize=8)
+
+    # Light subset of correspondence lines for context
+    step_conn = max(1, len(path) // 120)
+    for (ii, jj) in path[::step_conn]:
+        ax_sig.plot([ti[ii], ti[jj]], [ai[ii], bi[jj] + yshift], lw=0.5, alpha=0.35)
+
+    ax_map.plot(np.arange(n), j_of_i, lw=1.4, label="j(i) from DTW")
+    ax_map.plot([0, n - 1], [0, m - 1], ls="--", lw=1.0, label="identity")
+    ax_map.set_xlim(0, n - 1)
+    ax_map.set_ylim(0, m - 1)
+    ax_map.set_xlabel("i (reference index)")
+    ax_map.set_ylabel("j (warped index)")
+    ax_map.set_title("Warping function")
+    ax_map.legend(loc="upper left", fontsize=8)
+
+    out_png = os.path.join(SAVE_DIR, "09_dtw_illustration.png")
+    plt.savefig(out_png, dpi=DPI, bbox_inches="tight")
+    plt.show()
+    plt.close(fig)
+
+    # ---------- MP4 animation (signals + growing j(i)) ----------
+    fig2 = plt.figure(constrained_layout=True, dpi=DPI, figsize=(8.6, 4.6))
+    gs2 = gridspec.GridSpec(2, 1, figure=fig2, height_ratios=[1.15, 1.0])
+    ax_sig2 = fig2.add_subplot(gs2[0, 0])
+    ax_map2 = fig2.add_subplot(gs2[1, 0])
+
+    ax_sig2.plot(t, a, lw=1.0)
+    ax_sig2.plot(t, b + yshift, lw=1.0)
+    ax_sig2.set_title("DTW alignment (animated)")
+    ax_sig2.set_xlabel("Time (s)")
+    ax_sig2.set_ylabel("Amplitude")
+
+    # moving connector between matched samples (uses downsampled times)
+    conn_line, = ax_sig2.plot([], [], lw=1.8)
+
+    ax_map2.plot([0, n - 1], [0, m - 1], ls="--", lw=1.0)
+    ax_map2.set_xlim(0, n - 1)
+    ax_map2.set_ylim(0, m - 1)
+    ax_map2.set_xlabel("i (reference index)")
+    ax_map2.set_ylabel("j (warped index)")
+    ax_map2.set_title("Warping map prefix")
+    line_map, = ax_map2.plot([], [], lw=1.6)
+
+    # Thin the path for frame count
+    step_anim = max(1, len(path) // 300)
+    path_anim = path[::step_anim]
+    i_prefix = []
+    j_prefix = []
+
+    def update(k):
+        ii, jj = path_anim[k]
+        # update connector on signals
+        conn_line.set_data([ti[ii], ti[jj]], [ai[ii], bi[jj] + yshift])
+        # update warping map prefix
+        i_prefix.append(ii)
+        j_prefix.append(jj)
+        line_map.set_data(i_prefix, j_prefix)
+        return (conn_line, line_map)
+
+    anim = FuncAnimation(fig2, update, frames=len(path_anim), interval=1000 / 12, blit=False)
+    out_mp4 = os.path.join(SAVE_DIR, "09_dtw_alignment.mp4")
+    writer = FFMpegWriter(fps=12, codec="h264", bitrate=2000)
+    anim.save(out_mp4, writer=writer)
+    plt.close(fig2)
+
+    print(f"Saved: {out_png} and {out_mp4}")
+
+def experiment_spectrogram_showcase():
+    """
+    Single PNG:
+      • Top: composite waveform
+      • Bottom: single spectrogram titled "Spectrogram"
+    Labels are white; figure is wide. X-axes align exactly (no left/right padding).
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib.gridspec as gridspec
+    from scipy.signal import spectrogram
+    import os
+
+    fs, duration = 1000.0, 4.0
+    t = np.linspace(0, duration, int(fs * duration), endpoint=False)
+
+    # ---- Build composite signal ----
+    x = np.zeros_like(t)
+
+    # 1) Steady 60 Hz tone (0.0–1.2 s)
+    m1 = (t >= 0.0) & (t < 1.2)
+    x[m1] += 0.9 * np.sin(2 * np.pi * 60 * t[m1])
+
+    # 2) Linear chirp 40→220 Hz (1.0–2.6 s), amplitude ×2
+    m2 = (t >= 1.0) & (t < 2.6)
+    w2 = np.hanning(m2.sum()) if m2.sum() > 4 else np.ones(m2.sum())
+    tt2 = t[m2]
+    f_start, f_end = 40.0, 220.0
+    f_inst = f_start + (f_end - f_start) * (tt2 - tt2[0]) / (tt2[-1] - tt2[0])
+    phase = 2 * np.pi * np.cumsum(f_inst) / fs
+    x[m2] += 1.6 * np.sin(phase) * w2
+
+    # 3) Silence (2.6–3.2 s)
+
+    # 4) Two close tones 120 & 140 Hz (3.2–4.0 s), amplitude ×2
+    m4 = (t >= 3.2) & (t <= 4.0)
+    w4 = np.hanning(m4.sum()) if m4.sum() > 4 else np.ones(m4.sum())
+    x[m4] += 1.5 * 0.5 * (
+        np.sin(2 * np.pi * 120 * t[m4]) + np.sin(2 * np.pi * 140 * t[m4])
+    ) * w4
+
+    # ---- Spectrogram (long window) ----
+    f_l, ts_l, S_l = spectrogram(x, fs=fs, nperseg=256, noverlap=255)
+    fmax = 300.0
+    mask = f_l <= fmax
+    Sv = S_l[mask, :]
+    nf, nt = Sv.shape
+
+    # Use explicit bin EDGES so the image spans exactly [0, duration] × [0, fmax]
+    t_edges = np.linspace(0.0, duration, nt + 1)
+    f_top = f_l[mask][-1]
+    f_edges = np.linspace(0.0, min(fmax, f_top), nf + 1)
+
+    vmin, vmax = 0.0, Sv.max() if Sv.size else 1.0
+
+    # ---- Figure (wider), perfectly aligned x-lims ----
+    fig = plt.figure(constrained_layout=True, dpi=DPI, figsize=(12.5, 5.2))
+    gs = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[1.1, 1.0])
+
+    # Top: waveform
+    ax_w = fig.add_subplot(gs[0, 0])
+    ax_w.plot(t, x, lw=1.0)
+    ax_w.set_title("Composite signal: steady tone → chirp → silence → two close tones")
+    ax_w.set_xlabel("Time (s)")
+    ax_w.set_ylabel("Amplitude")
+    ax_w.grid(True, alpha=0.3)
+    ax_w.set_xlim(0.0, duration)     # no extra padding
+    ax_w.margins(x=0)
+
+    # Bottom: spectrogram (edges ensure exact span)
+    ax_spec = fig.add_subplot(gs[1, 0])
+    ax_spec.pcolormesh(t_edges, f_edges, Sv, shading="auto", vmin=vmin, vmax=vmax)
+    ax_spec.set_ylim(0, f_edges[-1])
+    ax_spec.set_xlim(0.0, duration)  # align with waveform
+    ax_spec.margins(x=0)
+    ax_spec.set_title("Spectrogram")
+    ax_spec.set_xlabel("Time (s)")
+    ax_spec.set_ylabel("Frequency (Hz)")
+
+    # White labels (slightly larger), positions as before
+    ax_spec.text(0.45, 75,  "steady tone ~60 Hz",            fontsize=11, color="white")
+    ax_spec.text(1.50, 190, "linear chirp 40→220 Hz",        fontsize=11, color="white")
+    ax_spec.text(3.55, 155, "two close tones\n120 & 140 Hz", fontsize=11, color="white", ha="center")
+    ax_spec.text(2.85, 155, "(silence)", fontsize=11, color="white", ha="center")
+
+
+    # Save & show
+    os.makedirs(SAVE_DIR, exist_ok=True)
+    out_path = os.path.join(SAVE_DIR, "10_spectrogram_showcase.png")
+    plt.savefig(out_path, dpi=DPI, bbox_inches="tight")
+    plt.show()
+    plt.close(fig)
+    print(f"Saved spectrogram showcase to: {out_path}")
+
+def experiment_ot_spectrogram_morph_mp4():
+    """
+    Optimal Transport morph between two spectrograms (MP4).
+    Layout:
+      • Top   : morphing spectrogram (source → target via OT)
+      • Bottom: static target spectrogram
+
+    Target modifications vs source:
+      1) Steady tone at higher frequency (e.g., 90 Hz instead of 60 Hz)
+      2) Chirp reversed: 220 → 40 Hz
+      3) Two tones moved earlier (same length), farther apart (e.g., 100 & 180 Hz)
+
+    Output: media/10_ot_spectrogram_morph.mp4
+    """
+    import os
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib.gridspec as gridspec
+    from matplotlib.animation import FuncAnimation, FFMpegWriter
+    from scipy.signal import spectrogram
+    import ot
+
+    # ---------- common plotting / signal settings ----------
+    fs, duration = 1000.0, 4.0
+    t = np.linspace(0, duration, int(fs * duration), endpoint=False)
+    fmax = 300.0
+
+    # Spectrogram params (match your showcase)
+    nperseg, noverlap = 256, 224
+
+    # OT grid resolution (memory saver)
+    G = 150
+
+    # ---------- helper: build "showcase-style" source signal ----------
+    def build_source_signal(t):
+        x = np.zeros_like(t)
+
+        # steady ~60 Hz (0.0–1.2 s)
+        m1 = (t >= 0.0) & (t < 1.2)
+        x[m1] += 0.9 * np.sin(2 * np.pi * 60 * t[m1])
+
+        # short click at 0.8 s
+        x += 0.5 * np.exp(-0.5 * ((t - 0.8) / 0.01) ** 2)
+
+        # chirp 40 → 220 Hz (1.0–2.6 s), amplitude ×2 (1.6 vs 0.8)
+        m2 = (t >= 1.0) & (t < 2.6)
+        w2 = np.hanning(m2.sum()) if m2.sum() > 4 else np.ones(m2.sum())
+        tt2 = t[m2]
+        f0, f1 = 40.0, 220.0
+        f_inst = f0 + (f1 - f0) * (tt2 - tt2[0]) / (tt2[-1] - tt2[0])
+        phase = 2 * np.pi * np.cumsum(f_inst) / fs
+        x[m2] += 1.6 * np.sin(phase) * w2
+
+        # two close tones 120 & 140 Hz (3.2–4.0 s), amplitude ×2
+        m4 = (t >= 3.2) & (t <= 4.0)
+        w4 = np.hanning(m4.sum()) if m4.sum() > 4 else np.ones(m4.sum())
+        x[m4] += 1.5 * 0.5 * (
+            np.sin(2 * np.pi * 120 * t[m4]) + np.sin(2 * np.pi * 140 * t[m4])
+        ) * w4
+
+        return x
+
+    # ---------- helper: build modified target signal ----------
+    def build_target_signal(t):
+        x = np.zeros_like(t)
+
+        # (1) steady tone at higher freq: ~90 Hz (0.0–1.2 s)
+        m1 = (t >= 0.0) & (t < 1.2)
+        x[m1] += 0.9 * np.sin(2 * np.pi * 90 * t[m1])
+
+        # same click to keep a shared feature (helps the OT)
+        x += 0.5 * np.exp(-0.5 * ((t - 0.8) / 0.01) ** 2)
+
+        # (2) reversed chirp 220 → 40 Hz (1.0–2.6 s), amplitude ×2
+        m2 = (t >= 1.0) & (t < 2.6)
+        w2 = np.hanning(m2.sum()) if m2.sum() > 4 else np.ones(m2.sum())
+        tt2 = t[m2]
+        f0, f1 = 220.0, 40.0
+        f_inst = f0 + (f1 - f0) * (tt2 - tt2[0]) / (tt2[-1] - tt2[0])
+        phase = 2 * np.pi * np.cumsum(f_inst) / fs
+        x[m2] += 1.6 * np.sin(phase) * w2
+
+        # (3) two tones earlier (same length 0.8 s), farther apart in freq: 100 & 180 Hz (2.9–3.7 s)
+        start, end = 2.9, 3.7
+        m4 = (t >= start) & (t <= end)
+        w4 = np.hanning(m4.sum()) if m4.sum() > 4 else np.ones(m4.sum())
+        x[m4] += 1.5 * 0.5 * (
+            np.sin(2 * np.pi * 100 * t[m4]) + np.sin(2 * np.pi * 180 * t[m4])
+        ) * w4
+
+        return x
+
+    # ---------- helper: spectrogram → masked array + edges ----------
+    def spec_masked(x):
+        f, ts, S = spectrogram(x, fs=fs, nperseg=nperseg, noverlap=noverlap)
+        mask = f <= fmax
+        Sv = S[mask, :]
+        nf, nt = Sv.shape
+        # exact edges so plot spans [0, duration] × [0, fmax']
+        t_edges = np.linspace(0.0, duration, nt + 1)
+        f_top = f[mask][-1]
+        f_edges = np.linspace(0.0, min(fmax, f_top), nf + 1)
+        return f, ts, Sv, f_edges, t_edges
+
+    # ---------- helper: reduce to G×G with simple bin-averaging ----------
+    def reduce_to_grid(S, Gf, Gt):
+        nf, nt = S.shape
+        f_edges = np.linspace(0, nf, Gf + 1).astype(int)
+        t_edges = np.linspace(0, nt, Gt + 1).astype(int)
+        R = np.zeros((Gf, Gt), dtype=float)
+        for i in range(Gf):
+            f0, f1 = f_edges[i], max(f_edges[i + 1], f_edges[i] + 1)
+            for j in range(Gt):
+                t0, t1 = t_edges[j], max(t_edges[j + 1], t_edges[j] + 1)
+                block = S[f0:f1, t0:t1]
+                R[i, j] = block.mean() if block.size else 0.0
+        return R
+
+    # ---------- build signals & spectrograms ----------
+    x_src = build_source_signal(t)
+    x_tgt = build_target_signal(t)
+
+    _, _, S_src, f_edges_src, t_edges_src = spec_masked(x_src)
+    _, _, S_tgt, f_edges_tgt, t_edges_tgt = spec_masked(x_tgt)
+
+    # common color scale
+    vmin, vmax = 0.0, max(S_src.max(), S_tgt.max())
+
+    # ---------- OT setup on downsampled grids ----------
+    A = reduce_to_grid(S_src, G, G)  # (G×G)
+    B = reduce_to_grid(S_tgt, G, G)
+
+    # keep intensity scales for display; normalize copies for OT mass
+    a = A.ravel().copy()
+    b = B.ravel().copy()
+    a_mass = a / (a.sum() if a.sum() > 0 else 1.0)
+    b_mass = b / (b.sum() if b.sum() > 0 else 1.0)
+
+    # coords on unit square (cell centers)
+    xs = (np.arange(G) + 0.5) / G
+    ys = (np.arange(G) + 0.5) / G
+    Xc, Yc = np.meshgrid(xs, ys, indexing="xy")  # (G,G)
+    coords = np.column_stack([Xc.ravel(), Yc.ravel()])
+
+    # EMD plan with squared Euclidean ground cost
+    M = ot.dist(coords, coords, metric="euclidean") ** 2
+    Gamma = ot.emd(a_mass, b_mass, M)
+
+    # sparse representation
+    I, J = np.where(Gamma > 0)
+    m_ij = Gamma[I, J]
+    xi = coords[I]
+    yj = coords[J]
+
+    # per-frame intensity scaling (so the morph doesn't look "washed out")
+    alpha_src = (A.max() / a_mass.max()) if a_mass.max() > 0 else 1.0
+    alpha_tgt = (B.max() / b_mass.max()) if b_mass.max() > 0 else 1.0
+
+    # ---------- figure & animation ----------
+    os.makedirs(SAVE_DIR, exist_ok=True)
+    fig = plt.figure(constrained_layout=True, dpi=DPI, figsize=(12.5, 5.6))
+    gs = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[1.0, 1.0])
+
+    # Top (morphing) — use imshow with exact extent to align axes
+    ax_top = fig.add_subplot(gs[0, 0])
+    Z0 = A  # start from source (G×G)
+    im_top = ax_top.imshow(
+        Z0,
+        origin="lower",
+        aspect="auto",
+        extent=[0.0, duration, 0.0, f_edges_src[-1]],
+        vmin=vmin,
+        vmax=vmax,
+        interpolation="bilinear",
+    )
+    ax_top.set_xlim(0.0, duration)
+    ax_top.set_ylim(0.0, f_edges_src[-1])
+    ax_top.margins(x=0)
+    ttl = ax_top.set_title("OT morph between spectrograms: t = 0.00")
+    ax_top.set_xlabel("Time (s)")
+    ax_top.set_ylabel("Frequency (Hz)")
+
+    # Bottom (static target) — high-res pcolormesh with edges
+    ax_bot = fig.add_subplot(gs[1, 0])
+    ax_bot.pcolormesh(t_edges_tgt, f_edges_tgt, S_tgt, shading="auto", vmin=vmin, vmax=vmax)
+    ax_bot.set_xlim(0.0, duration)
+    ax_bot.set_ylim(0.0, f_edges_tgt[-1])
+    ax_bot.margins(x=0)
+    ax_bot.set_title("Target spectrogram")
+    ax_bot.set_xlabel("Time (s)")
+    ax_bot.set_ylabel("Frequency (Hz)")
+
+    frames = 120
+
+    def _easing(tau):
+        # smooth ease-in/out; stays in [0,1]
+        return tau * tau * (3 - 2 * tau)
+
+    def _grid_index_from_pos(pos):
+        # pos in unit square; map to grid indices 0..G-1
+        ix = np.rint(pos[:, 0] * G - 0.5).astype(int)
+        iy = np.rint(pos[:, 1] * G - 0.5).astype(int)
+        np.clip(ix, 0, G - 1, out=ix)
+        np.clip(iy, 0, G - 1, out=iy)
+        return iy, ix  # row, col
+
+    def update(fnum):
+        tau = _easing(fnum / (frames - 1))
+        pos = (1.0 - tau) * xi + tau * yj
+        iy, ix = _grid_index_from_pos(pos)
+
+        Zm = np.zeros((G, G), dtype=float)
+        np.add.at(Zm, (iy, ix), m_ij)  # mass histogram on the grid
+
+        # per-frame intensity scaling (blend source/target scale)
+        alpha = (1.0 - tau) * alpha_src + tau * alpha_tgt
+        Z_disp = Zm * alpha
+
+        im_top.set_data(Z_disp)
+        ttl.set_text(f"OT morph between spectrograms: t = {tau:0.2f}")
+        return (im_top, ttl)
+
+    anim = FuncAnimation(fig, update, frames=frames, interval=1000 / 20, blit=False)
+
+    out_path = os.path.join(SAVE_DIR, "10_ot_spectrogram_morph.mp4")
+    writer = FFMpegWriter(fps=20, codec="h264", bitrate=1800)
+    anim.save(out_path, writer=writer)
+    plt.close(fig)
+    print(f"Saved MP4 to: {out_path}")
 
 if __name__ == "__main__":
     # Create the output directory if it doesn't exist
     os.makedirs(SAVE_DIR, exist_ok=True)
     print(f"Running experiments. Figures will be saved to '{SAVE_DIR}/' and displayed.")
 
-    experiment_ot_morph_mp4()
+    experiment_ot_spectrogram_morph_mp4()
+    #experiment_spectrogram_showcase()
+    #experiment_dtw_alignment_mp4()
+    #experiment_ot_morph_mp4()
     #experiment_ot_morph_gif()
     #experiment_sinusoid_distance_gif()
     #experiment_sinusoids()
