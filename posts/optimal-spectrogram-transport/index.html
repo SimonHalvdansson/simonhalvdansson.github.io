@@ -46,7 +46,7 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			Determining if two vectors are near each other is generally a straightforward problem - Euclidean distance or cosine similarity are standard solutions. In this post, we are interested in the special case where the vector indices indicate time, i.e., vectors which represent time series data or signals. There are specialized metrics available for this class of vectors but as we will see their preference for translations over modulations poses an issue for signals which exhibits some form of <i>time-frequency</i> structure or time-warying oscillations such as those related to audio, radar, EEG, seismic activity or vibrations.
+			Determining if two vectors are near each other is generally a straightforward problem - Euclidean distance or cosine similarity are standard solutions. In this post, we are interested in the special case where the vector indices indicate time, i.e., vectors which represent time series data or signals. There are specialized metrics available for this class of vectors but as we will see their preference for translations over modulations poses an issue for signals which exhibit some form of <i>time-frequency</i> structure or time-warying oscillations such as those related to audio, radar, EEG, seismic activity or vibrations.
 		</p>
 
 		<p>
@@ -63,7 +63,7 @@
 		</div>
 
 		<p>
-			We will go over the problems with naive Euclidean $\ell^2$ distance, the standard solution which is called <i>dynamic time warping (DWT)</i>, why it does not work when frequency changes are involved, and one way to solve it using the tools from optimal transport applied to spectrograms.
+			We will go over the problems with naive Euclidean $\ell^2$ distance, the standard solution which is called <i>dynamic time warping (DTW)</i>, why it does not work when frequency changes are involved, and one way to solve it using the tools from optimal transport applied to spectrograms.
 		</p>
 
 		<hr class="squiggly-line"/>
@@ -83,7 +83,7 @@
 		</div>
 		
 		<p>
-			There are obvious interpretability benefits to a distance function which works directly on the signal - it should be considerably more explainable than a neural encoding. A distance function which makes sense for the domain of the data also ideally improved the inductive bias of the model and can help reduce complexity. 
+			There are obvious interpretability benefits to a distance function which works directly on the signal - it should be considerably more explainable than a neural encoding. A distance function which makes sense for the domain of the data also ideally should improve the inductive bias of the model and help reduce complexity of a neural network working on it. 
 		</p>
 
 		<hr class="squiggly-line"/>
@@ -145,7 +145,7 @@
 		<h2>Optimal spectrogram transport</h2>
 
 		<p>
-			The <a href="https://en.wikipedia.org/wiki/Spectrogram">spectrogram</a> of a signal is a 2-dimensional representation, meaning a function $\mathbb{R} \times \mathbb{R} \to \mathbb{R}$, where the axes represent time and frequency. It should be thougt of as a series of spectrums (absolute value of Fourier transform) for small time snippets of the full signal, order in increasing time along the $x$-axis. In the following figure, we show an example of a spectrogram of a signal which changes its frequency contents over time to illustrate the concept. 
+			The <a href="https://en.wikipedia.org/wiki/Spectrogram">spectrogram</a> of a signal is a 2-dimensional representation, meaning a function $\mathbb{R} \times \mathbb{R} \to \mathbb{R}$, where the axes represent time and frequency. It should be thought of as a series of spectra (absolute value of Fourier transform) for small time snippets of the full signal, ordered in increasing time along the $x$-axis. In the following figure, we show an example of a spectrogram of a signal which changes its frequency contents over time to illustrate the concept. 
 		</p>
 		<div class="figure_container">
 			<a data-fancybox="gallery4" href="media/10_spectrogram_showcase.png">
@@ -189,10 +189,10 @@
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> Euclidean $\ell^2$, dynamic time warping and optimal spectrogram distances for a family of modulated Gussians with varying dilations.
+			<span class="caption_title">Figure: </span> Euclidean $\ell^2$, dynamic time warping and optimal spectrogram distances for a family of modulated Guassians with varying dilations.
 		</div>
 		<p>
-			In this case, Euclidean distance work okay for small dilations but plateus for larger ones, while dynamic time warping is mostly flat. Meanwhile optimal spectrogram transport distance behaves like we want it to and continues increasing as the dilation parameters moves away from $1$.
+			In this case, Euclidean distance works okay for small dilations but plateaus for larger ones, while dynamic time warping is mostly flat. Meanwhile optimal spectrogram transport distance behaves like we want it to and continues increasing as the dilation parameter moves away from $1$.
 		</p>
 
 		<p>
@@ -205,7 +205,7 @@
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> Euclidean $\ell^2$, dynamic time warping and optimal spectrogram distances for a family of modulated Gussians with varying translation.
+			<span class="caption_title">Figure: </span> Euclidean $\ell^2$, dynamic time warping and optimal spectrogram distances for a family of modulated Gaussians with varying translation.
 		</div>
 
 		<p>
@@ -222,7 +222,7 @@
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> Euclidean $\ell^2$, dynamic time warping and optimal spectrogram distances for for a family of modulated Gussians with varying noise levels.
+			<span class="caption_title">Figure: </span> Euclidean $\ell^2$, dynamic time warping and optimal spectrogram distances for a family of modulated Gaussians with varying noise levels.
 		</div>
 
 		<hr class="squiggly-line"/>
