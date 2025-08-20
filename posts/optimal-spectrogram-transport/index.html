@@ -74,7 +74,7 @@
 		</p>
 
 		<div class="figure_container_small"  style="padding: 0;">
-			<a data-fancybox="gallery0" href="media/wav2vec.jpg">
+			<a data-fancybox="gallery1" href="media/wav2vec.jpg">
 				<img class="figure" src="media/wav2vec.jpg"></img>
 			</a>
 		</div>
@@ -111,7 +111,7 @@
 			Romain Tavenard wrote an excellent <a href="https://rtavenar.github.io/blog/dtw.html" target="_blank">overview</a> of DTW which I will refer to for details. On a high level, the dynamic time warping distance between two signals $x_1$ and $x_2$ is realized by minimizing the Euclidean distance between $x_1$ and $x_2$ over all non-decreasing index permutations. The figure below illustrates the concept nicely.
 		</p>
 		<div class="figure_container">
-			<a data-fancybox="gallery0" href="media/09_dtw_alignment.mp4">
+			<a data-fancybox="gallery2" href="media/09_dtw_alignment.mp4">
 				<video class="figure" src="media/09_dtw_alignment.mp4" autoplay muted playsinline loop preload="metadata"></video>
 			</a>
 		</div>
@@ -130,7 +130,7 @@
 			For optimal transport, sometimes called the <i>earth mover's distance</i> or <i>Wasserstein distance</i>, the underlying idea is to consider how much work it is to go from one distribution to another, both of the same mass. In the simplest case where the two distributions are point masses, this required work is equal to the distance between the two points. For more complex distributions $\mu, \nu : X \to \mathbb{R}$, a <i>transport plan</i> $\pi : X \times X \to \mathbb{R}$ tells us how much mass to move for each pair of points. In order to preserve mass, this means that for any point $y$, the mass of $\nu$ at $y$, $\nu(y)$, must match the mass which is moved from $X$ to $y$, i.e., $$\nu(y) = \int_X \pi(x,y)\,dx.$$ There can be many such transport plans but the optimal transport distance is the minimal <i>cost</i> $\int_{X \times Y} |x-y| \pi(x,y)\,dx\,dy$ over all possible transport plans. The concept is most easily demonstrated by an animation like in the following figure.
 		</p>
 		<div class="figure_container">
-			<a data-fancybox="gallery0" href="media/08_ot_morph.mp4">
+			<a data-fancybox="gallery3" href="media/08_ot_morph.mp4">
 				<video class="figure" src="media/08_ot_morph.mp4" autoplay muted playsinline loop preload="metadata"></video>
 			</a>
 		</div>
@@ -148,7 +148,7 @@
 			The <a href="https://en.wikipedia.org/wiki/Spectrogram">spectrogram</a> of a signal is a 2-dimensional representation, meaning a function $\mathbb{R} \times \mathbb{R} \to \mathbb{R}$, where the axes represent time and frequency. It should be thougt of as a series of spectrums (absolute value of Fourier transform) for small time snippets of the full signal, order in increasing time along the $x$-axis. In the following figure, we show an example of a spectrogram of a signal which changes its frequency contents over time to illustrate the concept. 
 		</p>
 		<div class="figure_container">
-			<a data-fancybox="gallery0" href="media/10_spectrogram_showcase.png">
+			<a data-fancybox="gallery4" href="media/10_spectrogram_showcase.png">
 				<img class="figure" src="media/10_spectrogram_showcase.png"></img>
 			</a>
 		</div>
@@ -157,18 +157,21 @@
 		</div>
 
 		<p>
-			Now the idea behind optimal spectrogram transport is that the optimal transport distance between spectrograms should capture most of what we intuitively think of as distance between signals of this kind.
+			Now the idea behind optimal spectrogram transport is that the optimal transport distance between spectrograms should capture most of what we intuitively think of as distance between signals of this kind. Below we have chosen a slightly modified version of the above signal (different steady tone, reversed chirp, two tones moved and modulated) and illustrate the optimal transport interpolation between them. 
 		</p>
 
 		<div class="figure_container">
-			<a data-fancybox="gallery0" href="media/10_ot_spectrogram_morph.mp4">
-				<img class="figure" src="media/10_ot_spectrogram_morph.mp4"></img>
+			<a data-fancybox="gallery5" href="media/10_ot_spectrogram_morph.mp4">
+				<video class="figure" src="media/10_ot_spectrogram_morph.mp4" autoplay muted playsinline loop preload="metadata"></video>
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> Signal and associated spectrogram for a signal which goes from steady tone to chirp to silence to two close tones.
+			<span class="caption_title">Figure: </span> Optimal transport morphing between spectrograms of two similar signals with slightly different characteristics.
 		</div>
-		
+
+		<p>
+			This is how we define optimal spectrogram transport distance. Note that there exists <a href="https://ott-jax.readthedocs.io/" target="_blank">fast algorithms and libraries</a> for computing optimal transport with GPU acceleration but even on a CPU this computation is feasible in a real-time setting.
+		</p>
 	
 		<hr class="squiggly-line"/>
 		<h2 id="examples">Examples</h2>
@@ -181,7 +184,7 @@
 			where we mean proportionality in a loose sense. In the figure below, we have signals and spectrograms for three such dilations and the continuous functions $d(f_a, f_1)$.
 		</p>
 		<div class="figure_container_small">
-			<a data-fancybox="gallery0" href="media/02_gaussian_speed_warp.png">
+			<a data-fancybox="gallery6" href="media/02_gaussian_speed_warp.png">
 				<img class="figure" src="media/02_gaussian_speed_warp.png"></img>
 			</a>
 		</div>
@@ -190,6 +193,42 @@
 		</div>
 		<p>
 			In this case, Euclidean distance work okay for small dilations but plateus for larger ones, while dynamic time warping is mostly flat. Meanwhile optimal spectrogram transport distance behaves like we want it to and continues increasing as the dilation parameters moves away from $1$.
+		</p>
+
+		<p>
+			The GIF in the beginning of the post covered how the metric is continuous with respect to modulations. We compare continuity with respect to translations in the following example.
+		</p>
+
+		<div class="figure_container_small">
+			<a data-fancybox="gallery6" href="media/03_gaussian_time_shift.png">
+				<img class="figure" src="media/03_gaussian_time_shift.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Euclidean $\ell^2$, dynamic time warping and optimal spectrogram distances for a family of modulated Gussians with varying translation.
+		</div>
+
+		<p>
+			Again, the behavior of optimal spectrogram transport is preferable to that of both Euclidean and dynamic time warping distance.
+		</p>
+
+		<p>
+			Lastly we consider the case of continuity with respect to noise level which all the different metrics handle well.
+		</p>
+
+		<div class="figure_container_small">
+			<a data-fancybox="gallery6" href="media/06_noise_robustness.png">
+				<img class="figure" src="media/06_noise_robustness.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Euclidean $\ell^2$, dynamic time warping and optimal spectrogram distances for for a family of modulated Gussians with varying noise levels.
+		</div>
+
+		<hr class="squiggly-line"/>
+
+		<p>
+			Lorem ipsum dolor sit amet consectetur adipisicing elit. Alias unde iure enim vel, consectetur debitis reiciendis corrupti distinctio voluptatem expedita molestias necessitatibus amet, harum blanditiis ex earum tempora mollitia. Assumenda!
 		</p>
 
 	</section>

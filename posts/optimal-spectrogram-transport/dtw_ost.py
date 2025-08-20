@@ -1010,7 +1010,7 @@ def experiment_ot_spectrogram_morph_mp4():
     nperseg, noverlap = 256, 224
 
     # OT grid resolution (memory saver)
-    G = 150
+    G = 170
 
     # ---------- helper: build "showcase-style" source signal ----------
     def build_source_signal(t):
