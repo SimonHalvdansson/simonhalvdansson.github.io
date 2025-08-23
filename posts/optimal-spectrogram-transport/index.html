@@ -127,7 +127,13 @@
 		<h2>Optimal transport</h2>
 
 		<p>
-			For optimal transport, sometimes called the <i>earth mover's distance</i> or <i>Wasserstein distance</i>, the underlying idea is to consider how much work it is to go from one distribution to another, both of the same mass. In the simplest case where the two distributions are point masses, this required work is equal to the distance between the two points. For more complex distributions $\mu, \nu : X \to \mathbb{R}$, a <i>transport plan</i> $\pi : X \times X \to \mathbb{R}$ tells us how much mass to move for each pair of points. In order to preserve mass, this means that for any point $y$, the mass of $\nu$ at $y$, $\nu(y)$, must match the mass which is moved from $X$ to $y$, i.e., $$\nu(y) = \int_X \pi(x,y)\,dx.$$ There can be many such transport plans but the optimal transport distance is the minimal <i>cost</i> $\int_{X \times Y} |x-y| \pi(x,y)\,dx\,dy$ over all possible transport plans. The concept is most easily demonstrated by an animation like in the following figure.
+			For optimal transport, sometimes called the <i>earth mover's distance</i> or <i>Wasserstein distance</i>, the underlying idea is to consider how much work it is to go from one distribution to another, both of the same mass. In the simplest case where the two distributions are point masses, this required work is equal to the distance between the two points. For more complex densities $\mu, \nu : X \to \mathbb{R}$, a <i>transport plan</i> $\pi : X \times X \to \mathbb{R}$ tells us how much mass to move for each pair of points. In order to preserve mass, this means that for any point $y$, the mass of $\nu$ at $y$, $\nu(y)$, must match the mass which is moved from all of $X$ to $y$, i.e.,
+			$$\nu(y) = \int_X \pi(x,y)\,dx.$$
+			Moreover, the mass which leaves a point $x$ is precisely $\mu(x)$, i.e.,
+			$$
+			\mu(x) = \int_X \pi(x,y)\,dy.
+			$$
+			There can be many such transport plans but the optimal transport distance is the minimal <i>cost</i> $\int_{X \times Y} |x-y| \pi(x,y)\,dx\,dy$ over all possible transport plans. The concept is most easily demonstrated by an animation like in the following figure.
 		</p>
 		<div class="figure_container">
 			<a data-fancybox="gallery3" href="media/08_ot_morph.mp4">
@@ -227,8 +233,10 @@
 
 		<hr class="squiggly-line"/>
 
+		<h2>Closing remarks</h2>
+
 		<p>
-			Lorem ipsum dolor sit amet consectetur adipisicing elit. Alias unde iure enim vel, consectetur debitis reiciendis corrupti distinctio voluptatem expedita molestias necessitatibus amet, harum blanditiis ex earum tempora mollitia. Assumenda!
+			Optimal spectrogram transport is an idea which I've had in my head for many years and hopefully this post has convinced you that it's an obvious next step once you've learned about spectrograms, optimal transport and the issues of other metrics. In the process of preparing this post I found <a href="https://ieeexplore.ieee.org/document/10943074" target="_blank">some</a> <a href="https://arxiv.org/abs/2502.15430" target="_blank">other</a> recent work in this direction and hope that this is an idea which continues to be explored.
 		</p>
 
 	</section>
