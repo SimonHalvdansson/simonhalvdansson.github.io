@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Neural spectrogram phase retrieval with SIRENs</title>
+	<title>Five-minute LLMs</title>
 
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="theme-color" content="#FBEDEA" />
@@ -63,13 +63,13 @@
 	</div>
 
 	<section class="blog centering post">
-		<h1>Training a good LLM in five minutes</h1>
+		<h1>Five-minute LLMs</h1>
 		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Sep. 2025</div>
 
 		<hr class="squiggly-line"/>
 
 		<p>
-			Over the past few years there has been many innovations in LLM design; smart pretraining recipies, substantial posttraining RL, and architectural improvements. In this post, we'll look at how these architectural improvements translate to small models trained for short amounts of time. If you're making a truly optimal model constrained to a certain size, something like <a href="https://developers.googleblog.com/en/introducing-gemma-3-270m/" target="_blank">Gemma 3 270M</a> is a better place to look. The recent post <a href="https://www.seangoedecke.com/model-on-a-mbp/">What's the strongest AI model you can train on a laptop in five minutes?</a> by Sean Goedecke was a strong inspiration for this post but my aim here is to iterate more on the model.
+			Over the past few years there has been many innovations in LLM design; smart pretraining recipies, substantial posttraining RL, and architectural improvements. In this post, we'll look at how recent architectural improvements translate to very small models trained for short amounts of time. This means that we are not optimizing for low parameter count, optimal there would be something like <a href="https://developers.googleblog.com/en/introducing-gemma-3-270m/" target="_blank">Gemma 3 270M</a>. We are also not interested in distillation nor quantization. Instead, we are interested in the Pareto frontier in the setting where we can only train the model for five minutes on a specific data set. The recent post <a href="https://www.seangoedecke.com/model-on-a-mbp/">What's the strongest AI model you can train on a laptop in five minutes?</a> by Sean Goedecke inspired this post and in this post we aim to go deeper in terms of optimizing the architecture and doing proper A/B testing.
 		</p>
 
 		<div class="figure_container_small">
@@ -82,17 +82,16 @@
 		</div>
 
 		<p>
-			Starting from a GPT-2-type model, we will work through the following set of techniques to see what affects validation preplexity on the <a href="https://arxiv.org/abs/2305.07759" target="_blank">TinyStories</a> dataset:
+			Following that post, we will restrict ourselves to the <a href="https://arxiv.org/abs/2305.07759" target="_blank">TinyStories</a> dataset and conider validation preplexity as the metric which we are ultimately optimizing for. We will start from a GPT-2 style model and look at the effect of the following choices:
 			<ul>
+				<li>Learning rate</li>
+				<li>Optimizer (Muon)</li>
+				<li>Parameters (Hidden dimension, layers, heads)</li>
+				<li>FFN: MLP/SwiGLU</li>
 				<li>Dropout</li>
 				<li>Pre/post norm</li>
-				<li>FFN archtecture (SwiGLU)</li>
 				<li>LayerNorm / RMSNorm</li>
-				<li>Mixed-precision (AMP)</li>
-				<li>Wide/deep blocks</li>
 				<li>Grouped Query Attention (GQA)</li>
-				<li>Optimizers (Muon)</li>
-				<li>Schedulers</li>
 			</ul>
 			Before starting, we'll say a couple of things about modern archtectures and the methodology. If you just want the results, jump to them <a href="#results">here</a>.
 		</p>
@@ -109,6 +108,10 @@
 		<hr class="squiggly-line"/>
 
 		<h2>Methodology</h2>
+
+		<p>
+			We will train all models with automatic mixed precision (<a href="https://docs.pytorch.org/docs/stable/amp.html">AMP</a>) and <code>bfloat16</code> since this generally doubles throughout at the cost of some training stability which is preferable in this time-constrained setting.
+		</p>
 
 		<hr class="squiggly-line"/>
 
