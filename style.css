@@ -353,6 +353,8 @@ h1 {
 }
 
 .project .project_links a {
+    display: inline-block;
+    margin-bottom: 6px;
     font-weight: bold;
     text-decoration: none;
     color: #512725;
@@ -367,7 +369,7 @@ h1 {
 }
 
 .project .project_links a:hover {
-    background-color: #ccc;
+    background-color: #ddd;
 }
 
 .project .title {
@@ -388,7 +390,7 @@ h1 {
 }
 
 .project .project_links {
-    margin-bottom: 20px;
+    margin-bottom: 14px;
 }
 
 @media (max-width: 600px) {
