@@ -69,7 +69,7 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			Over the past few years there has been many innovations in LLM design; smart pretraining recipies, substantial posttraining RL, and architectural improvements. In this post, we'll look at how recent architectural improvements translate to very small models trained for short amounts of time. This means that we are not optimizing for low parameter count, optimal there would be something like <a href="https://developers.googleblog.com/en/introducing-gemma-3-270m/" target="_blank">Gemma 3 270M</a>. We are also not interested in distillation nor quantization. Instead, we are interested in the Pareto frontier in the setting where we can only train the model for five minutes on a specific data set. The recent post <a href="https://www.seangoedecke.com/model-on-a-mbp/">What's the strongest AI model you can train on a laptop in five minutes?</a> by Sean Goedecke inspired this post and in this post we aim to go deeper in terms of optimizing the architecture and doing proper A/B testing.
+			Over the past few years there has been many innovations in LLM design; smart pretraining recipies, substantial posttraining RL, and architectural improvements. In this post, we'll look at how recent architectural improvements translate to very small models trained for short amounts of time. This means that we are not optimizing for low parameter count, optimal there would be something like <a href="https://developers.googleblog.com/en/introducing-gemma-3-270m/" target="_blank">Gemma 3 270M</a>. We are also not interested in distillation nor quantization. Instead, we are interested in the optimal design choices when training a model for only five minutes with consumer hardware on a smaller data set. The recent post <a href="https://www.seangoedecke.com/model-on-a-mbp/">What's the strongest AI model you can train on a laptop in five minutes?</a> by Sean Goedecke inspired this post and in this post we aim to go deeper in terms of optimizing the architecture and doing proper A/B testing. The endgame of this type of investigation is <a href="https://github.com/KellerJordan/modded-nanogpt">Modded-NanoGPT</a> which is considerably more hardcore but less accessible.
 		</p>
 
 		<div class="figure_container_small">
@@ -82,17 +82,18 @@
 		</div>
 
 		<p>
-			Following that post, we will restrict ourselves to the <a href="https://arxiv.org/abs/2305.07759" target="_blank">TinyStories</a> dataset and pick validation preplexity as the metric which we are ultimately optimizing for. We will start from a GPT-2 style model and look at the effect of the following choices:
+			Following the post by Goedecke, we will restrict ourselves to the <a href="https://arxiv.org/abs/2305.07759" target="_blank">TinyStories</a> dataset and pick validation preplexity as the metric which we are ultimately optimizing for. We will start from a GPT-2 style model and look at the effect of the following choices:
 			<ul>
 				<li>Learning rate</li>
 				<li>Optimizer (Muon)</li>
-				<li>Gradient clipping?</li>
-				<li>Parameters (Hidden dimension, layers, heads)</li>
+				<li>Gradient clipping</li>
+				<li>Model sizing (hidden dimension, layers, heads)</li>
 				<li>FFN: MLP/SwiGLU</li>
 				<li>Dropout</li>
 				<li>Pre/post norm</li>
 				<li>LayerNorm / RMSNorm</li>
 				<li>Grouped Query Attention (GQA)</li>
+				<li>QK normalization?</li>
 			</ul>
 			Before starting, we'll say a couple of things about modern archtectures and the methodology. If you just want the results, jump to them <a href="#results">here</a>.
 		</p>
@@ -102,8 +103,7 @@
 		<h2>Modern models</h2>
 
 		<p>
-			
-			The excellent <a href="https://magazine.sebastianraschka.com/p/from-gpt-2-to-gpt-oss-analyzing-the" target="_blank">overview</a> by Sebastian Raschka.
+			This excellent <a href="https://magazine.sebastianraschka.com/p/from-gpt-2-to-gpt-oss-analyzing-the" target="_blank">overview</a> by Sebastian Raschka looks at some of the ways modern models differ from the classical GPT-2 model. There is an overwhelming amount of papers suggesting various changes to the base transformer architecture, and through the test of time what is considered "standard" has evolved considerably.
 		</p>
 
 		<hr class="squiggly-line"/>
