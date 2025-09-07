@@ -11,9 +11,7 @@ from transformers import AutoTokenizer
 from tqdm import tqdm
 import numpy as np
 
-# --------------------------
-# Basic config (stable on Windows/Spyder)
-# --------------------------
+# caching, dataset
 HF_HOME = os.path.expanduser("~/.cache/huggingface")
 os.environ.setdefault("HF_HOME", HF_HOME)
 os.environ.setdefault("HF_DATASETS_CACHE", os.path.join(HF_HOME, "datasets"))
@@ -23,25 +21,22 @@ HF_DS_CACHE = os.environ["HF_DATASETS_CACHE"]
 HF_HUB_CACHE = os.environ["TRANSFORMERS_CACHE"]
 print(f"HF datasets cache: {HF_DS_CACHE}\nHF hub cache:      {HF_HUB_CACHE}")
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+# device stuff
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 is_cuda = (device == "cuda")
 use_amp = is_cuda
 amp_dtype = torch.bfloat16 if use_amp else None
 
-# Model/data hyperparams (tiny & fast)
-block_size   = 256
-batch_size   = 16
-weight_decay = 0.1
-
-# Single-process for stability first (you can bump later)
-DL_NUM_WORKERS = 0
-
-# Slices to keep it snappy
+# slices
 train_split = "train[:5%]"
 val_split   = "validation[:2%]"
 
 PACKED_TRAIN_PATH = "tinystories_train_packed.pt"
 PACKED_VAL_PATH   = "tinystories_val_packed.pt"
+
+# global hyperparams
+context_len   = 256
+batch_size   = 16
 
 # --------------------------
 # Model
@@ -92,11 +87,11 @@ class Block(nn.Module):
         return x
 
 class TinyGPT(nn.Module):
-    def __init__(self, vocab_size, block_size, n_layer, n_head, n_embd, dropout):
+    def __init__(self, vocab_size, context_len, n_layer, n_head, n_embd, dropout):
         super().__init__()
-        self.block_size = block_size
+        self.context_len = context_len
         self.tok_emb = nn.Embedding(vocab_size, n_embd)
-        self.pos_emb = nn.Embedding(block_size, n_embd)
+        self.pos_emb = nn.Embedding(context_len, n_embd)
         self.drop = nn.Dropout(dropout)
         self.blocks = nn.ModuleList([Block(n_embd, n_head, dropout) for _ in range(n_layer)])
         self.ln_f = nn.LayerNorm(n_embd)
@@ -112,7 +107,7 @@ class TinyGPT(nn.Module):
 
     def forward(self, idx):
         B, T = idx.shape
-        assert T <= self.block_size
+        assert T <= self.context_len
         pos = torch.arange(0, T, device=idx.device).unsqueeze(0)
         x = self.tok_emb(idx) + self.pos_emb(pos)
         x = self.drop(x)
@@ -125,7 +120,7 @@ class TinyGPT(nn.Module):
 # --------------------------
 # Data helpers
 # --------------------------
-def to_packed_ids(tok_ds, block_size):
+def to_packed_ids(tok_ds, context_len):
     ids_list = tok_ds["input_ids"]
     total_len = sum(len(a) for a in ids_list)
     ids = torch.empty(total_len, dtype=torch.long)
@@ -134,11 +129,11 @@ def to_packed_ids(tok_ds, block_size):
         n = len(arr)
         ids[pos:pos+n] = torch.as_tensor(arr, dtype=torch.long)
         pos += n
-    n = (len(ids) - 1) // block_size
+    n = (len(ids) - 1) // context_len
     if n <= 0:
-        raise RuntimeError("Not enough tokens; enlarge dataset or reduce block_size.")
-    x = ids[: n * block_size].view(n, block_size)
-    y = ids[1 : n * block_size + 1].view(n, block_size)
+        raise RuntimeError("Not enough tokens; enlarge dataset or reduce context_len.")
+    x = ids[: n * context_len].view(n, context_len)
+    y = ids[1 : n * context_len + 1].view(n, context_len)
     return x, y
 
 class PackedDataset(Dataset):
@@ -162,7 +157,7 @@ def build_loaders(x_train, y_train, x_val, y_val):
     )
     return train_loader, val_loader
 
-def load_or_build_packed(block_size):
+def load_or_build_packed(context_len):
     print("Loading TinyStories… (will reuse local cache if present)")
     ds_train = load_dataset(
         "roneneldan/TinyStories",
@@ -198,8 +193,8 @@ def load_or_build_packed(block_size):
         x_train, y_train = pk_train["x"], pk_train["y"]
         x_val,   y_val   = pk_val["x"],   pk_val["y"]
     else:
-        x_train, y_train = to_packed_ids(tok_train, block_size)
-        x_val,   y_val   = to_packed_ids(tok_val,   block_size)
+        x_train, y_train = to_packed_ids(tok_train, context_len)
+        x_val,   y_val   = to_packed_ids(tok_val,   context_len)
         torch.save({"x": x_train, "y": y_train}, PACKED_TRAIN_PATH)
         torch.save({"x": x_val,   "y": y_val},   PACKED_VAL_PATH)
 
@@ -218,7 +213,7 @@ def make_autocast_and_scaler():
     scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
     return autocast_ctx, scaler
 
-def run_epoch(model, loader, optimizer=None, train=True,
+def run_epoch(model, loader, args, optimizer, train=True,
               autocast_ctx=nullcontext, scaler=None,
               deadline=None, allow_early_stop=False):
     """
@@ -256,12 +251,14 @@ def run_epoch(model, loader, optimizer=None, train=True,
             optimizer.zero_grad(set_to_none=True)
             if scaler is not None and scaler.is_enabled():
                 scaler.scale(loss).backward()
-                nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                if args["grad_clip"] is not None:
+                    nn.utils.clip_grad_norm_(model.parameters(), args["grad_clip"])
                 scaler.step(optimizer)
                 scaler.update()
             else:
                 loss.backward()
-                nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                if args["grad_clip"] is not None:
+                    nn.utils.clip_grad_norm_(model.parameters(), args["grad_clip"])
                 optimizer.step()
 
         if is_cuda:
@@ -292,14 +289,14 @@ def run_epoch(model, loader, optimizer=None, train=True,
     avg_loss = total_loss_sum / max(total_tokens, 1)
     return avg_loss, total_tokens, stopped_early
 
-def training_run_per_time(model, train_loader, val_loader, lr, time_limit_s):
+def train_limited_time(model, train_loader, val_loader, lr, time_limit_s, args):
     """
     Train for up to `time_limit_s` seconds (early-stopping inside epoch if needed),
     then ALWAYS do a full validation pass.
     Returns: (val_loss, tokens_this_run)
     """
     autocast_ctx, scaler = make_autocast_and_scaler()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=args["weight_decay"])
 
     start = time.perf_counter()
     deadline = start + time_limit_s
@@ -312,7 +309,7 @@ def training_run_per_time(model, train_loader, val_loader, lr, time_limit_s):
         if time.perf_counter() >= deadline:
             break
         train_loss, train_toks, stopped_early = run_epoch(
-            model, train_loader, optimizer=optimizer, train=True,
+            model, train_loader, args=args, optimizer=optimizer, train=True,
             autocast_ctx=autocast_ctx, scaler=scaler,
             deadline=deadline, allow_early_stop=True
         )
@@ -337,7 +334,7 @@ def training_run_per_time(model, train_loader, val_loader, lr, time_limit_s):
     tokens_this_run = total_train_tokens + val_toks
     return val_loss, tokens_this_run
 
-def test_setup(lr, make_model_fn, train_loader, val_loader, n_runs=15, per_run_seconds=300):
+def test_setup(args, train_loader, val_loader, n_runs=15, per_run_seconds=300):
     """
     Runs `n_runs` independent trainings. Each run:
       - builds a FRESH model via `make_model_fn()`
@@ -347,11 +344,14 @@ def test_setup(lr, make_model_fn, train_loader, val_loader, n_runs=15, per_run_s
       - val_losses: np.ndarray shape (n_runs,)
       - tokens_per_run: np.ndarray shape (n_runs,)
     """
+    def make_model():
+        return TinyGPT(vocab_size, context_len, args["n_layer"], args["n_head"], args["n_embd"], args["dropout"])
+    
     vals, toks = [], []
     for i in range(n_runs):
         print(f"\n=== Run {i+1}/{n_runs} (time budget: {per_run_seconds}s) ===")
-        model = make_model_fn().to(device)
-        val_loss, tokens_this_run = training_run_per_time(
+        model = make_model().to(device)
+        val_loss, tokens_this_run = train_limited_time(
             model, train_loader, val_loader, lr=lr, time_limit_s=per_run_seconds
         )
         vals.append(val_loss)
@@ -363,22 +363,21 @@ def test_setup(lr, make_model_fn, train_loader, val_loader, n_runs=15, per_run_s
 # Main
 # --------------------------
 if __name__ == '__main__':
-    x_train, y_train, x_val, y_val, vocab_size = load_or_build_packed(block_size)
+    x_train, y_train, x_val, y_val, vocab_size = load_or_build_packed(context_len)
     train_loader, val_loader = build_loaders(x_train, y_train, x_val, y_val)
 
-    # Model hyperparams
-    lr      = 3e-4
-    n_layer = 2
-    n_head  = 2
-    n_embd  = 128
-    dropout = 0.0
 
-    # Factory for fresh models each run
-    def make_model():
-        return TinyGPT(vocab_size, block_size, n_layer, n_head, n_embd, dropout)
+    args = {"lr":           3e-4,
+            "n_layer":      2,
+            "n_head":       2,
+            "n_embd":       128,
+            "dropout":      0.0,
+            "weight_decay": 0.1,
+            "grad_clip":    None,
+    }
 
     val_losses, tokens_per_run = test_setup(
-        lr, make_model, train_loader, val_loader,
+        args, train_loader, val_loader,
         n_runs=5, per_run_seconds=300
     )
     
