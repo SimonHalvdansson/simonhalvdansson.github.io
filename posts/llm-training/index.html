@@ -78,16 +78,16 @@
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> Want a scatter plot of preplexity for different models here.
+			<span class="caption_title">Figure: </span> We'll see what we put here.
 		</div>
 
 		<p>
 			Following the post by Goedecke, we will restrict ourselves to the <a href="https://arxiv.org/abs/2305.07759" target="_blank">TinyStories</a> dataset and pick validation preplexity as the metric which we are ultimately optimizing for. We will start from a GPT-2 style model and look at the effect of the following choices:
 			<ul>
 				<li>Learning rate</li>
+				<li>Model sizing (hidden dimension, layers, heads)</li>
 				<li>Optimizer (Muon)</li>
 				<li>Gradient clipping</li>
-				<li>Model sizing (hidden dimension, layers, heads)</li>
 				<li>FFN: MLP/SwiGLU</li>
 				<li>Dropout</li>
 				<li>Pre/post norm</li>
@@ -103,7 +103,36 @@
 		<h2>Modern models</h2>
 
 		<p>
-			This excellent <a href="https://magazine.sebastianraschka.com/p/from-gpt-2-to-gpt-oss-analyzing-the" target="_blank">overview</a> by Sebastian Raschka looks at some of the ways modern models differ from the classical GPT-2 model. There is an overwhelming amount of papers suggesting various changes to the base transformer architecture, and through the test of time what is considered "standard" has evolved considerably.
+			This excellent <a href="https://magazine.sebastianraschka.com/p/from-gpt-2-to-gpt-oss-analyzing-the" target="_blank">overview</a> by Sebastian Raschka looks at some of the ways modern models differ from the classical GPT-2 model. There is an overwhelming amount of papers suggesting various changes to the base transformer architecture, and through the test of time what is considered "standard" has evolved considerably. Below we briefly outline some of those developments which we vary in this post. 
+		</p>
+
+		<h4>Muon optimizer</h4>
+		<p>
+			Text
+		</p>
+		<h4>Gradient clipping</h4>
+		<p>
+			Text
+		</p>
+		<h4>SwiGLU</h4>
+		<p>
+			Text
+		</p>
+		<h4>Pre/post norm</h4>
+		<p>
+			Text
+		</p>
+		<h4>RMSNorm</h4>
+		<p>
+			Text
+		</p>
+		<h4>Grouped Query Attention</h4>
+		<p>
+			Text
+		</p>
+		<h4>QK normalization</h4>
+		<p>
+			Text
 		</p>
 
 		<hr class="squiggly-line"/>
@@ -111,7 +140,7 @@
 		<h2>Methodology</h2>
 
 		<p>
-			We will train all models with automatic mixed precision (<a href="https://docs.pytorch.org/docs/stable/amp.html">AMP</a>) and <code>bfloat16</code> since this generally doubles throughout at the cost of some training stability which is preferable in this time-constrained setting.
+			We will train all models with automatic mixed precision (<a href="https://docs.pytorch.org/docs/stable/amp.html">AMP</a>) and <code>bfloat16</code> since this generally doubles throughout at the cost of some training stability which is preferable in this time-constrained setting. Searching over all possible configurations is outside my time and electricity budget so we will assume that all choices contribute to the result independently.
 		</p>
 
 		<hr class="squiggly-line"/>
