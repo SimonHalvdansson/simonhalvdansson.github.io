@@ -95,7 +95,7 @@ def run_epoch(model, loader, args, optimizer, train=True,
         total_loss_sum += loss.item() * toks
         total_tokens += toks
 
-        pbar.set_postfix(loss=f"{loss.item():.3f}", tok_s=f"{tok_s:,.0f}")
+        pbar.set_postfix(loss=f"{loss.item():.3f}")
         if first_draw:
             pbar.refresh()
             first_draw = False
@@ -107,14 +107,14 @@ def run_epoch(model, loader, args, optimizer, train=True,
     avg_loss = total_loss_sum / max(total_tokens, 1)
     return avg_loss, total_tokens, stopped_early
 
-def train_limited_time(model, train_loader, val_loader, lr, time_limit_s, args):
+def train_limited_time(model, train_loader, val_loader, time_limit_s, args):
     """
     Train for up to `time_limit_s` seconds (early-stopping inside epoch if needed),
     then ALWAYS do a full validation pass.
     Returns: (val_loss, tokens_this_run)
     """
     autocast_ctx, scaler = make_autocast_and_scaler()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=args["weight_decay"])
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args["lr"], weight_decay=args["weight_decay"])
 
     start = time.perf_counter()
     deadline = start + time_limit_s
@@ -146,8 +146,7 @@ def train_limited_time(model, train_loader, val_loader, lr, time_limit_s, args):
           f"Val_ppl={math.exp(val_loss):.2f} | "
           f"{'stopped early' if stopped else 'clean epoch end'}")
 
-    tokens_this_run = total_train_tokens + val_toks
-    return val_loss, tokens_this_run
+    return val_loss
 
 def test_setup(args, train_loader, val_loader, n_runs=15, per_run_seconds=300):
     """
@@ -170,17 +169,17 @@ def test_setup(args, train_loader, val_loader, n_runs=15, per_run_seconds=300):
                        ffn=args["ffn"],
                        prepost=args["prepost"])
     
-    vals, toks = [], []
+    vals = []
     for i in range(n_runs):
         print(f"\n=== Run {i+1}/{n_runs} (time budget: {per_run_seconds}s) ===")
         model = make_model().to(device)
-        val_loss, tokens_this_run = train_limited_time(
-            model, train_loader, val_loader, lr=args["lr"], time_limit_s=per_run_seconds
+        val_loss = train_limited_time(
+            model, train_loader, val_loader, per_run_seconds, args
         )
         vals.append(val_loss)
-        toks.append(tokens_this_run)
         # (model will be GC'd; a new one is created next loop)
-    return np.array(vals, dtype=np.float64), np.array(toks, dtype=np.int64)
+        
+    return np.array(vals, dtype=np.float64)
 
 
 
@@ -200,12 +199,11 @@ if __name__ == '__main__':
             "prepost":      "pre"
     }
 
-    val_losses, tokens_per_run = test_setup(
+    val_losses = test_setup(
         args, train_loader, val_loader,
         n_runs=5, per_run_seconds=300
     )
     
     # Summary
     print("\n=== Summary over runs ===")
-    print(f"Total tokens processed: {int(tokens_per_run.sum()):,}")
     print(f"Val losses (mean ± std): {val_losses.mean():.4f} ± {val_losses.std():.4f}")

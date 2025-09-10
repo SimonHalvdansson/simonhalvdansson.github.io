@@ -13,8 +13,9 @@ class Block(nn.Module):
             self.n2 = nn.RMSNorm(n_embd)
         
         self.prepost = prepost
+        self.resid_drop = nn.Dropout(dropout)
         
-        self.attn = nn.MultiHeadAttention(embed_dim=n_embd,
+        self.attn = nn.MultiheadAttention(embed_dim=n_embd,
             num_heads=n_head,
             dropout=dropout,
             batch_first=True,
@@ -33,12 +34,20 @@ class Block(nn.Module):
             self.ffn = SwiGLU(n_embd, hidden, dropout)
         
     def forward(self, x):
+        T = x.size(1)
+        attn_mask = torch.triu(torch.full((T, T), float("-inf"), device=x.device), 1)
+        
         if self.prepost == "pre":
-            x = x + self.attn(self.n1(x))
-            x = x + self.ffn(self.n2(x))
+            xn = self.n1(x)
+            y, _ = self.attn(xn, xn, xn, need_weights=False, is_causal=True, attn_mask=attn_mask)
+            x = x + self.resid_drop(y)
+            y = self.ffn(self.n2(x))
+            x = x + self.resid_drop(y)
         else:
-            x = self.n1(x+self.attn(x))
-            x = self.n2(x+self.ffn(x))
+            y, _ = self.attn(x, x, x, need_weights=False, is_causal=True, attn_mask=attn_mask)
+            x = self.n1(x + self.resid_drop(y))
+            y = self.ffn(x)
+            x = self.n2(x + self.resid_drop(y))
         
         return x
 
@@ -58,12 +67,14 @@ class SwiGLU(nn.Module):
 class LLM(nn.Module):
     def __init__(self, vocab_size, context_len, n_layer, n_head, n_embd, dropout, norm, ffn, prepost):
         super().__init__()
+        assert n_embd % n_head == 0
+        
         self.context_len = context_len
         self.tok_emb = nn.Embedding(vocab_size, n_embd)
         self.pos_emb = nn.Embedding(context_len, n_embd)
         self.drop = nn.Dropout(dropout)
         self.blocks = nn.ModuleList([Block(n_embd, n_head, dropout, norm, ffn, prepost) for _ in range(n_layer)])
-        self.ln_f = nn.LayerNorm(n_embd)
+        self.ln_f = nn.LayerNorm(n_embd) if norm == "layer" else nn.RMSNorm(n_embd)
         self.prepost = prepost
         self.head = nn.Linear(n_embd, vocab_size, bias=False)
         self.apply(self._init_weights)
