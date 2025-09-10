@@ -136,10 +136,10 @@ def train_limited_time(model, train_loader, val_loader, time_limit_s, args):
 
     # Validation: always full pass, regardless of time
     val_loss, val_toks, _ = run_epoch(
-        model, val_loader, optimizer=None, train=False,
+        model, val_loader, args, optimizer=None, train=False,
         autocast_ctx=autocast_ctx, scaler=None,
         deadline=None
-    )
+    )    
 
     print(f"Train_tokens={total_train_tokens:,} | "
           f"Val_bpc={val_loss*math.log2(math.e):.3f} | "
@@ -148,7 +148,7 @@ def train_limited_time(model, train_loader, val_loader, time_limit_s, args):
 
     return val_loss
 
-def test_setup(args, train_loader, val_loader, n_runs=15, per_run_seconds=300):
+def test_setup(args, train_loader, val_loader, n_runs, per_run_seconds):
     """
     Runs `n_runs` independent trainings. Each run:
       - builds a FRESH model via `make_model()`
