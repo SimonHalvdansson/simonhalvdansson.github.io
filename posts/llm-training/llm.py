@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 import numpy as np
+import matplotlib.pyplot as plt
 
 from model import LLM
 from data_helpers import load_or_build_packed, build_loaders
@@ -181,7 +182,60 @@ def test_setup(args, train_loader, val_loader, n_runs, per_run_seconds):
         
     return np.array(vals, dtype=np.float64)
 
+def plot_mean_with_ci(xs, ys, alpha=0.05, ax=None, label="mean ± CI", dpi=180):
+    """
+    xs: list/1D array of x-values, length N
+    ys: list of length N where ys[i] is a 1D array-like of samples at x=xs[i]
+    alpha: 1 - confidence level (0.05 -> 95% CI)
+    ax: optional matplotlib Axes
+    label: legend label
+    dpi: figure DPI
 
+    Plots the point estimate (sample mean) with two-sided (1-alpha) CI on the mean
+    using Student's t with unknown variance.
+    """
+    from scipy.stats import t as student_t
+    
+    xs = np.asarray(xs)
+    assert len(xs) == len(ys), "len(xs) must equal len(ys)"
+
+    means = np.empty(len(xs), dtype=float)
+    se = np.empty(len(xs), dtype=float)
+    df = np.empty(len(xs), dtype=int)
+
+    for i, samp in enumerate(ys):
+        y = np.asarray(samp, dtype=float)
+        y = y[np.isfinite(y)]
+        n = y.size
+        if n < 2:
+            raise ValueError(f"Need at least 2 samples at xs[{i}]={xs[i]} to form a CI, got {n}.")
+        m = y.mean()
+        s = y.std(ddof=1)
+        means[i] = m
+        se[i] = s / np.sqrt(n)
+        df[i] = n - 1
+
+    
+    tcrit = np.array([student_t.ppf(1 - alpha/2, d) for d in df])
+
+    err = tcrit * se
+    yerr = np.vstack([err, err])  # symmetric
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 4), dpi=dpi)
+    else:
+        fig = ax.figure
+
+    ax.errorbar(xs, means, yerr=yerr, fmt="o-", capsize=3, label=label)
+    ax.set_xlabel("x")
+    ax.set_ylabel("y(x)")
+    ax.set_title(f"Mean with {(1-alpha)*100:.0f}% CI on the mean")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    
+    plt.show()
+    return fig, ax, means, err
+    
 
 if __name__ == '__main__':
     x_train, y_train, x_val, y_val, vocab_size = load_or_build_packed(context_len, is_cuda)
@@ -199,11 +253,30 @@ if __name__ == '__main__':
             "prepost":      "pre"
     }
 
-    val_losses = test_setup(
-        args, train_loader, val_loader,
-        n_runs=5, per_run_seconds=300
-    )
+    def objective(lr):
+        local_args = args.copy()
+        local_args["lr"] = lr
+        
+        val_losses = test_setup(
+            args, train_loader, val_loader,
+            n_runs=10, per_run_seconds=30
+        )
+        
+        return val_losses
+    
+    xs = np.linspace(1e-3, 1e-4, 5)
+    ys = []
+    for x in xs:
+        ys.append(objective(x))
+        
+    plot_mean_with_ci(xs, ys)
+    
+
+    #val_losses = test_setup(
+    #    args, train_loader, val_loader,
+    #    n_runs=5, per_run_seconds=300
+    #)
     
     # Summary
-    print("\n=== Summary over runs ===")
-    print(f"Val losses (mean ± std): {val_losses.mean():.4f} ± {val_losses.std():.4f}")
+    #print("\n=== Summary over runs ===")
+    #print(f"Val losses (mean ± std): {val_losses.mean():.4f} ± {val_losses.std():.4f}")
