@@ -46,7 +46,7 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			Determining if two vectors are near each other is generally a straightforward problem - Euclidean distance or cosine similarity are standard solutions. In this post, we are interested in the special case where the vector indices indicate time, i.e., vectors which represent time series data or signals. There are specialized metrics available for this class of vectors but as we will see their preference for translations over modulations poses an issue for signals which exhibit some form of <i>time-frequency</i> structure or time-warying oscillations such as those related to audio, radar, EEG, seismic activity or vibrations.
+			Determining if two vectors are near each other is generally a straightforward problem - Euclidean distance or cosine similarity are standard solutions. In this post, we are interested in the special case where the vector indices indicate time, i.e., vectors which represent time series data or signals. There are specialized metrics available for this class of vectors but as we will see their preference for translations over modulations poses an issue for signals which exhibit some form of <i>time-frequency</i> structure or time-varying oscillations such as those related to audio, radar, EEG, seismic activity or vibrations.
 		</p>
 
 		<p>
@@ -195,7 +195,7 @@
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> Euclidean $\ell^2$, dynamic time warping and optimal spectrogram distances for a family of modulated Guassians with varying dilations.
+			<span class="caption_title">Figure: </span> Euclidean $\ell^2$, dynamic time warping and optimal spectrogram distances for a family of modulated Gaussians with varying dilations.
 		</div>
 		<p>
 			In this case, Euclidean distance works okay for small dilations but plateaus for larger ones, while dynamic time warping is mostly flat. Meanwhile optimal spectrogram transport distance behaves like we want it to and continues increasing as the dilation parameter moves away from $1$.

@@ -69,7 +69,7 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			Over the past few years there has been many innovations in LLM design; smart pretraining recipies, substantial posttraining RL, and architectural improvements. In this post, we'll look at how recent architectural improvements translate to very small models trained for short amounts of time. This means that we are not optimizing for low parameter count, optimal there would be something like <a href="https://developers.googleblog.com/en/introducing-gemma-3-270m/" target="_blank">Gemma 3 270M</a>. We are also not interested in distillation nor quantization. Instead, we are interested in the optimal design choices when training a model for only five minutes with consumer hardware on a smaller data set. The recent post <a href="https://www.seangoedecke.com/model-on-a-mbp/">What's the strongest AI model you can train on a laptop in five minutes?</a> by Sean Goedecke inspired this post and in this post we aim to go deeper in terms of optimizing the architecture and doing proper A/B testing. The endgame of this type of investigation is <a href="https://github.com/KellerJordan/modded-nanogpt">Modded-NanoGPT</a> which is considerably more hardcore but less accessible.
+			Over the past few years there has been many innovations in LLM design; smart pretraining recipes, substantial posttraining RL, and architectural improvements. In this post, we'll look at how recent architectural improvements translate to very small models trained for short amounts of time. This means that we are not optimizing for low parameter count, optimal there would be something like <a href="https://developers.googleblog.com/en/introducing-gemma-3-270m/" target="_blank">Gemma 3 270M</a>. We are also not interested in distillation nor quantization. Instead, we are interested in the optimal design choices when training a model for only five minutes with consumer hardware on a smaller data set. The recent post <a href="https://www.seangoedecke.com/model-on-a-mbp/">What's the strongest AI model you can train on a laptop in five minutes?</a> by Sean Goedecke inspired this post and in this post we aim to go deeper in terms of optimizing the architecture and doing proper A/B testing. The endgame of this type of investigation is <a href="https://github.com/KellerJordan/modded-nanogpt">Modded-NanoGPT</a> which is considerably more hardcore but less accessible.
 		</p>
 
 		<div class="figure_container_small">
@@ -82,7 +82,7 @@
 		</div>
 
 		<p>
-			Following the post by Goedecke, we will restrict ourselves to the <a href="https://arxiv.org/abs/2305.07759" target="_blank">TinyStories</a> dataset and pick validation preplexity as the metric which we are ultimately optimizing for. We will start from a GPT-2 style model and look at the effect of the following choices:
+			Following the post by Goedecke, we will restrict ourselves to the <a href="https://arxiv.org/abs/2305.07759" target="_blank">TinyStories</a> dataset and pick validation perplexity as the metric which we are ultimately optimizing for. We will start from a GPT-2 style model and look at the effect of the following choices:
 			<ul>
 				<li>Learning rate</li>
 				<li>Model sizing (hidden dimension, layers, heads)</li>
@@ -95,7 +95,7 @@
 				<li>Grouped Query Attention (GQA)</li>
 				<li>QK normalization?</li>
 			</ul>
-			Before starting, we'll say a couple of things about modern archtectures and the methodology. If you just want the results, jump to them <a href="#results">here</a>.
+			Before starting, we'll say a couple of things about modern architectures and the methodology. If you just want the results, jump to them <a href="#results">here</a>.
 		</p>
 
 		<hr class="squiggly-line"/>
@@ -140,7 +140,7 @@
 		<h2>Methodology</h2>
 
 		<p>
-			We will train all models with automatic mixed precision (<a href="https://docs.pytorch.org/docs/stable/amp.html">AMP</a>) and <code>bfloat16</code> since this generally doubles throughout at the cost of some training stability which is preferable in this time-constrained setting. Searching over all possible configurations is outside my time and electricity budget so we will assume that all choices contribute to the result independently.
+			We will train all models with automatic mixed precision (<a href="https://docs.pytorch.org/docs/stable/amp.html">AMP</a>) and <code>bfloat16</code> since this generally doubles throughput at the cost of some training stability which is preferable in this time-constrained setting. Searching over all possible configurations is outside my time and electricity budget so we will assume that all choices contribute to the result independently.
 		</p>
 
 		<hr class="squiggly-line"/>

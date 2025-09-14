@@ -38,7 +38,7 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			Vision transformes (ViTs) have since their introduction in 2020 become the de facto standard tool for computer vision tasks. While they are both highly performant in general and scale well with increased parameters, just as just as their NLP counterparts, they require large amounts of data to train. To tackle this problem, the team at FAIR released the paper <a target="_blank" href="https://arxiv.org/abs/2111.06377">Masked Autoencoders Are Scalable Vision Learners</a> which proposed pretraining vision transforms with the self-supervised task of masked autoencoding - essentially infilling images. This was used to achieve state-of-the-art performance on ImageNet-1K without external data. We will discuss the main ideas in this paper as well as how the ideas have been adapted for audio tasks using spectrograms by building a simple implementation step-by-step.
+			Vision transformers (ViTs) have since their introduction in 2020 become the de facto standard tool for computer vision tasks. While they are both highly performant in general and scale well with increased parameters, just as just as their NLP counterparts, they require large amounts of data to train. To tackle this problem, the team at FAIR released the paper <a target="_blank" href="https://arxiv.org/abs/2111.06377">Masked Autoencoders Are Scalable Vision Learners</a> which proposed pretraining vision transforms with the self-supervised task of masked autoencoding - essentially infilling images. This was used to achieve state-of-the-art performance on ImageNet-1K without external data. We will discuss the main ideas in this paper as well as how the ideas have been adapted for audio tasks using spectrograms by building a simple implementation step-by-step.
 		</p>
 
 		<div class="figure_container_small">
@@ -51,7 +51,7 @@
 		</div>
 
 		<p>
-			The first usage of vision transformer for spectrograms was the <a target="_blank" href="https://arxiv.org/abs/2104.01778">Audio Spectrogram Transformer</a> (AST) which pretrained on ImageNet to achieve state-of-the-art performace on a series of audio classification tasks after fine-tuning. The architecture of that model is essentially a standard vision transformer from the original paper <a target="_blank" href="https://arxiv.org/abs/2010.11929">An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale</a>, which at the time had been out for less than a year, applied to log-mel spectrograms of audio signals. More specialized models with stronger time-frequency inductive biases are not neccesarily as easy to pretrain on image data and as such would require another approach.
+			The first usage of vision transformer for spectrograms was the <a target="_blank" href="https://arxiv.org/abs/2104.01778">Audio Spectrogram Transformer</a> (AST) which pretrained on ImageNet to achieve state-of-the-art performance on a series of audio classification tasks after fine-tuning. The architecture of that model is essentially a standard vision transformer from the original paper <a target="_blank" href="https://arxiv.org/abs/2010.11929">An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale</a>, which at the time had been out for less than a year, applied to log-mel spectrograms of audio signals. More specialized models with stronger time-frequency inductive biases are not necessarily as easy to pretrain on image data and as such would require another approach.
 		</p>
 
 		<p>
@@ -79,7 +79,7 @@
 		</div>
 
 	<p>
-		The patching and subsequent linear projection of an image into <code>d_model</code> dimensional space is most efficiently implemented as a convolution with stride equal to the kernel width. If the original image is <code>224×224</code> and we want patches of size <code>14×14</code>, we get <code>16×16</code> pathes since <code>14×16=224</code>. This procedure is implemented in the following way.
+		The patching and subsequent linear projection of an image into <code>d_model</code> dimensional space is most efficiently implemented as a convolution with stride equal to the kernel width. If the original image is <code>224×224</code> and we want patches of size <code>14×14</code>, we get <code>16×16</code> patches since <code>14×16=224</code>. This procedure is implemented in the following way.
 	</p>
 
 	<pre><code class="language-py">
@@ -98,7 +98,7 @@ class PatchEmbedding(nn.Module):
 	</code></pre>
 
 	<p>
-		Flattening and transposing makes it so our output tensor is of shape <code>[batch_size, num_patches, embed_dim]</code> which is what we want when this is passed to transformer blocks. The original ViT paper uses learned positional embeddings which for us is just a <code>[16×16, d_model]</code> tensor which we add onto the flattened patches. A good intuition behine why this is preferable to sinusoidal positional encodings is that some of the image topology can be encoded this way. After the positional embeddings, we prepend a learned <code>[cls]</code> token and put the resulting tensor through a series of encoder transformer blocks with full self-attention. Lastly the state of the <code>[cls]</code> token is passed through a MLP for classification via a vector of dimension <code>num_classes</code>.
+		Flattening and transposing makes it so our output tensor is of shape <code>[batch_size, num_patches, embed_dim]</code> which is what we want when this is passed to transformer blocks. The original ViT paper uses learned positional embeddings which for us is just a <code>[16×16, d_model]</code> tensor which we add onto the flattened patches. A good intuition behind why this is preferable to sinusoidal positional encodings is that some of the image topology can be encoded this way. After the positional embeddings, we prepend a learned <code>[cls]</code> token and put the resulting tensor through a series of encoder transformer blocks with full self-attention. Lastly the state of the <code>[cls]</code> token is passed through a MLP for classification via a vector of dimension <code>num_classes</code>.
 	</p>
 
 	<pre><code class="language-py">
@@ -187,7 +187,7 @@ class TinyImageNetDataset(Dataset):
 	</p>
 
 	<p>
-		Training a standard trainig loop (see <a target="_blank" href="https://github.com/SimonHalvdansson/Spec-MAE/blob/main/posts/post/vit.py">here</a> for further details) with <code>patch_size = 8, d_model = 256, num_heads = 4, num_layers = 4, dropout = 0.1</code> we get the following losses and accuracies:
+		Training a standard training loop (see <a target="_blank" href="https://github.com/SimonHalvdansson/Spec-MAE/blob/main/posts/post/vit.py">here</a> for further details) with <code>patch_size = 8, d_model = 256, num_heads = 4, num_layers = 4, dropout = 0.1</code> we get the following losses and accuracies:
 	</p>
 
 	<div class="figure_container_small">
@@ -468,7 +468,7 @@ class MAE(nn.Module):
 	</div>
 
 	<p>
-		With this as our baseline we now move to the masked autoencoder version. As earlier, programmatically the masked autoencoder is the same model with <code>model.mode = 'mae'</code>. LibriSpeech works great for the initial pretraining as its contents is people talking and the recording environment is not too dissimilar to that of SpeechCommands V2. For each audioclip, we take a random 1 second snippet and train for 100 epochs. After this, we do the same pretraining on SpeechCommands V2 for another 100 epochs. The train/validation losses keep decreasing throughout but clearly we are getting into overfitting terriotory as can be seen in the figure.
+		With this as our baseline we now move to the masked autoencoder version. As earlier, programmatically the masked autoencoder is the same model with <code>model.mode = 'mae'</code>. LibriSpeech works great for the initial pretraining as its contents is people talking and the recording environment is not too dissimilar to that of SpeechCommands V2. For each audioclip, we take a random 1 second snippet and train for 100 epochs. After this, we do the same pretraining on SpeechCommands V2 for another 100 epochs. The train/validation losses keep decreasing throughout but clearly we are getting into overfitting territory as can be seen in the figure.
 	</p>
 
 	<div class="figure_container_small">
