@@ -1,6 +1,7 @@
 import math, time
 from contextlib import nullcontext
 from collections import deque
+import schedulefree
 
 import torch
 import torch.nn as nn
@@ -18,11 +19,9 @@ is_cuda = (device == "cuda")
 use_amp = is_cuda
 amp_dtype = torch.bfloat16 if use_amp else None
 
-
 # global hyperparams
 context_len = 256
 batch_size = 16
-
 
 # --------------------------
 # Train/Eval
@@ -40,7 +39,11 @@ def run_epoch(model, loader, args, optimizer, train=True,
     - For TRAIN: if deadline is not None and deadline is reached mid-epoch, stop early.
     - For EVAL: deadline is ignored; we always finish the loader.
     """
-    model.train(train)
+    if args["optimizer"] == "schedulefree":
+        if train:
+            optimizer.train()
+        else:
+            optimizer.eval()
     total_loss_sum, total_tokens = 0.0, 0
     stopped_early = False
 
@@ -115,7 +118,10 @@ def train_limited_time(model, train_loader, val_loader, time_limit_s, args):
     Returns: (val_loss, tokens_this_run)
     """
     autocast_ctx, scaler = make_autocast_and_scaler()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args["lr"], weight_decay=args["weight_decay"])
+    if args["optimizer"] == "adamw":
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args["lr"])
+    else:
+        optimizer = schedulefree.AdamWScheduleFree(model.parameters(), lr=args.lr)
 
     start = time.perf_counter()
     deadline = start + time_limit_s
@@ -124,7 +130,7 @@ def train_limited_time(model, train_loader, val_loader, time_limit_s, args):
     # Loop until run_epoch returns stopped_early=True
     stopped = False
     while True:
-        train_loss, train_toks, stopped_early = run_epoch(
+        _, train_toks, stopped_early = run_epoch(
             model, train_loader, args=args, optimizer=optimizer, train=True,
             autocast_ctx=autocast_ctx, scaler=scaler,
             deadline=deadline
@@ -136,11 +142,7 @@ def train_limited_time(model, train_loader, val_loader, time_limit_s, args):
         # otherwise continue to next epoch loop
 
     # Validation: always full pass, regardless of time
-    val_loss, val_toks, _ = run_epoch(
-        model, val_loader, args, optimizer=None, train=False,
-        autocast_ctx=autocast_ctx, scaler=None,
-        deadline=None
-    )    
+    val_loss, _, _ = run_epoch(model, val_loader, args, optimizer=None, train=False, autocast_ctx=autocast_ctx)    
 
     print(f"Train_tokens={total_train_tokens:,} | "
           f"Val_bpc={val_loss*math.log2(math.e):.3f} | "
@@ -182,7 +184,7 @@ def test_setup(args, train_loader, val_loader, n_runs, per_run_seconds):
         
     return np.array(vals, dtype=np.float64)
 
-def plot_mean_with_ci(xs, ys, alpha=0.05, ax=None, label="mean ± CI", dpi=180):
+def plot_mean_with_ci(xs, ys, title=None, alpha=0.05, ax=None, label="mean ± CI", dpi=180):
     """
     xs: list/1D array of x-values, length N
     ys: list of length N where ys[i] is a 1D array-like of samples at x=xs[i]
@@ -229,7 +231,7 @@ def plot_mean_with_ci(xs, ys, alpha=0.05, ax=None, label="mean ± CI", dpi=180):
     ax.errorbar(xs, means, yerr=yerr, fmt="o-", capsize=3, label=label)
     ax.set_xlabel("x")
     ax.set_ylabel("y(x)")
-    ax.set_title(f"Mean with {(1-alpha)*100:.0f}% CI on the mean")
+    ax.set_title(f"Mean with {(1-alpha)*100:.0f}% CI on the mean" if title is None else title)
     ax.grid(True, alpha=0.3)
     ax.legend()
     
@@ -242,41 +244,35 @@ if __name__ == '__main__':
     train_loader, val_loader = build_loaders(x_train, y_train, x_val, y_val, context_len, batch_size, is_cuda)
 
     args = {"lr":           3e-4,
+            "optimizer":    "adamw",
             "n_layer":      2,
             "n_head":       2,
             "n_embd":       128,
             "dropout":      0.0,
-            "weight_decay": 0.1,
             "grad_clip":    None,
             "norm":         "layer",
             "ffn":          "mlp",
             "prepost":      "pre"
     }
 
-    def objective(lr):
+    per_run_seconds = 300
+
+    def objective(key, value, n_runs):
         local_args = args.copy()
-        local_args["lr"] = lr
+        local_args[key] = value
         
         val_losses = test_setup(
             args, train_loader, val_loader,
-            n_runs=10, per_run_seconds=30
+            n_runs=n_runs, per_run_seconds=per_run_seconds
         )
         
         return val_losses
     
-    xs = np.linspace(1e-3, 1e-4, 5)
+
+    xs = [1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2]
     ys = []
     for x in xs:
-        ys.append(objective(x))
+        ys.append(objective("lr", x, 10))
         
-    plot_mean_with_ci(xs, ys)
+    plot_mean_with_ci(xs, ys, title="Learning rate dependence")
     
-
-    #val_losses = test_setup(
-    #    args, train_loader, val_loader,
-    #    n_runs=5, per_run_seconds=300
-    #)
-    
-    # Summary
-    #print("\n=== Summary over runs ===")
-    #print(f"Val losses (mean ± std): {val_losses.mean():.4f} ± {val_losses.std():.4f}")
