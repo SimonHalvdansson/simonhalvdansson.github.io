@@ -63,7 +63,7 @@
 	</div>
 
 	<section class="blog centering post">
-		<h1>Five-minute LLMs</h1>
+		<h1>Thirty seconds to SLMs</h1>
 		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Sep. 2025</div>
 
 		<hr class="squiggly-line"/>
@@ -82,11 +82,11 @@
 		</div>
 
 		<p>
-			Following the post by Goedecke, we will restrict ourselves to the <a href="https://arxiv.org/abs/2305.07759" target="_blank">TinyStories</a> dataset and pick validation perplexity as the metric which we are ultimately optimizing for. We will start from a GPT-2 style model and look at the effect of the following choices:
+			Following the post by Goedecke, we will restrict ourselves to the <a href="https://arxiv.org/abs/2305.07759" target="_blank">TinyStories</a> dataset and pick validation cross-entropy as the metric which we are ultimately optimizing for. We will start from a GPT-2 style model and look at the effect of the following choices:
 			<ul>
 				<li>Learning rate</li>
+				<li>Schedule-Free optimizer</li>
 				<li>Model sizing (hidden dimension, layers, heads)</li>
-				<li>Schedule-Free</li>
 				<li>Gradient clipping</li>
 				<li>FFN: MLP/SwiGLU</li>
 				<li>Dropout</li>
@@ -141,6 +141,27 @@
 
 		<p>
 			We will train all models with automatic mixed precision (<a href="https://docs.pytorch.org/docs/stable/amp.html">AMP</a>) and <code>bfloat16</code> since this generally doubles throughput at the cost of some training stability which is preferable in this time-constrained setting. Searching over all possible configurations is outside my time and electricity budget so we will assume that all choices contribute to the result independently.
+		</p>
+
+		<p>
+			The performance of our models will have natural variation. To be able to conduct meaningful A/B experiments, we need to have a model for how our metric naturally varies. We can investigate this manually by constructing a histogram of validation cross-entropy for our default configuration. TODO: INSERT DEFAULT CONFIGURATION HERE
+		</p>
+
+		<div class="figure_container_small">
+			<a data-fancybox="gallery1" href="media/">
+				<img class="figure" src="media/"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Histogram of validation cross-entropy for our default configuration.
+		</div>
+
+		<p>
+			As we (hopefully) see in the figure, this distribution is at least somewhat Gaussian. For a given configuration, we will want to estimate the mean of the probability distribution which validation cross-entropy for models trained with this distribution follows. Since we do not know the variance, we will model our estimate for the true mean using the <a target="_blank" href="https://en.wikipedia.org/wiki/Student%27s_t-distribution">Student's $t$-distribution</a>. Using this distribution, we can get confidence intervals for the true mean as
+			$$
+			\bar{x} \pm t_{1-\alpha/2,\, n-1} \frac{s}{\sqrt{n}}
+			$$
+			where $\bar{x}$ is the sample mean, $s$ is the sample standard deviation, $n$ is the number of samples and $\alpha$ is the parmeter for the confidence interval.
 		</p>
 
 		<hr class="squiggly-line"/>
