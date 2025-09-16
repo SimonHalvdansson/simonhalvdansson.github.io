@@ -17,7 +17,7 @@ from data_helpers import load_or_build_packed, build_loaders
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 is_cuda = (device == "cuda")
 use_amp = is_cuda
-amp_dtype = torch.bfloat16 if use_amp else None
+amp_dtype = torch.bfloat16
 
 # global hyperparams
 context_len = 256
@@ -39,7 +39,8 @@ def run_epoch(model, loader, args, optimizer, train=True,
     - For TRAIN: if deadline is not None and deadline is reached mid-epoch, stop early.
     - For EVAL: deadline is ignored; we always finish the loader.
     """
-    if args["optimizer"] == "schedulefree":
+    model.train(train)
+    if args["optimizer"] == "schedulefree" and optimizer is not None:
         if train:
             optimizer.train()
         else:
@@ -64,7 +65,7 @@ def run_epoch(model, loader, args, optimizer, train=True,
         x = x.to(device, non_blocking=is_cuda)
         y = y.to(device, non_blocking=is_cuda)
 
-        with (autocast_ctx() if use_amp else nullcontext()):
+        with autocast_ctx():
             logits = model(x)
             vocab_size = model.head.out_features
             loss = F.cross_entropy(logits.view(-1, vocab_size), y.view(-1))
@@ -74,6 +75,7 @@ def run_epoch(model, loader, args, optimizer, train=True,
             if scaler is not None and scaler.is_enabled():
                 scaler.scale(loss).backward()
                 if args["grad_clip"] is not None:
+                    scaler.unscale_(optimizer)
                     nn.utils.clip_grad_norm_(model.parameters(), args["grad_clip"])
                 scaler.step(optimizer)
                 scaler.update()
@@ -93,8 +95,6 @@ def run_epoch(model, loader, args, optimizer, train=True,
         t_stamps.append(t_now); tok_hist.append(toks); toks_in_window += toks
         while t_stamps and (t_now - t_stamps[0]) > window_s:
             t_stamps.popleft(); toks_in_window -= tok_hist.popleft()
-        window_dt = max(t_now - (t_stamps[0] if t_stamps else t_now), 1e-9)
-        tok_s = toks_in_window / window_dt
 
         total_loss_sum += loss.item() * toks
         total_tokens += toks
@@ -121,7 +121,7 @@ def train_limited_time(model, train_loader, val_loader, time_limit_s, args):
     if args["optimizer"] == "adamw":
         optimizer = torch.optim.AdamW(model.parameters(), lr=args["lr"])
     else:
-        optimizer = schedulefree.AdamWScheduleFree(model.parameters(), lr=args.lr)
+        optimizer = schedulefree.AdamWScheduleFree(model.parameters(), lr=args["lr"])
 
     start = time.perf_counter()
     deadline = start + time_limit_s
@@ -207,7 +207,6 @@ def plot_mean_with_ci(xs, ys, title=None, alpha=0.05, ax=None, label="mean ± CI
 
     for i, samp in enumerate(ys):
         y = np.asarray(samp, dtype=float)
-        y = y[np.isfinite(y)]
         n = y.size
         if n < 2:
             raise ValueError(f"Need at least 2 samples at xs[{i}]={xs[i]} to form a CI, got {n}.")
@@ -262,7 +261,7 @@ if __name__ == '__main__':
         local_args[key] = value
         
         val_losses = test_setup(
-            args, train_loader, val_loader,
+            local_args, train_loader, val_loader,
             n_runs=n_runs, per_run_seconds=per_run_seconds
         )
         
