@@ -8,8 +8,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy.stats import t as student_t
+
+from plotting import plot_layers_heads_dims_heatmaps, plot_val_loss_hist, plot_lr_sweep_both, plot_binary_option_bars, plot_dropout_bars, plot_gradclip_bars
 
 from model import LLM
 from data_helpers import load_or_build_packed, build_loaders
@@ -186,258 +186,6 @@ def test_setup(args, train_loader, val_loader, n_runs, per_run_seconds):
     return np.array(vals, dtype=np.float64)
 
 
-def plot_lr_sweep_both(train_loader, val_loader,
-                       min_lr, max_lr, n_points,
-                       n_runs=3, per_run_seconds=3,
-                       base_args=None, alpha=0.05, dpi=180,
-                       title="LR sweep: AdamW vs ScheduleFree"):
-    """
-    Runs LR sweeps for AdamW and ScheduleFree on the SAME model/config.
-    Learning rates are sampled logarithmically from min_lr to max_lr.
-
-    Arguments:
-      min_lr, max_lr: bounds for learning rate sweep (both > 0)
-      n_points: number of learning rate points between min_lr and max_lr
-      n_runs: independent runs per LR
-      per_run_seconds: training time budget per run
-      base_args: dict with base model args
-      alpha: significance level for CI
-      dpi: plot resolution
-
-    Returns: (fig, ax, results)
-      results = {
-        "adamw": {"vals": list[np.ndarray], "means": np.ndarray, "err": np.ndarray, "lrs": np.ndarray},
-        "schedulefree": {...}
-      }
-    """
-    from scipy.stats import t as student_t
-
-    assert base_args is not None
-    if min_lr <= 0 or max_lr <= 0:
-        raise ValueError("min_lr and max_lr must be > 0 for log spacing")
-    if n_points < 2:
-        raise ValueError("n_points must be >= 2")
-
-    xs = np.logspace(np.log10(min_lr), np.log10(max_lr), n_points)
-
-    def run_sweep(optimizer_name):
-        all_vals = []
-        for lr in xs:
-            cfg = base_args.copy()
-            cfg["optimizer"] = optimizer_name
-            cfg["lr"] = float(lr)
-            vals = test_setup(cfg, train_loader, val_loader,
-                              n_runs=n_runs, per_run_seconds=per_run_seconds)
-            all_vals.append(vals)
-        # stats
-        means = np.array([v.mean() for v in all_vals], dtype=float)
-        ns = np.array([len(v) for v in all_vals], dtype=int)
-        s = np.array([v.std(ddof=1) for v in all_vals], dtype=float)
-        se = s / np.sqrt(np.maximum(ns, 1))
-        df = np.maximum(ns - 1, 1)
-        tcrit = np.array([student_t.ppf(1 - alpha/2, d) for d in df])
-        err = tcrit * se
-        return {"vals": all_vals, "means": means, "err": err, "lrs": xs}
-
-    res_adamw = run_sweep("adamw")
-    res_sf    = run_sweep("schedulefree")
-
-    fig, ax = plt.subplots(figsize=(8, 4), dpi=dpi)
-    ax.set_xscale("log", base=10)
-
-    # AdamW
-    ax.errorbar(xs, res_adamw["means"], yerr=res_adamw["err"], fmt="o-",
-                capsize=3, label=f"AdamW (n={n_runs} per LR)")
-    # ScheduleFree
-    ax.errorbar(xs, res_sf["means"], yerr=res_sf["err"], fmt="s--",
-                capsize=3, label=f"ScheduleFree (n={n_runs} per LR)")
-
-    ax.set_xlabel("learning rate")
-    ax.set_ylabel("validation loss (cross-entropy)")
-    ax.set_title(title)
-    ax.grid(True, alpha=0.3)
-    ax.legend()
-    plt.show()
-
-    return fig, ax, {"adamw": res_adamw, "schedulefree": res_sf}
-
-
-def plot_val_loss_hist(samples, *, bins="auto", dpi=180, density=False, title=None):
-    """
-    samples: 1D array-like of validation losses (cross-entropy) for one config
-    Returns: (fig, ax)
-    """
-    import numpy as np
-    import matplotlib.pyplot as plt
-
-    x = np.asarray(samples, dtype=float)
-    if x.size == 0:
-        raise ValueError("No samples.")
-
-    fig, ax = plt.subplots(figsize=(7, 4), dpi=dpi)
-    ax.hist(x, bins=bins, density=density)
-    ax.set_xlabel("validation loss (cross-entropy)")
-    ax.set_ylabel("density" if density else "count")
-    ax.set_title(title or f"Validation loss histogram (n={x.size})")
-    ax.grid(True, alpha=0.3)
-    plt.show()
-    return fig, ax
-
-def plot_binary_option_bars(train_loader, val_loader, *,
-                            option_key, option_values,       # e.g. ("layer","rmsnorm")
-                            n_runs=5, per_run_seconds=3,
-                            base_args=None, alpha=0.05, dpi=180,
-                            title=None):
-    """
-    For a single optimizer (from base_args), compare two settings of a binary option.
-    Each bar = mean ± (1-alpha) CI of validation loss over n_runs.
-    """
-    from scipy.stats import t as student_t
-    assert base_args is not None
-    assert len(option_values) == 2, "option_values must be a pair"
-    assert n_runs >= 2, "n_runs >= 2 needed for CI"
-
-    results = {}
-
-    for opt_val in option_values:
-        cfg = base_args.copy()
-        cfg[option_key] = opt_val
-        vals = test_setup(cfg, train_loader, val_loader,
-                          n_runs=n_runs, per_run_seconds=per_run_seconds)
-        n = len(vals)
-        m = float(np.mean(vals))
-        s = float(np.std(vals, ddof=1))
-        se = s / np.sqrt(n)
-        df = n - 1
-        tcrit = float(student_t.ppf(1 - alpha/2, df))
-        ci = tcrit * se
-        results[opt_val] = {"vals": vals, "mean": m, "ci": ci, "n": n}
-
-    # plot
-    fig, ax = plt.subplots(figsize=(6, 4), dpi=dpi)
-    x = np.arange(len(option_values))
-    means = [results[v]["mean"] for v in option_values]
-    errs  = [results[v]["ci"]   for v in option_values]
-
-    ax.bar(x, means, yerr=errs, capsize=3, width=0.5, align="center")
-    ax.set_xticks(x, option_values)
-    ax.set_ylabel("validation loss (cross-entropy)")
-    ax.set_title(title or f"{option_key}")
-    ax.grid(True, axis="y", alpha=0.3)
-
-    plt.show()
-    return fig, ax, results
-
-def plot_option_bars(train_loader, val_loader, *,
-                     option_key, option_values,                 # list/tuple of values
-                     n_runs=5, per_run_seconds=3,
-                     base_args=None, alpha=0.05, dpi=180,
-                     title=None, label_fmt=str):
-    """Single-optimizer N-category sweep. Bars = mean ± t-CI of val CE."""
-    from scipy.stats import t as student_t
-    assert base_args is not None
-    assert len(option_values) >= 2
-    assert n_runs >= 2
-
-    stats = []
-    for v in option_values:
-        cfg = base_args.copy()
-        cfg[option_key] = v
-        vals = test_setup(cfg, train_loader, val_loader,
-                          n_runs=n_runs, per_run_seconds=per_run_seconds)
-        n = len(vals); m = float(np.mean(vals)); s = float(np.std(vals, ddof=1))
-        se = s / np.sqrt(n); df = n - 1
-        tcrit = float(student_t.ppf(1 - alpha/2, df))
-        stats.append((v, m, tcrit * se))
-
-    fig, ax = plt.subplots(figsize=(7.5, 4.2), dpi=dpi)
-    x = np.arange(len(stats))
-    means = [m for _, m, _ in stats]
-    errs  = [e for _, _, e in stats]
-    labels = [label_fmt(v) for v, _, _ in stats]
-
-    ax.bar(x, means, yerr=errs, capsize=3, width=0.6)
-    ax.set_xticks(x, labels)
-    ax.set_ylabel("validation loss (cross-entropy)")
-    ax.set_title(title or f"{option_key} sweep")
-    ax.grid(True, axis="y", alpha=0.3)
-    plt.show()
-    return fig, ax, stats
-
-def _default_title_for_binary(option_key, option_values):
-    key = option_key.lower()
-    vals = tuple(str(v).lower() for v in option_values)
-    if key == "norm" and set(vals) == {"layer", "rmsnorm"}:
-        return "LayerNorm vs RMSNorm"
-    if key == "ffn" and set(vals) == {"mlp", "swiglu"}:
-        return "MLP vs SwiGLU"
-    if key == "prepost" and set(vals) == {"pre", "post"}:
-        return "Pre-norm vs Post-norm"
-    # fallback
-    return f"{option_key}: {option_values[0]} vs {option_values[1]}"
-
-def plot_binary_option_bars(train_loader, val_loader, *,
-                            option_key, option_values,       # e.g. ("layer","rmsnorm")
-                            n_runs=5, per_run_seconds=3,
-                            base_args=None, alpha=0.05, dpi=180,
-                            title=None):
-    """Single-optimizer comparison of two settings. Bars = mean ± t-CI of val CE."""
-    from scipy.stats import t as student_t
-    assert base_args is not None
-    assert len(option_values) == 2
-    assert n_runs >= 2
-
-    results = {}
-    for opt_val in option_values:
-        cfg = base_args.copy()
-        cfg[option_key] = opt_val
-        vals = test_setup(cfg, train_loader, val_loader,
-                          n_runs=n_runs, per_run_seconds=per_run_seconds)
-        n = len(vals); m = float(np.mean(vals)); s = float(np.std(vals, ddof=1))
-        se = s / np.sqrt(n); df = n - 1
-        tcrit = float(student_t.ppf(1 - alpha/2, df))
-        results[opt_val] = {"vals": vals, "mean": m, "ci": tcrit * se, "n": n}
-
-    fig, ax = plt.subplots(figsize=(6, 4), dpi=dpi)
-    x = np.arange(2)
-    means = [results[v]["mean"] for v in option_values]
-    errs  = [results[v]["ci"]   for v in option_values]
-    ax.bar(x, means, yerr=errs, capsize=3, width=0.5)
-    ax.set_xticks(x, [str(v) for v in option_values])
-    ax.set_ylabel("validation loss (cross-entropy)")
-    ax.set_title(title or _default_title_for_binary(option_key, option_values))
-    ax.grid(True, axis="y", alpha=0.3)
-    plt.show()
-    return fig, ax, results
-
-
-
-def plot_gradclip_bars(train_loader, val_loader, *,
-                       clips=(None, 0.5, 1.0, 2.0),
-                       n_runs=5, per_run_seconds=3,
-                       base_args=None, alpha=0.05, dpi=180):
-    return plot_option_bars(
-        train_loader, val_loader,
-        option_key="grad_clip", option_values=clips,
-        n_runs=n_runs, per_run_seconds=per_run_seconds,
-        base_args=base_args, alpha=alpha, dpi=dpi,
-        title="Gradient clipping sweep",
-        label_fmt=lambda v: "None" if v is None else f"{v:g}"
-    )
-
-def plot_dropout_bars(train_loader, val_loader, *,
-                      drops=(0.0, 0.05, 0.10, 0.15, 0.20),
-                      n_runs=5, per_run_seconds=3,
-                      base_args=None, alpha=0.05, dpi=180):
-    return plot_option_bars(
-        train_loader, val_loader,
-        option_key="dropout", option_values=drops,
-        n_runs=n_runs, per_run_seconds=per_run_seconds,
-        base_args=base_args, alpha=alpha, dpi=dpi,
-        title="Dropout sweep",
-        label_fmt=lambda v: f"{v:.2f}"
-    )
-
 
 
 
@@ -457,8 +205,9 @@ if __name__ == '__main__':
             "prepost":      "pre"
     }
 
-    per_run_seconds = 30
-    n_runs = 10
+    per_run_seconds = 20
+    n_runs = 5
+    n_points = 10 #histogram
 
     def objective(key, value, n_runs):
         local_args = args.copy()
@@ -473,44 +222,55 @@ if __name__ == '__main__':
         
         return val_losses
     
-    
+    if True:
+        layers = [2, 4, 6, 8]
+        heads  = [2, 4, 8, 16]
+        dims   = [128, 256, 384, 512]  # many cells will be masked when dims % heads != 0
+        
+        plot_layers_heads_dims_heatmaps(
+            train_loader, val_loader,
+            layers=layers, heads=heads, dims=dims,
+            base_args=args, n_runs=3, per_run_seconds=per_run_seconds,
+            annotate=False, test_setup_fn=test_setup
+        )
+
     
     #do histogram for base case
-    if False:
+    if True:
         vals = objective(key=None, value=None, n_runs=5)
         plot_val_loss_hist(vals)
 
     #sweep lr for adamw + schedulefree, same figure
-    if False:
+    if True:
         plot_lr_sweep_both(train_loader, val_loader,
-                        min_lr=1e-5, max_lr=1e-2, n_points=10,
+                        min_lr=1e-5, max_lr=1e-2, n_points=n_points,
                         n_runs=n_runs, per_run_seconds=per_run_seconds,
-                        base_args=args)
+                        base_args=args, test_setup_fn=test_setup)
 
     if True:
         # norm
         plot_binary_option_bars(train_loader, val_loader,
             option_key="norm", option_values=("layer","rmsnorm"),
-            n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args)
+            n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args, test_setup_fn=test_setup)
 
         # ffn
         plot_binary_option_bars(train_loader, val_loader,
             option_key="ffn", option_values=("mlp","swiglu"),
-            n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args)
+            n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args, test_setup_fn=test_setup)
 
         # prepost
         plot_binary_option_bars(train_loader, val_loader,
             option_key="prepost", option_values=("pre","post"),
-            n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args)
+            n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args, test_setup_fn=test_setup)
         
         # Dropout sweep
         plot_dropout_bars(train_loader, val_loader,
             drops=(0.0, 0.05, 0.10, 0.15, 0.20),
-            n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args)
+            n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args, test_setup_fn=test_setup)
         
         # Gradient clipping sweep
         plot_gradclip_bars(train_loader, val_loader,
             clips=(None, 0.5, 1.0, 2.0),
-            n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args)
+            n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args, test_setup_fn=test_setup)
 
     
