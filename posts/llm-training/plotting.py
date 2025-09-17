@@ -238,27 +238,31 @@ def _default_title_for_binary(option_key, option_values):
 def plot_gradclip_bars(train_loader, val_loader, *,
                        clips=(None, 0.5, 1.0, 2.0),
                        n_runs=5, per_run_seconds=3,
-                       base_args=None, alpha=0.05, dpi=180):
+                       base_args=None, alpha=0.05, dpi=180,
+                       test_setup_fn=None):
     return plot_option_bars(
         train_loader, val_loader,
         option_key="grad_clip", option_values=clips,
         n_runs=n_runs, per_run_seconds=per_run_seconds,
         base_args=base_args, alpha=alpha, dpi=dpi,
         title="Gradient clipping sweep",
-        label_fmt=lambda v: "None" if v is None else f"{v:g}"
+        label_fmt=lambda v: "None" if v is None else f"{v:g}",
+        test_setup_fn=test_setup_fn
     )
 
 def plot_dropout_bars(train_loader, val_loader, *,
                       drops=(0.0, 0.05, 0.10, 0.15, 0.20),
                       n_runs=5, per_run_seconds=3,
-                      base_args=None, alpha=0.05, dpi=180):
+                      base_args=None, alpha=0.05, dpi=180,
+                      test_setup_fn=None):
     return plot_option_bars(
         train_loader, val_loader,
         option_key="dropout", option_values=drops,
         n_runs=n_runs, per_run_seconds=per_run_seconds,
         base_args=base_args, alpha=alpha, dpi=dpi,
         title="Dropout sweep",
-        label_fmt=lambda v: f"{v:.2f}"
+        label_fmt=lambda v: f"{v:.2f}",
+        test_setup_fn=test_setup_fn
     )
 
 
