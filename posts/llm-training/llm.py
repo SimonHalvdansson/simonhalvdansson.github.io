@@ -205,6 +205,9 @@ if __name__ == '__main__':
             "prepost":      "pre"
     }
 
+    #LEARNINGS:
+    #5 runs is too few for 20 s at least for 
+    
     per_run_seconds = 20
     n_runs = 5
     n_points = 10 #histogram
@@ -243,7 +246,7 @@ if __name__ == '__main__':
     #sweep lr for adamw + schedulefree, same figure
     if True:
         plot_lr_sweep_both(train_loader, val_loader,
-                        min_lr=1e-5, max_lr=1e-2, n_points=n_points,
+                        min_lr=1e-4, max_lr=1e-2, n_points=n_points,
                         n_runs=n_runs, per_run_seconds=per_run_seconds,
                         base_args=args, test_setup_fn=test_setup)
 
