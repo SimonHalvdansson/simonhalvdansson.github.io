@@ -9,7 +9,15 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import numpy as np
 
-from plotting import plot_layers_heads_dims_heatmaps, plot_val_loss_hist, plot_lr_sweep_both, plot_binary_option_bars, plot_dropout_bars, plot_gradclip_bars
+from plotting import (
+    plot_layers_heads_dims_heatmaps,
+    plot_layers_heads_dims_bars,
+    plot_val_loss_hist,
+    plot_lr_sweep_both,
+    plot_binary_option_bars,
+    plot_dropout_bars,
+    plot_gradclip_bars,
+)
 
 from model import LLM
 from data_helpers import load_or_build_packed, build_loaders
@@ -228,13 +236,17 @@ if __name__ == '__main__':
     if True:
         layers = [2, 4, 6, 8]
         heads  = [2, 4, 8, 16]
-        dims   = [128, 256, 384, 512]  # many cells will be masked when dims % heads != 0
-        
-        plot_layers_heads_dims_heatmaps(
+        d_models   = [128, 256, 384, 512]  # many cells will be masked when d_model % heads != 0
+
+        _, _, sweep_results = plot_layers_heads_dims_heatmaps(
             train_loader, val_loader,
-            layers=layers, heads=heads, dims=dims,
+            layers=layers, heads=heads, d_models=d_models,
             base_args=args, n_runs=3, per_run_seconds=per_run_seconds,
             annotate=False, test_setup_fn=test_setup
+        )
+
+        plot_layers_heads_dims_bars(
+            sweep_results["stats"], alpha=0.05, dpi=150,
         )
 
     
