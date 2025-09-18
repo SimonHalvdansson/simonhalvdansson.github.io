@@ -1,4 +1,4 @@
-import math, time
+import time
 from contextlib import nullcontext
 from collections import deque
 import schedulefree
@@ -6,7 +6,7 @@ import schedulefree
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import numpy as np
 
 from plotting import (
@@ -42,7 +42,8 @@ def make_autocast_and_scaler():
 
 def run_epoch(model, loader, args, optimizer, train=True,
               autocast_ctx=nullcontext, scaler=None,
-              deadline=None):
+              deadline=None, progress_position=None,
+              progress_leave=False):
     """
     Returns: (avg_loss, total_tokens, stopped_early)
     - For TRAIN: if deadline is not None and deadline is reached mid-epoch, stop early.
@@ -63,64 +64,78 @@ def run_epoch(model, loader, args, optimizer, train=True,
     tok_hist = deque()
     toks_in_window = 0
 
-    pbar = tqdm(
-        loader, leave=False, desc="train" if train else "eval",
-        dynamic_ncols=True, mininterval=0.1, maxinterval=1.0, miniters=1,
+    total_steps = len(loader) if hasattr(loader, "__len__") else None
+    bar_kwargs = dict(
+        total=total_steps,
+        leave=progress_leave,
+        desc="train" if train else "eval",
+        dynamic_ncols=True,
+        mininterval=0.1,
+        maxinterval=1.0,
+        miniters=1,
         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}",
+        position=progress_position,
     )
+
     first_draw = True
 
-    for x, y in pbar:
-        x = x.to(device, non_blocking=is_cuda)
-        y = y.to(device, non_blocking=is_cuda)
+    with tqdm(**bar_kwargs) as pbar:
+        for x, y in loader:
+            x = x.to(device, non_blocking=is_cuda)
+            y = y.to(device, non_blocking=is_cuda)
 
-        with autocast_ctx():
-            logits = model(x)
-            vocab_size = model.head.out_features
-            loss = F.cross_entropy(logits.view(-1, vocab_size), y.view(-1))
+            with autocast_ctx():
+                logits = model(x)
+                vocab_size = model.head.out_features
+                loss = F.cross_entropy(logits.view(-1, vocab_size), y.view(-1))
 
-        if train:
-            optimizer.zero_grad(set_to_none=True)
-            if scaler is not None and scaler.is_enabled():
-                scaler.scale(loss).backward()
-                if args["grad_clip"] is not None:
-                    scaler.unscale_(optimizer)
-                    nn.utils.clip_grad_norm_(model.parameters(), args["grad_clip"])
-                scaler.step(optimizer)
-                scaler.update()
-            else:
-                loss.backward()
-                if args["grad_clip"] is not None:
-                    nn.utils.clip_grad_norm_(model.parameters(), args["grad_clip"])
-                optimizer.step()
+            if train:
+                optimizer.zero_grad(set_to_none=True)
+                if scaler is not None and scaler.is_enabled():
+                    scaler.scale(loss).backward()
+                    if args["grad_clip"] is not None:
+                        scaler.unscale_(optimizer)
+                        nn.utils.clip_grad_norm_(model.parameters(), args["grad_clip"])
+                    scaler.step(optimizer)
+                    scaler.update()
+                else:
+                    loss.backward()
+                    if args["grad_clip"] is not None:
+                        nn.utils.clip_grad_norm_(model.parameters(), args["grad_clip"])
+                    optimizer.step()
 
-        if is_cuda:
-            torch.cuda.synchronize()
+            if is_cuda:
+                torch.cuda.synchronize()
 
-        toks = x.numel()
-        t_now = time.perf_counter()
+            toks = x.numel()
+            t_now = time.perf_counter()
 
-        # throughput
-        t_stamps.append(t_now); tok_hist.append(toks); toks_in_window += toks
-        while t_stamps and (t_now - t_stamps[0]) > window_s:
-            t_stamps.popleft(); toks_in_window -= tok_hist.popleft()
+            # throughput
+            t_stamps.append(t_now); tok_hist.append(toks); toks_in_window += toks
+            while t_stamps and (t_now - t_stamps[0]) > window_s:
+                t_stamps.popleft(); toks_in_window -= tok_hist.popleft()
 
-        total_loss_sum += loss.item() * toks
-        total_tokens += toks
+            total_loss_sum += loss.item() * toks
+            total_tokens += toks
 
-        pbar.set_postfix(loss=f"{loss.item():.3f}")
-        if first_draw:
-            pbar.refresh()
-            first_draw = False
+            pbar.update(1)
+            pbar.set_postfix(loss=f"{loss.item():.3f}")
+            if first_draw:
+                pbar.refresh()
+                first_draw = False
 
-        if train and deadline is not None and t_now >= deadline:
-            stopped_early = True
-            break
+            if train and deadline is not None and t_now >= deadline:
+                stopped_early = True
+                break
+
+        if not progress_leave:
+            pbar.clear()
 
     avg_loss = total_loss_sum / max(total_tokens, 1)
     return avg_loss, total_tokens, stopped_early
 
-def train_limited_time(model, train_loader, val_loader, time_limit_s, args):
+def train_limited_time(model, train_loader, val_loader, time_limit_s, args,
+                       progress_position=None, progress_leave=False):
     """
     Train for up to `time_limit_s` seconds (early-stopping inside epoch if needed),
     then ALWAYS do a full validation pass.
@@ -138,11 +153,16 @@ def train_limited_time(model, train_loader, val_loader, time_limit_s, args):
 
     # Loop until run_epoch returns stopped_early=True
     stopped = False
+    train_position = progress_position
+    eval_position = (None if progress_position is None else progress_position + 1)
+
     while True:
         _, train_toks, stopped_early = run_epoch(
             model, train_loader, args=args, optimizer=optimizer, train=True,
             autocast_ctx=autocast_ctx, scaler=scaler,
-            deadline=deadline
+            deadline=deadline,
+            progress_position=train_position,
+            progress_leave=progress_leave,
         )
         total_train_tokens += train_toks
         if stopped_early:
@@ -151,16 +171,18 @@ def train_limited_time(model, train_loader, val_loader, time_limit_s, args):
         # otherwise continue to next epoch loop
 
     # Validation: always full pass, regardless of time
-    val_loss, _, _ = run_epoch(model, val_loader, args, optimizer=None, train=False, autocast_ctx=autocast_ctx)    
+    val_loss, _, _ = run_epoch(
+        model, val_loader, args, optimizer=None, train=False,
+        autocast_ctx=autocast_ctx, progress_position=eval_position,
+        progress_leave=progress_leave,
+    )
 
-    print(f"Train_tokens={total_train_tokens:,} | "
-          f"Val_ce={val_loss:.3f} | "
-          f"Val_ppl={math.exp(val_loss):.2f} | "
-          f"{'stopped early' if stopped else 'clean epoch end'}")
+    return val_loss, total_train_tokens, stopped
 
-    return val_loss
-
-def test_setup(args, train_loader, val_loader, n_runs, per_run_seconds):
+def test_setup(args, train_loader, val_loader, n_runs, per_run_seconds,
+              *, progress=None, progress_desc=None,
+              progress_position=0, progress_leave=False,
+              inner_position=None):
     """
     Runs `n_runs` independent trainings. Each run:
       - builds a FRESH model via `make_model()`
@@ -182,15 +204,53 @@ def test_setup(args, train_loader, val_loader, n_runs, per_run_seconds):
                        prepost=args["prepost"])
     
     vals = []
-    for i in range(n_runs):
-        print(f"\n=== Run {i+1}/{n_runs} (time budget: {per_run_seconds}s) ===")
+
+    run_pbar = None
+    if progress is None and progress_desc is not None:
+        run_pbar = tqdm(
+            total=n_runs,
+            desc=progress_desc,
+            position=progress_position,
+            leave=progress_leave,
+            dynamic_ncols=True,
+        )
+
+    def _refresh_bar(bar):
+        if bar is not None:
+            try:
+                bar.refresh()
+            except Exception:
+                pass
+
+    if progress is not None:
+        def update_progress(delta=1):
+            progress.update(delta)
+            _refresh_bar(progress)
+    elif run_pbar is not None:
+        def update_progress(delta=1):
+            run_pbar.update(delta)
+            _refresh_bar(run_pbar)
+    else:
+        def update_progress(delta=1):
+            return None
+
+    train_position = inner_position
+    if train_position is None and run_pbar is not None:
+        train_position = progress_position + 1
+
+    for _ in range(n_runs):
         model = make_model().to(device)
-        val_loss = train_limited_time(
-            model, train_loader, val_loader, per_run_seconds, args
+        val_loss, _, _ = train_limited_time(
+            model, train_loader, val_loader, per_run_seconds, args,
+            progress_position=train_position,
+            progress_leave=False,
         )
         vals.append(val_loss)
-        # (model will be GC'd; a new one is created next loop)
-        
+        update_progress(1)
+
+    if run_pbar is not None:
+        run_pbar.close()
+
     return np.array(vals, dtype=np.float64)
 
 
@@ -226,12 +286,14 @@ if __name__ == '__main__':
         if key is not None:
             local_args[key] = value
             local_args["optimizer"] = "schedulefree"
-        
+
         val_losses = test_setup(
             local_args, train_loader, val_loader,
-            n_runs=n_runs, per_run_seconds=per_run_seconds
+            n_runs=n_runs, per_run_seconds=per_run_seconds,
+            progress_desc=(f"{key}={value}" if key is not None else "baseline"),
+            progress_position=0, progress_leave=False, inner_position=1,
         )
-        
+
         return val_losses
     
     if True:
