@@ -69,7 +69,7 @@ def plot_lr_sweep_both(train_loader, val_loader,
         return {"vals": all_vals, "means": means, "err": err, "lrs": xs}
 
     res_adamw = run_sweep("adamw", position=0)
-    res_sf    = run_sweep("schedulefree", position=2)
+    res_sf    = run_sweep("schedulefree", position=3)
 
     fig, ax = plt.subplots(figsize=(8, 4), dpi=dpi)
     ax.set_xscale("log", base=10)
@@ -159,11 +159,12 @@ def plot_option_bars(train_loader, val_loader, *,
         cfg = base_args.copy()
         cfg[option_key] = v
         desc = f"{option_key}={v}"
+        base_position = idx * 3
         vals = test_setup_fn(
             cfg, train_loader, val_loader,
             n_runs=n_runs, per_run_seconds=per_run_seconds,
-            progress_desc=desc, progress_position=idx * 2,
-            progress_leave=False, inner_position=idx * 2 + 1,
+            progress_desc=desc, progress_position=base_position,
+            progress_leave=False, inner_position=base_position + 1,
         )
         n = len(vals); m = float(np.mean(vals)); s = float(np.std(vals, ddof=1))
         se = s / np.sqrt(n); df = n - 1
@@ -218,11 +219,12 @@ def plot_binary_option_bars(train_loader, val_loader, *,
         cfg = base_args.copy()
         cfg[option_key] = opt_val
         desc = f"{labels[idx]} runs"
+        base_position = idx * 3
         vals = test_setup_fn(
             cfg, train_loader, val_loader,
             n_runs=n_runs, per_run_seconds=per_run_seconds,
-            progress_desc=desc, progress_position=idx * 2,
-            progress_leave=False, inner_position=idx * 2 + 1,
+            progress_desc=desc, progress_position=base_position,
+            progress_leave=False, inner_position=base_position + 1,
         )
         n = len(vals); m = float(np.mean(vals)); s = float(np.std(vals, ddof=1))
         se = s / np.sqrt(n); df = n - 1
