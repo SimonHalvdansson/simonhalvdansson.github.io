@@ -296,7 +296,7 @@ def plot_dropout_bars(train_loader, val_loader, *,
 def plot_layers_heads_dims_heatmaps(train_loader, val_loader, *,
                                     layers, heads, d_models,
                                     base_args, n_runs=3, per_run_seconds=3,
-                                    dpi=150, annotate=False, cmap_name="viridis",
+                                    dpi=130, annotate=False, cmap_name="viridis",
                                     test_setup_fn=None):
     """
     Four stacked heatmaps (one per layer count) in a single figure.
@@ -340,7 +340,7 @@ def plot_layers_heads_dims_heatmaps(train_loader, val_loader, *,
     cmap = mpl.cm.get_cmap(cmap_name).copy()
     cmap.set_bad(color="#d9d9d9")  # light gray for invalid
 
-    fig, axes = plt.subplots(len(layers), 1, figsize=(9, 12), dpi=dpi, constrained_layout=True)
+    fig, axes = plt.subplots(1, len(layers), figsize=(11, 5), dpi=dpi, constrained_layout=True)
     axes = np.atleast_1d(axes)
 
     # Determine global best configuration across all combinations

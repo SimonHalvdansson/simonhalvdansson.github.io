@@ -216,8 +216,8 @@ if __name__ == '__main__':
     #LEARNINGS:
     #5 runs is too few for 20 s at least for 
     
-    per_run_seconds = 20
-    n_runs = 5
+    per_run_seconds = 30
+    n_runs = 10
     n_points = 10 #histogram
 
     def objective(key, value, n_runs):
@@ -241,7 +241,7 @@ if __name__ == '__main__':
         _, _, sweep_results = plot_layers_heads_dims_heatmaps(
             train_loader, val_loader,
             layers=layers, heads=heads, d_models=d_models,
-            base_args=args, n_runs=3, per_run_seconds=per_run_seconds,
+            base_args=args, n_runs=n_runs, per_run_seconds=per_run_seconds,
             annotate=False, test_setup_fn=test_setup
         )
 
