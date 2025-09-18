@@ -340,7 +340,7 @@ def plot_layers_heads_dims_heatmaps(train_loader, val_loader, *,
     cmap = mpl.cm.get_cmap(cmap_name).copy()
     cmap.set_bad(color="#d9d9d9")  # light gray for invalid
 
-    fig, axes = plt.subplots(1, len(layers), figsize=(11, 5), dpi=dpi, constrained_layout=True)
+    fig, axes = plt.subplots(1, len(layers), figsize=(14, 3), dpi=dpi, constrained_layout=True)
     axes = np.atleast_1d(axes)
 
     # Determine global best configuration across all combinations
@@ -426,9 +426,9 @@ def plot_layers_heads_dims_bars(results, *, alpha=0.05, dpi=150,
         raise ValueError("Results did not contain any finite values.")
 
     entries.sort(key=lambda item: item[1])
-    cfg_labels = [f"L={cfg[0]}\nH={cfg[1]}\nd_model={cfg[2]}" for cfg, *_ in entries]
-    means = [mean for _, mean, _, _ in entries]
-    cis = [ci for _, _, ci, _ in entries]
+    cfg_labels = [f"L={cfg[0]}\nH={cfg[1]}\nD={cfg[2]}" for cfg, *_ in entries]
+    means = np.array([mean for _, mean, _, _ in entries], dtype=float)
+    cis   = np.array([ci   for _, _, ci, _ in entries], dtype=float)
 
     width = max(9, 0.6 * len(entries))
     fig, ax = plt.subplots(figsize=(width, 6), dpi=dpi)
@@ -436,7 +436,17 @@ def plot_layers_heads_dims_bars(results, *, alpha=0.05, dpi=150,
     x = np.arange(len(entries))
     cmap = plt.get_cmap("viridis")
     colors = [cmap(i / max(1, len(entries) - 1)) for i in range(len(entries))]
-    ax.bar(x, means, yerr=cis, capsize=3, color=colors, edgecolor="none")
+    ax.bar(x, means, yerr=cis, capsize=3, color=colors, edgecolor="none", width=0.9)
+
+    # Tight x-limits: minimal left/right padding
+    ax.set_xlim(-0.5, len(entries) - 0.5)
+    ax.set_xmargin(0)
+
+    # Data-driven y-limits: show relevant range, not forced to start at 0
+    ymin = float(np.min(means - cis))
+    ymax = float(np.max(means + cis))
+    pad = 0.05 * (ymax - ymin) if ymax > ymin else 1.0
+    ax.set_ylim(ymin - pad, ymax + pad)
 
     ax.set_xticks(x, cfg_labels)
     ax.set_ylabel("validation loss (cross-entropy)")

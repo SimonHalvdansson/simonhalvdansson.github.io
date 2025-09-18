@@ -216,9 +216,10 @@ if __name__ == '__main__':
     #LEARNINGS:
     #5 runs is too few for 20 s at least for 
     
-    per_run_seconds = 30
+    per_run_seconds = 60
     n_runs = 10
-    n_points = 10 #histogram
+    lr_points = 5
+    histogram_runs = 10
 
     def objective(key, value, n_runs):
         local_args = args.copy()
@@ -252,13 +253,13 @@ if __name__ == '__main__':
     
     #do histogram for base case
     if True:
-        vals = objective(key=None, value=None, n_runs=5)
+        vals = objective(key=None, value=None, n_runs=histogram_runs)
         plot_val_loss_hist(vals)
 
     #sweep lr for adamw + schedulefree, same figure
     if True:
         plot_lr_sweep_both(train_loader, val_loader,
-                        min_lr=1e-4, max_lr=1e-2, n_points=n_points,
+                        min_lr=1e-4, max_lr=1e-2, n_points=lr_points,
                         n_runs=n_runs, per_run_seconds=per_run_seconds,
                         base_args=args, test_setup_fn=test_setup)
 
