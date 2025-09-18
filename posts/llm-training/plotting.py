@@ -3,6 +3,7 @@ import matplotlib as mpl
 from scipy.stats import t as student_t
 
 import numpy as np
+from tqdm.auto import tqdm
 
 def plot_lr_sweep_both(train_loader, val_loader,
                        min_lr, max_lr, n_points,
@@ -39,15 +40,24 @@ def plot_lr_sweep_both(train_loader, val_loader,
 
     xs = np.logspace(np.log10(min_lr), np.log10(max_lr), n_points)
 
-    def run_sweep(optimizer_name):
+    def run_sweep(optimizer_name, position):
         all_vals = []
+        total_runs = n_points * n_runs
+        sweep_desc = f"{optimizer_name} sweep"
+        sweep_pbar = tqdm(total=total_runs, desc=sweep_desc,
+                          position=position, leave=False, dynamic_ncols=True)
         for lr in xs:
             cfg = base_args.copy()
             cfg["optimizer"] = optimizer_name
             cfg["lr"] = float(lr)
-            vals = test_setup_fn(cfg, train_loader, val_loader,
-                              n_runs=n_runs, per_run_seconds=per_run_seconds)
+            sweep_pbar.set_postfix_str(f"lr={lr:.2e}")
+            vals = test_setup_fn(
+                cfg, train_loader, val_loader,
+                n_runs=n_runs, per_run_seconds=per_run_seconds,
+                progress=sweep_pbar, inner_position=position + 1,
+            )
             all_vals.append(vals)
+        sweep_pbar.close()
         # stats
         means = np.array([v.mean() for v in all_vals], dtype=float)
         ns = np.array([len(v) for v in all_vals], dtype=int)
@@ -58,8 +68,8 @@ def plot_lr_sweep_both(train_loader, val_loader,
         err = tcrit * se
         return {"vals": all_vals, "means": means, "err": err, "lrs": xs}
 
-    res_adamw = run_sweep("adamw")
-    res_sf    = run_sweep("schedulefree")
+    res_adamw = run_sweep("adamw", position=0)
+    res_sf    = run_sweep("schedulefree", position=2)
 
     fig, ax = plt.subplots(figsize=(8, 4), dpi=dpi)
     ax.set_xscale("log", base=10)
@@ -145,11 +155,16 @@ def plot_option_bars(train_loader, val_loader, *,
     assert n_runs >= 2
 
     stats = []
-    for v in option_values:
+    for idx, v in enumerate(option_values):
         cfg = base_args.copy()
         cfg[option_key] = v
-        vals = test_setup_fn(cfg, train_loader, val_loader,
-                          n_runs=n_runs, per_run_seconds=per_run_seconds)
+        desc = f"{option_key}={v}"
+        vals = test_setup_fn(
+            cfg, train_loader, val_loader,
+            n_runs=n_runs, per_run_seconds=per_run_seconds,
+            progress_desc=desc, progress_position=idx * 2,
+            progress_leave=False, inner_position=idx * 2 + 1,
+        )
         n = len(vals); m = float(np.mean(vals)); s = float(np.std(vals, ddof=1))
         se = s / np.sqrt(n); df = n - 1
         tcrit = float(student_t.ppf(1 - alpha/2, df))
@@ -178,6 +193,11 @@ def plot_option_bars(train_loader, val_loader, *,
     ax.set_title(title or f"{option_key} sweep")
     ax.grid(True, axis="y", alpha=0.3)
     plt.show()
+    best_val = min(stats, key=lambda item: item[1]) if stats else None
+    if best_val is not None:
+        best_v, best_mean, _ = best_val
+        tqdm.write(f"Best {option_key}: {best_v} with val_ce={best_mean:.3f}")
+
     return fig, ax, stats
 
 def plot_binary_option_bars(train_loader, val_loader, *,
@@ -193,11 +213,17 @@ def plot_binary_option_bars(train_loader, val_loader, *,
     assert n_runs >= 2
 
     results = {}
-    for opt_val in option_values:
+    labels = _labels_for_binary_option(option_key, option_values)
+    for idx, opt_val in enumerate(option_values):
         cfg = base_args.copy()
         cfg[option_key] = opt_val
-        vals = test_setup_fn(cfg, train_loader, val_loader,
-                          n_runs=n_runs, per_run_seconds=per_run_seconds)
+        desc = f"{labels[idx]} runs"
+        vals = test_setup_fn(
+            cfg, train_loader, val_loader,
+            n_runs=n_runs, per_run_seconds=per_run_seconds,
+            progress_desc=desc, progress_position=idx * 2,
+            progress_leave=False, inner_position=idx * 2 + 1,
+        )
         n = len(vals); m = float(np.mean(vals)); s = float(np.std(vals, ddof=1))
         se = s / np.sqrt(n); df = n - 1
         tcrit = float(student_t.ppf(1 - alpha/2, df))
@@ -226,6 +252,12 @@ def plot_binary_option_bars(train_loader, val_loader, *,
     ax.set_title(title or _default_title_for_binary(option_key, option_values))
     ax.grid(True, axis="y", alpha=0.3)
     plt.show()
+    if results:
+        best_key = min(results.keys(), key=lambda k: results[k]["mean"])
+        best = results[best_key]
+        readable = labels[option_values.index(best_key)]
+        tqdm.write(f"Best {option_key}: {readable} with val_ce={best['mean']:.3f}")
+
     return fig, ax, results
 
 def _default_title_for_binary(option_key, option_values):
@@ -309,6 +341,24 @@ def plot_layers_heads_dims_heatmaps(train_loader, val_loader, *,
     # Collect results per layer into 4 matrices of shape (len(d_models), len(heads))
     matrices = []
     stats = {}
+    valid_combos = [
+        (int(L), int(d_model), int(h))
+        for L in layers
+        for d_model in d_models
+        for h in heads
+        if d_model % h == 0
+    ]
+    total_runs = len(valid_combos) * n_runs
+    sweep_pbar = None
+    if total_runs > 0:
+        sweep_pbar = tqdm(
+            total=total_runs,
+            desc="layers/heads/d_model sweep",
+            position=0,
+            leave=False,
+            dynamic_ncols=True,
+        )
+
     for L in layers:
         M = np.full((len(d_models), len(heads)), np.nan, dtype=float)
         for i, d_model in enumerate(d_models):
@@ -319,8 +369,14 @@ def plot_layers_heads_dims_heatmaps(train_loader, val_loader, *,
                 cfg["n_layer"] = int(L)
                 cfg["n_head"]  = int(h)
                 cfg["n_embd"]  = int(d_model)
-                vals = test_setup_fn(cfg, train_loader, val_loader,
-                                  n_runs=n_runs, per_run_seconds=per_run_seconds)
+                if sweep_pbar is not None:
+                    sweep_pbar.set_postfix_str(f"L={L} H={h} D={d_model}")
+                inner_pos = 1 if sweep_pbar is not None else 0
+                vals = test_setup_fn(
+                    cfg, train_loader, val_loader,
+                    n_runs=n_runs, per_run_seconds=per_run_seconds,
+                    progress=sweep_pbar, inner_position=inner_pos,
+                )
                 vals = np.asarray(vals, dtype=float)
                 if vals.size == 0:
                     continue
@@ -331,6 +387,9 @@ def plot_layers_heads_dims_heatmaps(train_loader, val_loader, *,
                     "mean": mean_val,
                 }
         matrices.append(M)
+
+    if sweep_pbar is not None:
+        sweep_pbar.close()
 
     # Global color limits across panels, ignore NaNs
     vmin = np.nanmin([np.nanmin(M) for M in matrices])
@@ -391,7 +450,7 @@ def plot_layers_heads_dims_heatmaps(train_loader, val_loader, *,
     cbar.set_label("Validation loss (cross-entropy)")
 
     plt.show()
-    return fig, axes, {
+    result = {
         "layers": layers,
         "heads": heads,
         "d_models": d_models,
@@ -399,6 +458,16 @@ def plot_layers_heads_dims_heatmaps(train_loader, val_loader, *,
         "stats": stats,
         "global_best": global_key,
     }
+
+    if global_key is not None:
+        L, h, d_model = global_key
+        best_mean = stats[global_key]["mean"]
+        tqdm.write(
+            f"Best grid config: layers={L}, heads={h}, d_model={d_model} "
+            f"with val_ce={best_mean:.3f}"
+        )
+
+    return fig, axes, result
 
 
 def plot_layers_heads_dims_bars(results, *, alpha=0.05, dpi=150,
