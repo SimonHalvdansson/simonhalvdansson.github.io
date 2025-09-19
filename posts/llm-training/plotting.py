@@ -77,6 +77,8 @@ def plot_lr_sweep_both(train_loader, val_loader,
     ax.grid(True, alpha=0.3)
     ax.legend()
     plt.show()
+    
+    plt.savefig("media/lr_sweep.png")
 
     return fig, ax, {"adamw": res_adamw, "schedulefree": res_sf}
 
@@ -122,6 +124,8 @@ def plot_val_loss_hist(samples, *, bins="auto", dpi=180, density=False, title=No
     ax.spines["left"].set_visible(False)
     ax.grid(False)
     plt.show()
+    plt.savefig("media/histogram.png")
+    
     return fig, ax
 
 def _tight_ylim(ax, means, errs, pad_frac=0.08):
@@ -178,6 +182,8 @@ def plot_option_bars(train_loader, val_loader, *,
     ax.set_title(title or f"{option_key} sweep")
     ax.grid(True, axis="y", alpha=0.3)
     plt.show()
+    plt.savefig(f"media/bars_{option_key}.png")
+    
     return fig, ax, stats
 
 def plot_binary_option_bars(train_loader, val_loader, *,
@@ -226,6 +232,9 @@ def plot_binary_option_bars(train_loader, val_loader, *,
     ax.set_title(title or _default_title_for_binary(option_key, option_values))
     ax.grid(True, axis="y", alpha=0.3)
     plt.show()
+    
+    plt.savefig(f"media/binary_{option_key}.png")
+    
     return fig, ax, results
 
 def _default_title_for_binary(option_key, option_values):
@@ -237,6 +246,8 @@ def _default_title_for_binary(option_key, option_values):
         return "MLP vs SwiGLU"
     if key == "prepost" and set(vals) == {"pre", "post"}:
         return "Pre-norm vs Post-norm"
+    if key == "pos_emb" and set(vals) == {"sinusoidal", "learned"}:
+        return "Sinusoidal vs learned embeddings"
     # fallback
     return f"{option_key}: {option_values[0]} vs {option_values[1]}"
 
@@ -391,6 +402,8 @@ def plot_layers_heads_dims_heatmaps(train_loader, val_loader, *,
     cbar.set_label("Validation loss (cross-entropy)")
 
     plt.show()
+    plt.savefig("media/heatmap_ldh.png")
+    
     return fig, axes, {
         "layers": layers,
         "heads": heads,
@@ -455,5 +468,7 @@ def plot_layers_heads_dims_bars(results, *, alpha=0.05, dpi=150,
     plt.xticks(rotation=0, ha="center")
     plt.tight_layout()
     plt.show()
+    
+    plt.savefig("media/arch_sweep.png")
 
     return fig, ax, entries

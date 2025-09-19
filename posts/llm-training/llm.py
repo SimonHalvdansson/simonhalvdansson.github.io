@@ -179,7 +179,8 @@ def test_setup(args, train_loader, val_loader, n_runs, per_run_seconds):
                        dropout=args["dropout"],
                        norm=args["norm"],
                        ffn=args["ffn"],
-                       prepost=args["prepost"])
+                       prepost=args["prepost"],
+                       pos_emb=args["pos_emb"])
     
     vals = []
     for i in range(n_runs):
@@ -210,16 +211,17 @@ if __name__ == '__main__':
             "grad_clip":    None,
             "norm":         "layer",
             "ffn":          "mlp",
-            "prepost":      "pre"
+            "prepost":      "pre",
+            "pos_emb":      "sinusoidal"
     }
 
     #LEARNINGS:
     #5 runs is too few for 20 s at least for 
     
-    per_run_seconds = 60
+    per_run_seconds = 30
     n_runs = 10
-    lr_points = 5
-    histogram_runs = 10
+    lr_points = 6
+    histogram_runs = 30
 
     def objective(key, value, n_runs):
         local_args = args.copy()
@@ -279,6 +281,11 @@ if __name__ == '__main__':
             option_key="prepost", option_values=("pre","post"),
             n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args, test_setup_fn=test_setup)
         
+        # positional embeddings
+        plot_binary_option_bars(train_loader, val_loader,
+            option_key="pos_emb", option_values=("sinusoidal","learned"),
+            n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args, test_setup_fn=test_setup)
+        
         # Dropout sweep
         plot_dropout_bars(train_loader, val_loader,
             drops=(0.0, 0.05, 0.10, 0.15, 0.20),
@@ -286,7 +293,7 @@ if __name__ == '__main__':
         
         # Gradient clipping sweep
         plot_gradclip_bars(train_loader, val_loader,
-            clips=(None, 0.5, 1.0, 2.0),
+            clips=(0.5, 1.0, 1.5, 2.0, None),
             n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args, test_setup_fn=test_setup)
 
     

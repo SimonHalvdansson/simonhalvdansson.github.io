@@ -1,21 +1,22 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
 
 class Block(nn.Module):
-    def __init__(self, n_embd, n_head, dropout, norm, ffn, prepost):
+    def __init__(self, d_model, n_head, dropout, norm, ffn, prepost):
         super().__init__()
         if norm == "layer":
-            self.n1 = nn.LayerNorm(n_embd)
-            self.n2 = nn.LayerNorm(n_embd)
+            self.n1 = nn.LayerNorm(d_model)
+            self.n2 = nn.LayerNorm(d_model)
         else:
-            self.n1 = nn.RMSNorm(n_embd)
-            self.n2 = nn.RMSNorm(n_embd)
+            self.n1 = nn.RMSNorm(d_model)
+            self.n2 = nn.RMSNorm(d_model)
         
         self.prepost = prepost
         self.resid_drop = nn.Dropout(dropout)
         
-        self.attn = nn.MultiheadAttention(embed_dim=n_embd,
+        self.attn = nn.MultiheadAttention(embed_dim=d_model,
             num_heads=n_head,
             dropout=dropout,
             batch_first=True,
@@ -24,14 +25,14 @@ class Block(nn.Module):
                 
         if ffn == "mlp":
             self.ffn = nn.Sequential(
-                nn.Linear(n_embd, 4 * n_embd),
+                nn.Linear(d_model, 4 * d_model),
                 nn.GELU(),
-                nn.Linear(4 * n_embd, n_embd),
+                nn.Linear(4 * d_model, d_model),
                 nn.Dropout(dropout),
             )
         else:            
-            hidden = int(8 * n_embd / 3)  # ~param-match to 4*n_embd MLP
-            self.ffn = SwiGLU(n_embd, hidden, dropout)
+            hidden = int(8 * d_model / 3)  # ~param-match to 4*d_model MLP
+            self.ffn = SwiGLU(d_model, hidden, dropout)
         
     def forward(self, x):
         T = x.size(1)
@@ -52,10 +53,10 @@ class Block(nn.Module):
         return x
 
 class SwiGLU(nn.Module):
-    def __init__(self, n_embd: int, hidden: int, dropout: float):
+    def __init__(self, d_model: int, hidden: int, dropout: float):
         super().__init__()
-        self.fc1 = nn.Linear(n_embd, 2 * hidden)
-        self.fc2 = nn.Linear(hidden, n_embd)
+        self.fc1 = nn.Linear(d_model, 2 * hidden)
+        self.fc2 = nn.Linear(hidden, d_model)
         self.drop = nn.Dropout(dropout)
 
     def forward(self, x):
@@ -64,19 +65,41 @@ class SwiGLU(nn.Module):
         x = self.fc2(x)
         return self.drop(x)
 
+class SinusoidalPositionalEmbedding(nn.Module):
+	def __init__(self, num_positions, d_model):
+		super(SinusoidalPositionalEmbedding, self).__init__()
+		self.num_positions = num_positions
+		self.d_model = d_model
+		self.register_buffer("pos_embedding", self.create_positional_embedding())
+
+	def create_positional_embedding(self):
+		position = torch.arange(0, self.num_positions).unsqueeze(1)
+		div = torch.exp(
+			torch.arange(0, self.d_model, 2) * -(math.log(10000.0) / self.d_model)
+		)
+
+		pos_embedding = torch.zeros(self.num_positions, self.d_model)
+		pos_embedding[:, 0::2] = torch.sin(position * div)
+		pos_embedding[:, 1::2] = torch.cos(position * div)
+
+		return pos_embedding.unsqueeze(0)
+
+	def forward(self):
+		return self.pos_embedding
+
 class LLM(nn.Module):
-    def __init__(self, vocab_size, context_len, n_layer, n_head, n_embd, dropout, norm, ffn, prepost):
+    def __init__(self, vocab_size, context_len, n_layer, n_head, d_model, dropout, norm, ffn, prepost, pos_emb):
         super().__init__()
-        assert n_embd % n_head == 0
+        assert d_model % n_head == 0
         
         self.context_len = context_len
-        self.tok_emb = nn.Embedding(vocab_size, n_embd)
-        self.pos_emb = nn.Embedding(context_len, n_embd)
+        self.tok_emb = nn.Embedding(vocab_size, d_model)
+        self.pos_emb = nn.Embedding(context_len, d_model) if pos_emb == "learned" else SinusoidalPositionalEmbedding(context_len, d_model)
         self.drop = nn.Dropout(dropout)
-        self.blocks = nn.ModuleList([Block(n_embd, n_head, dropout, norm, ffn, prepost) for _ in range(n_layer)])
-        self.ln_f = nn.LayerNorm(n_embd) if norm == "layer" else nn.RMSNorm(n_embd)
+        self.blocks = nn.ModuleList([Block(d_model, n_head, dropout, norm, ffn, prepost) for _ in range(n_layer)])
+        self.ln_f = nn.LayerNorm(d_model) if norm == "layer" else nn.RMSNorm(d_model)
         self.prepost = prepost
-        self.head = nn.Linear(n_embd, vocab_size, bias=False)
+        self.head = nn.Linear(d_model, vocab_size, bias=False)
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
