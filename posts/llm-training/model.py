@@ -84,8 +84,9 @@ class SinusoidalPositionalEmbedding(nn.Module):
 
 		return pos_embedding.unsqueeze(0)
 
-	def forward(self):
-		return self.pos_embedding
+	def forward(self, positions: torch.Tensor):
+		T = positions.size(-1)
+		return self.pos_embedding[:, :T, :]
 
 class LLM(nn.Module):
     def __init__(self, vocab_size, context_len, n_layer, n_head, d_model, dropout, norm, ffn, prepost, pos_emb):

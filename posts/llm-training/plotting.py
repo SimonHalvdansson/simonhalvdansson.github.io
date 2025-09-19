@@ -76,9 +76,8 @@ def plot_lr_sweep_both(train_loader, val_loader,
     ax.set_title(title)
     ax.grid(True, alpha=0.3)
     ax.legend()
+    fig.savefig("media/lr_sweep.png")
     plt.show()
-    
-    plt.savefig("media/lr_sweep.png")
 
     return fig, ax, {"adamw": res_adamw, "schedulefree": res_sf}
 
@@ -121,10 +120,10 @@ def plot_val_loss_hist(samples, *, bins="auto", dpi=180, density=False, title=No
         ax.set_ylabel("")
     ax.set_title(title or f"Validation loss histogram (n={x.size})")
     ax.yaxis.set_visible(False)
-    ax.spines["left"].set_visible(False)
     ax.grid(False)
+    plt.tight_layout()
+    fig.savefig("media/histogram.png")
     plt.show()
-    plt.savefig("media/histogram.png")
     
     return fig, ax
 
@@ -181,8 +180,9 @@ def plot_option_bars(train_loader, val_loader, *,
     ax.set_ylabel("validation loss (cross-entropy)")
     ax.set_title(title or f"{option_key} sweep")
     ax.grid(True, axis="y", alpha=0.3)
+    plt.tight_layout()
+    fig.savefig(f"media/bars_{option_key}.png")
     plt.show()
-    plt.savefig(f"media/bars_{option_key}.png")
     
     return fig, ax, stats
 
@@ -231,10 +231,10 @@ def plot_binary_option_bars(train_loader, val_loader, *,
     ax.set_ylabel("validation loss (cross-entropy)")
     ax.set_title(title or _default_title_for_binary(option_key, option_values))
     ax.grid(True, axis="y", alpha=0.3)
+    plt.tight_layout()
+    fig.savefig(f"media/binary_{option_key}.png")
     plt.show()
-    
-    plt.savefig(f"media/binary_{option_key}.png")
-    
+        
     return fig, ax, results
 
 def _default_title_for_binary(option_key, option_values):
@@ -401,8 +401,8 @@ def plot_layers_heads_dims_heatmaps(train_loader, val_loader, *,
     cbar = fig.colorbar(last_im, ax=axes.tolist(), fraction=0.03, pad=0.02)
     cbar.set_label("Validation loss (cross-entropy)")
 
+    fig.savefig("media/heatmap_ldh.png")
     plt.show()
-    plt.savefig("media/heatmap_ldh.png")
     
     return fig, axes, {
         "layers": layers,
@@ -467,8 +467,8 @@ def plot_layers_heads_dims_bars(results, *, alpha=0.05, dpi=150,
     ax.grid(True, axis="y", alpha=0.25)
     plt.xticks(rotation=0, ha="center")
     plt.tight_layout()
+    fig.savefig("media/arch_sweep.png")
     plt.show()
     
-    plt.savefig("media/arch_sweep.png")
 
     return fig, ax, entries

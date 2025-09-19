@@ -175,7 +175,7 @@ def test_setup(args, train_loader, val_loader, n_runs, per_run_seconds):
                        context_len=context_len, 
                        n_layer=args["n_layer"],
                        n_head=args["n_head"],
-                       n_embd=args["n_embd"],
+                       d_model=args["d_model"],
                        dropout=args["dropout"],
                        norm=args["norm"],
                        ffn=args["ffn"],
@@ -206,7 +206,7 @@ if __name__ == '__main__':
             "optimizer":    "adamw",
             "n_layer":      2,
             "n_head":       2,
-            "n_embd":       128,
+            "d_model":      128,
             "dropout":      0.0,
             "grad_clip":    None,
             "norm":         "layer",
@@ -218,10 +218,10 @@ if __name__ == '__main__':
     #LEARNINGS:
     #5 runs is too few for 20 s at least for 
     
-    per_run_seconds = 30
-    n_runs = 10
-    lr_points = 6
-    histogram_runs = 30
+    per_run_seconds = 60
+    n_runs = 15
+    lr_points = 7
+    histogram_runs = 50
 
     def objective(key, value, n_runs):
         local_args = args.copy()
@@ -237,9 +237,9 @@ if __name__ == '__main__':
         return val_losses
     
     if True:
-        layers = [2, 4, 6, 8]
-        heads  = [2, 4, 8, 16]
-        d_models   = [128, 256, 384, 512]  # many cells will be masked when d_model % heads != 0
+        layers = [1, 2, 4, 6]
+        heads  = [1, 2, 4, 8]
+        d_models   = [64, 128, 256, 384]  # many cells will be masked when d_model % heads != 0
 
         _, _, sweep_results = plot_layers_heads_dims_heatmaps(
             train_loader, val_loader,
