@@ -107,24 +107,29 @@
 
 		<h4>Schedule-Free</h4>
 		<p>
-		Introduced in the 2024 <a href="https://arxiv.org/abs/2405.15682" target="_blank">The Road Less Scheduled</a> paper, the Schedule-Free optimizer from Meta promises to outperform the standard AdamW optimizer without the need for a complicated cosine scheduler. On the face of it 
+			Introduced in the 2024 <a href="https://arxiv.org/abs/2405.15682" target="_blank">The Road Less Scheduled</a> paper, the Schedule-Free optimizer from Meta promises to outperform the standard AdamW optimizer without the need for a complicated cosine scheduler. Removing the need for a scheduler or, alternatively, getting some of the benefits of a scheduler without the need to add additional hyperparameters sounds like a very nice deal. I've used this for some projects before and the results in the paper for a ResNet and an LLM are promising so I wanted to try it out here. 
 		</p>
 		<h4>Gradient clipping</h4>
 		<p>
-			Text
+			Gradient clipping is a popular techniques to stabilize training by clipping large gradients, avoiding particularly large gradients which may steer training off its course.
 		</p>
 		<h4>SwiGLU</h4>
 		<p>
-			Text
+			In the latter part of a transformer block is a feedforward-network (FFN) which originally took the form of a standard multilayer perceptron (MLP) with ReLU activation. In the years since, the Swish (also called SiLU) activation functin has grown in popularity and the FFN has been modified to incorporate Gated Linear Units (GLUs). The original paper <a href="https://arxiv.org/abs/2002.05202" target="_blank">GLU Variants Improve Transformer</a> by Noam Shazeer contains extensive tests on older architectures but modern LLMs seem to all include this modification.
 		</p>
-		<h4>Pre/post norm</h4>
+		<h4>Dropout</h4>
 		<p>
-			Text
+			Dropout is a very old (by modern standards) regularization technique. I feel like I've read papers both positive and negative about dropout in LLMs but the prevaling notion seems to be that it is superflous, especially since we rarely train for high numbers of epochs in todays era of high parameter counts.
 		</p>
 		<h4>RMSNorm</h4>
 		<p>
-			Text
+			LayerNorm is the standard solution for normalizing
 		</p>
+		<h4>Pre/post norm</h4>
+		<p>
+			Vanishing gradients has for a long time been a problem for deep networks. Apart from skip connections, the original Vaswani transformer paper also included two normalization layers inside each transformer block to stabilize training. These normalizations were placed after the attention and feedforward-networks but later work has largely placed this part <i>before</i> each sub-block. 
+		</p>
+
 		<h4>Sinusoidal/learnable positional embeddings</h4>
 		<p>
 			Text

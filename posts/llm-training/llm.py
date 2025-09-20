@@ -216,27 +216,26 @@ if __name__ == '__main__':
     }
 
     #LEARNINGS:
-    #5 runs is too few for 20 s at least for 
+    #
     
     per_run_seconds = 60
     n_runs = 15
     lr_points = 7
-    histogram_runs = 50
-
-    def objective(key, value, n_runs):
-        local_args = args.copy()
-        if key is not None:
-            local_args[key] = value
-            local_args["optimizer"] = "schedulefree"
-        
-        val_losses = test_setup(
-            local_args, train_loader, val_loader,
-            n_runs=n_runs, per_run_seconds=per_run_seconds
-        )
-        
-        return val_losses
+    histogram_runs = 100
     
-    if True:
+    do_lhd      = True
+    do_hist     = True
+    do_lr       = True
+    do_norm     = True
+    do_ffn      = True
+    do_prepost  = True
+    do_pos_emb  = True
+    do_dropout  = True
+    do_gradclip = True
+    
+    print(f"Minimum time: {histogram_runs*per_run_seconds/60/60 + per_run_seconds*n_runs*(4*4*4+lr_points+2+2+2+5+5)/60/60} hours")
+    
+    if do_lhd:
         layers = [1, 2, 4, 6]
         heads  = [1, 2, 4, 8]
         d_models   = [64, 128, 256, 384]  # many cells will be masked when d_model % heads != 0
@@ -253,45 +252,55 @@ if __name__ == '__main__':
         )
 
     
-    #do histogram for base case
-    if True:
+    if do_hist:
+        def objective(key, value, n_runs):
+            local_args = args.copy()
+            if key is not None:
+                local_args[key] = value
+                local_args["optimizer"] = "schedulefree"
+            
+            val_losses = test_setup(
+                local_args, train_loader, val_loader,
+                n_runs=n_runs, per_run_seconds=per_run_seconds
+            )
+            
+            return val_losses
+        
         vals = objective(key=None, value=None, n_runs=histogram_runs)
         plot_val_loss_hist(vals)
 
-    #sweep lr for adamw + schedulefree, same figure
-    if True:
+    if do_lr:
         plot_lr_sweep_both(train_loader, val_loader,
                         min_lr=1e-4, max_lr=1e-2, n_points=lr_points,
                         n_runs=n_runs, per_run_seconds=per_run_seconds,
                         base_args=args, test_setup_fn=test_setup)
 
-    if True:
-        # norm
+    if do_norm:
         plot_binary_option_bars(train_loader, val_loader,
             option_key="norm", option_values=("layer","rmsnorm"),
             n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args, test_setup_fn=test_setup)
-
-        # ffn
+        
+    if do_ffn:
         plot_binary_option_bars(train_loader, val_loader,
             option_key="ffn", option_values=("mlp","swiglu"),
             n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args, test_setup_fn=test_setup)
-
-        # prepost
+    
+    if do_prepost:
         plot_binary_option_bars(train_loader, val_loader,
             option_key="prepost", option_values=("pre","post"),
             n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args, test_setup_fn=test_setup)
-        
-        # positional embeddings
+    
+    if do_pos_emb:
         plot_binary_option_bars(train_loader, val_loader,
             option_key="pos_emb", option_values=("sinusoidal","learned"),
             n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args, test_setup_fn=test_setup)
-        
-        # Dropout sweep
+    
+    if do_dropout:
         plot_dropout_bars(train_loader, val_loader,
             drops=(0.0, 0.05, 0.10, 0.15, 0.20),
             n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args, test_setup_fn=test_setup)
-        
-        # Gradient clipping sweep
+    
+    if do_gradclip:
         plot_gradclip_bars(train_loader, val_loader,
             clips=(0.5, 1.0, 1.5, 2.0, None),
             n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args, test_setup_fn=test_setup)
