@@ -218,22 +218,52 @@ if __name__ == '__main__':
     #LEARNINGS:
     #
     
-    per_run_seconds = 60
+    per_run_seconds = 300
     n_runs = 15
     lr_points = 7
     histogram_runs = 100
     
-    do_lhd      = True
-    do_hist     = True
-    do_lr       = True
-    do_norm     = True
-    do_ffn      = True
-    do_prepost  = True
-    do_pos_emb  = True
-    do_dropout  = True
-    do_gradclip = True
+    do_hist     = 0
+    do_lhd      = 0
+    do_lr       = 1
+    do_norm     = 0
+    do_ffn      = 0
+    do_prepost  = 0
+    do_pos_emb  = 0
+    do_dropout  = 0
+    do_gradclip = 0
     
-    print(f"Minimum time: {histogram_runs*per_run_seconds/60/60 + per_run_seconds*n_runs*(4*4*4+lr_points+2+2+2+5+5)/60/60} hours")
+    
+    min_time = 0
+    if do_hist:
+        min_time += histogram_runs*per_run_seconds
+        
+    if do_lhd:
+        min_time += 4*4*4*per_run_seconds*n_runs
+        
+    if do_lr:
+        min_time += lr_points*per_run_seconds*n_runs
+        
+    if do_norm:
+        min_time += 2*per_run_seconds*n_runs
+        
+    if do_ffn:
+        min_time += 2*per_run_seconds*n_runs
+        
+    if do_prepost:
+        min_time += 2*per_run_seconds*n_runs
+        
+    if do_pos_emb:
+        min_time += 2*per_run_seconds*n_runs
+
+    if do_dropout:
+        min_time += 5*per_run_seconds*n_runs
+
+    if do_gradclip:
+        min_time += 5*per_run_seconds*n_runs
+        
+    print(f"Minimum time: {min_time/60/60} hours")
+
     
     if do_lhd:
         layers = [1, 2, 4, 6]

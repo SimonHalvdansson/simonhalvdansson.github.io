@@ -63,13 +63,13 @@
 	</div>
 
 	<section class="blog centering post">
-		<h1>Thirty seconds to SLMs</h1>
+		<h1>Five-minute SLMs</h1>
 		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Sep. 2025</div>
 
 		<hr class="squiggly-line"/>
 
 		<p>
-			Over the past few years there has been many innovations in LLM design; smart pretraining recipes, substantial posttraining RL, and architectural improvements. In this post, we'll look at how recent architectural improvements translate to very small models trained for short amounts of time. This means that we are not optimizing for low parameter count, optimal there would be something like <a href="https://developers.googleblog.com/en/introducing-gemma-3-270m/" target="_blank">Gemma 3 270M</a>. We are also not interested in distillation nor quantization. Instead, we are interested in the optimal design choices when training a model for only five minutes with consumer hardware on a smaller data set. The recent exploration <a href="https://www.seangoedecke.com/model-on-a-mbp/">What's the strongest AI model you can train on a laptop in five minutes?</a> by Sean Goedecke inspired this post and here we will aim to go deeper in terms of optimizing the architecture and doing proper A/B testing. The ultimate form for this type of investigation is <a href="https://github.com/KellerJordan/modded-nanogpt">Modded-NanoGPT</a> which is considerably more hardcore but less accessible.
+			Over the past few years there has been many innovations in LLM design; smart pretraining recipes, substantial posttraining RL, and architectural improvements. In this post, we'll look at how some of the architectural improvements translate to very small models trained for short amounts of time. This means that we are not optimizing for low parameter count, optimal there would be something like <a href="https://developers.googleblog.com/en/introducing-gemma-3-270m/" target="_blank">Gemma 3 270M</a>. We are also not interested in distillation nor quantization. Instead, we are interested in the optimal design choices when training a model for only five minutes with consumer hardware on a smaller data set. The recent exploration <a href="https://www.seangoedecke.com/model-on-a-mbp/">What's the strongest AI model you can train on a laptop in five minutes?</a> by Sean Goedecke inspired this post and here we will aim to go deeper in terms of optimizing the architecture and doing proper A/B testing. The ultimate form for this type of investigation is <a href="https://github.com/KellerJordan/modded-nanogpt">Modded-NanoGPT</a> which is considerably more hardcore but less accessible.
 		</p>
 
 		<div class="figure_container_small">
@@ -91,15 +91,15 @@
 				<li>FFN: MLP/SwiGLU</li>
 				<li>Dropout</li>
 				<li>Pre/post norm</li>
-				<li>LayerNorm / RMSNorm</li>
-				<li>Sinusoidal/learnable positional embeddings?</li>
+				<li>LayerNorm/RMSNorm</li>
+				<li>Sinusoidal/learnable positional embeddings</li>
 			</ul>
-			Before starting, we'll say a couple of things about modern architectures and the methodology. If you just want the results, jump to them <a href="#results">here</a>.
+			Before running evaluations, we'll say a couple of things about modern architectures and the methodology.
 		</p>
 
 		<hr class="squiggly-line"/>
 		
-		<h2>Modern models</h2>
+		<h2>What we change</h2>
 
 		<p>
 			This excellent <a href="https://magazine.sebastianraschka.com/p/from-gpt-2-to-gpt-oss-analyzing-the" target="_blank">overview</a> by Sebastian Raschka looks at some of the ways modern models differ from the classical GPT-2 model. There is an overwhelming amount of papers suggesting various changes to the base transformer architecture, and through the test of time what is considered "standard" has evolved considerably. Below we briefly outline some of those developments which we vary in this post. 
@@ -107,23 +107,59 @@
 
 		<h4>Schedule-Free</h4>
 		<p>
-			Introduced in the 2024 <a href="https://arxiv.org/abs/2405.15682" target="_blank">The Road Less Scheduled</a> paper, the Schedule-Free optimizer from Meta promises to outperform the standard AdamW optimizer without the need for a complicated cosine scheduler. Removing the need for a scheduler or, alternatively, getting some of the benefits of a scheduler without the need to add additional hyperparameters sounds like a very nice deal. I've used this for some projects before and the results in the paper for a ResNet and an LLM are promising so I wanted to try it out here. 
+			Introduced in the 2024 <a href="https://arxiv.org/abs/2405.15682" target="_blank">The Road Less Scheduled</a> paper, the Schedule-Free optimizer from Meta promises to outperform the standard AdamW optimizer without the need for a complicated cosine scheduler. Removing the need for a scheduler or, alternatively, getting some of the benefits of a scheduler without the need to add additional hyperparameters sounds like a very nice deal. I've used this for some projects before and the results in the paper for a ResNet and an LLM are promising so I wanted to try it out here.
 		</p>
+		<p>
+			Usage is quite simple but not quite a drop-in replacement. Initialization is standard but we need to keep track of an internal <code>train/eval</code> mode just like we toggle for for model during training/inference.
+
+		</p>
+
+<pre><code class="language-py">import schedulefree
+
+...
+
+if args["optimizer"] == "adamw":
+	optimizer = torch.optim.AdamW(model.parameters(), lr=args["lr"])
+else:
+	optimizer = schedulefree.AdamWScheduleFree(model.parameters(), lr=args["lr"])
+
+...
+
+if args["optimizer"] == "schedulefree" and optimizer is not None:
+	if train:
+		optimizer.train()
+	else:
+		optimizer.eval()
+</code></pre>
 		<h4>Gradient clipping</h4>
 		<p>
-			Gradient clipping is a popular techniques to stabilize training by clipping large gradients, avoiding particularly large gradients which may steer training off its course.
+			Gradient clipping is a popular techniques to stabilize training by clipping large gradients, avoiding particularly large gradients which may steer training off its course. In between <code>loss.backward()</code> and <code>optimizer.step()</code> we simply call <code>nn.utils.clip_grad_norm_(model.parameters(), args["grad_clip"])</code>
 		</p>
 		<h4>SwiGLU</h4>
 		<p>
 			In the latter part of a transformer block is a feedforward-network (FFN) which originally took the form of a standard multilayer perceptron (MLP) with ReLU activation. In the years since, the Swish (also called SiLU) activation functin has grown in popularity and the FFN has been modified to incorporate Gated Linear Units (GLUs). The original paper <a href="https://arxiv.org/abs/2002.05202" target="_blank">GLU Variants Improve Transformer</a> by Noam Shazeer contains extensive tests on older architectures but modern LLMs seem to all include this modification.
 		</p>
+<pre><code class="language-py">class SwiGLU(nn.Module):
+    def __init__(self, d_model: int, hidden: int, dropout: float):
+        super().__init__()
+        self.fc1 = nn.Linear(d_model, 2 * hidden)
+        self.fc2 = nn.Linear(hidden, d_model)
+        self.drop = nn.Dropout(dropout)
+
+    def forward(self, x):
+        u, v = self.fc1(x).chunk(2, dim=-1)      # [*, 2*hidden] -> two [*, hidden]
+        x = F.silu(u) * v                         # SwiGLU: swish(u) ⊙ v
+        x = self.fc2(x)
+        return self.drop(x)
+</code></pre>
+
 		<h4>Dropout</h4>
 		<p>
 			Dropout is a very old (by modern standards) regularization technique. I feel like I've read papers both positive and negative about dropout in LLMs but the prevaling notion seems to be that it is superflous, especially since we rarely train for high numbers of epochs in todays era of high parameter counts.
 		</p>
 		<h4>RMSNorm</h4>
 		<p>
-			LayerNorm is the standard solution for normalizing
+			LayerNorm is the standard solution for normalizing the state tensor over the feature dimension while going through transformer blocks by subtracting the mean, dividing by the standard deviation and applying a learned affine map. In RMSNorm, we skip the subtracting of the mean, allowing activations to drift more. As I've understood it, this minor change slightly improves throughput while having an even lesser effect on performance of the models. Both LayerNorm and RMSNorm are standard enough nowadays to be included in PyTorch as <code>nn.LayerNorm</code> and <code>nn.RMSNorm</code>.
 		</p>
 		<h4>Pre/post norm</h4>
 		<p>
@@ -132,7 +168,7 @@
 
 		<h4>Sinusoidal/learnable positional embeddings</h4>
 		<p>
-			Text
+			Sinudoidal positional embeddings were used in the original transformer paper but was quickly replaced by learned learned embeddings and later Rotary Positional Embeddings (RoPE). While RoPE acts directly on the <code>Q</code> and <code>K</code> matrices, sinusoidal and learned positional embeddings simply take the form of adding a vector to each token embedding making them a bit easier to implement.
 		</p>
 
 		<hr class="squiggly-line"/>
@@ -144,16 +180,16 @@
 		</p>
 
 		<p>
-			The performance of our models will have natural variation. To be able to conduct meaningful A/B experiments, we need to have a model for how our metric naturally varies. We can investigate this manually by constructing a histogram of validation cross-entropy for our default configuration. TODO: INSERT DEFAULT CONFIGURATION HERE
+			The performance of our models will have natural variation. To be able to conduct meaningful A/B experiments, we need to have a model for how our metric naturally varies. We can investigate this manually by constructing a histogram of validation cross-entropy for our default configuration.
 		</p>
 
 		<div class="figure_container_small">
-			<a data-fancybox="gallery1" href="media/histogram.png">
-				<img class="figure" src="media/histogram.png"></img>
+			<a data-fancybox="gallery1" href="media/histogram_baseline.png">
+				<img class="figure" src="media/histogram_baseline.png"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> Histogram of validation cross-entropy for our default configuration.
+			<span class="caption_title">Figure: </span> Histogram of validation cross-entropy for our default configuration for 100 samples, together with (poor) Gaussian fit.
 		</div>
 
 		<p>
@@ -161,14 +197,34 @@
 			$$
 			\bar{x} \pm t_{1-\alpha/2,\, n-1} \frac{s}{\sqrt{n}}
 			$$
-			where $\bar{x}$ is the sample mean, $s$ is the sample standard deviation, $n$ is the number of samples and $\alpha$ is the parmeter for the confidence interval.
+			where $\bar{x}$ is the sample mean, $s$ is the sample standard deviation, $n$ is the number of samples and $\alpha$ is the parameter for the confidence interval.
+		</p>
+
+		<p>
+			From here, we will tweak the architecture to beat this base validation loss of around <code>2.15</code>. Going over <b>all</b> possible configurations is simple infeasible, even on a 5 minute time budget, without significant parallell compute. Instead, we will work through the hyperparamters in a semi-heuristical way, tweaking the most important parameters first.
 		</p>
 
 		<hr class="squiggly-line"/>
 
-		<h2 id="results">Results</h2>
+		<h2 id="results">Hyperparameter search</h2>
 		
-		<p>text</p>
+		<p>
+			As our first course of action, we will sweep over the learning rate between <code>1e-4</code> and <code>1e-2</code> for both AdamW and Schedule-Free AdamW since this hyperparameter can have a large effect. Doing this we find the following behavior:
+		</p>
+
+		<div class="figure_container_small">
+			<a data-fancybox="gallery3" href="media/lr_sweep.png">
+				<img class="figure" src="media/lr_sweep.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Sweep over feasible learning rates for both AdamW and Schedule-Free with the default configuration.
+		</div>
+
+		<p>
+			Based on this information, we set our configuration's learning rate to <code>XXX</code>. Next up we tweak the scaling hyperparameters for the model, the number of layers <code>n_layers</code>, the number of heads <code>n_heads</code> and the hidden model dimension <code>d_model</code>. Tweaking all of these at the same time for four different options for each hyperparameters means going over <code>4 × 4 × 4 = 64</code> configurations with several runs for each to develop confidence intervals.
+		</p>
+		
 
 		<div class="figure_container">
 			<a data-fancybox="gallery2" href="media/heatmap_ldh.png">
