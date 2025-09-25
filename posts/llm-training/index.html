@@ -179,6 +179,21 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 			We will train all models with automatic mixed precision (<a href="https://docs.pytorch.org/docs/stable/amp.html">AMP</a>) and <code>bfloat16</code> since this generally doubles throughput at the cost of some training stability which is preferable in this time-constrained setting. Searching over all possible configurations is outside my time and electricity budget so we will assume that all choices contribute to the result independently.
 		</p>
 
+<pre><code class="language-py">args = {
+		"lr":			2e-3,
+        "optimizer":    "adamw",
+        "n_layer":      2,
+        "n_head":       2,
+        "d_model":      128,
+        "dropout":      0.0,
+        "grad_clip":    None,
+        "norm":         "layer",
+        "ffn":          "mlp",
+        "prepost":      "pre",
+        "pos_emb":      "sinusoidal"
+}
+</code></pre>
+
 		<p>
 			The performance of our models will have natural variation. To be able to conduct meaningful A/B experiments, we need to have a model for how our metric naturally varies. We can investigate this manually by constructing a histogram of validation cross-entropy for our default configuration.
 		</p>
@@ -213,8 +228,8 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 		</p>
 
 		<div class="figure_container_small">
-			<a data-fancybox="gallery3" href="media/lr_sweep.png">
-				<img class="figure" src="media/lr_sweep.png"></img>
+			<a data-fancybox="gallery3" href="media/lr_sweep_baseline.png">
+				<img class="figure" src="media/lr_sweep_baseline.png"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
@@ -222,27 +237,32 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 		</div>
 
 		<p>
-			Based on this information, we set our configuration's learning rate to <code>XXX</code>. Next up we tweak the scaling hyperparameters for the model, the number of layers <code>n_layers</code>, the number of heads <code>n_heads</code> and the hidden model dimension <code>d_model</code>. Tweaking all of these at the same time for four different options for each hyperparameters means going over <code>4 × 4 × 4 = 64</code> configurations with several runs for each to develop confidence intervals.
+			Based on this information, we set our configuration's learning rate to <code>2e-3</code> and stick with the standard <code>AdamW</code> optimizer. Next up we tweak the scaling hyperparameters for the model, the number of layers <code>n_layers</code>, the number of heads <code>n_heads</code> and the hidden model dimension <code>d_model</code>. Tweaking all of these at the same time for four different options for each hyperparameters means going over <code>4 × 4 × 4 = 64</code> configurations with several runs for each to develop confidence intervals.
 		</p>
-		
 
 		<div class="figure_container">
-			<a data-fancybox="gallery2" href="media/heatmap_ldh.png">
-				<img class="figure" src="media/heatmap_ldh.png"></img>
+			<a data-fancybox="gallery2" href="media/heatmap_ldh_baseline.png">
+				<img class="figure" src="media/heatmap_ldh_baseline.png"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
 			<span class="caption_title">Figure: </span> Results for all hyperparameter choices for number of layers, heads and model dimension.
 		</div>
 
+		<p></p>
+
 		<div class="figure_container">
-			<a data-fancybox="gallery2" href="media/arch_sweep.png">
-				<img class="figure" src="media/arch_sweep.png"></img>
+			<a data-fancybox="gallery2" href="media/arch_sweep_baseline.png">
+				<img class="figure" src="media/arch_sweep_baseline.png"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
 			<span class="caption_title">Figure: </span> Layers, heads and model dimension results ordered in decreasing performance together with 95% confidence intervals.
 		</div>
+
+		<p>
+			
+		</p>
 
 		<div class="figure_container_small">
 			<a data-fancybox="gallery3" href="media/lr_sweep.png">

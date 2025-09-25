@@ -199,14 +199,11 @@ def test_setup(args, train_loader, val_loader, n_runs, per_run_seconds):
 
 
 if __name__ == '__main__':
-    x_train, y_train, x_val, y_val, vocab_size = load_or_build_packed(context_len, is_cuda)
-    train_loader, val_loader = build_loaders(x_train, y_train, x_val, y_val, context_len, batch_size, is_cuda)
-
-    args = {"lr":           1e-3,
+    args = {"lr":           2e-3,
             "optimizer":    "adamw",
             "n_layer":      2,
-            "n_head":       2,
-            "d_model":      128,
+            "n_head":       4,
+            "d_model":      256,
             "dropout":      0.0,
             "grad_clip":    None,
             "norm":         "layer",
@@ -214,18 +211,15 @@ if __name__ == '__main__':
             "prepost":      "pre",
             "pos_emb":      "sinusoidal"
     }
-
-    #LEARNINGS:
-    #
     
     per_run_seconds = 300
-    n_runs = 15
+    n_runs = 8
     lr_points = 7
     histogram_runs = 100
     
     do_hist     = 0
-    do_lhd      = 0
-    do_lr       = 1
+    do_lhd      = 1
+    do_lr       = 0
     do_norm     = 0
     do_ffn      = 0
     do_prepost  = 0
@@ -263,7 +257,11 @@ if __name__ == '__main__':
         min_time += 5*per_run_seconds*n_runs
         
     print(f"Minimum time: {min_time/60/60} hours")
+    
+    x_train, y_train, x_val, y_val, vocab_size = load_or_build_packed(context_len, is_cuda)
+    train_loader, val_loader = build_loaders(x_train, y_train, x_val, y_val, context_len, batch_size, is_cuda)
 
+    
     
     if do_lhd:
         layers = [1, 2, 4, 6]
