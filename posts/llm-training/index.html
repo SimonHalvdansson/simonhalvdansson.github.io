@@ -249,7 +249,9 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 			<span class="caption_title">Figure: </span> Results for all hyperparameter choices for number of layers, heads and model dimension.
 		</div>
 
-		<p></p>
+		<p>
+			Running these sweeps is time intensive due to the large search space so we only perform 7 training runs per configuration. Still we can see continuity in the heatmaps above.
+		</p>
 
 		<div class="figure_container">
 			<a data-fancybox="gallery2" href="media/arch_sweep_baseline.png">
@@ -261,42 +263,38 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 		</div>
 
 		<p>
-			
+			Note that we cannot say with any $p < 0.05$ confidence that the <code>n_layers=2</code>, <code>n_heads = 4</code>, <code>d_model = 256</code> is the global minimum in our search space but it is clear from the heatmaps that it at least is very close to the global minimum and so we set it in our configuration for now. Next up we compare <code>RMSNorm</code> and <code>LayerNorm</code>.
 		</p>
-
+		
 		<div class="figure_container_small">
-			<a data-fancybox="gallery3" href="media/lr_sweep.png">
-				<img class="figure" src="media/lr_sweep.png"></img>
+			<a data-fancybox="gallery4" href="media/binary_norm_done.png">
+				<img class="figure" src="media/binary_norm_done.png"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> Sweep over feasible learning rates for both AdamW and Schedule-Free.
+			<span class="caption_title">Figure: </span> Comparision of validation loss for LayerNorm compared to RMSNorm. Notice the scale on the y axis.
 		</div>
 
+		<p>
+			As we see in the figure, there is no clear winner despite this being the averages over 80 training runs per configuration. This is however to be expected as the optimization in <code>RMSNorm</code> is so small that it should only make a difference for much larger networks. Nevertheless, it is good to know that its simplification does not derail training for small sizes and training times.
+		</p>
 		
 		<div class="figure_container_small">
-			<a data-fancybox="gallery4" href="media/binary_norm.png">
-				<img class="figure" src="media/binary_norm.png"></img>
-			</a>
-		</div>
-		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> Comparision of validation loss for LayerNorm compared to RMSNorm.
-		</div>
-
-		
-		<div class="figure_container_small">
-			<a data-fancybox="gallery4" href="media/binary_ffn.png">
-				<img class="figure" src="media/binary_ffn.png"></img>
+			<a data-fancybox="gallery4" href="media/binary_ffn_done.png">
+				<img class="figure" src="media/binary_ffn_done.png"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
 			<span class="caption_title">Figure: </span> Comparision of validation loss for a standard MLP and SwiGLU for the feedforward netwrok path of the transformer.
 		</div>
 
+		<p>
+			For the <code>MLP</code> vs <code>SwiGLU</code> comparision the result is a bit more surprising.
+		</p>
 		
 		<div class="figure_container_small">
-			<a data-fancybox="gallery4" href="media/binary_prepost.png">
-				<img class="figure" src="media/binary_prepost.png"></img>
+			<a data-fancybox="gallery4" href="media/binary_prepost_big.png">
+				<img class="figure" src="media/binary_prepost_big.png"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
@@ -304,8 +302,8 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 		</div>
 
 		<div class="figure_container_small">
-			<a data-fancybox="gallery4" href="media/binary_pos_emb.png">
-				<img class="figure" src="media/binary_pos_emb.png"></img>
+			<a data-fancybox="gallery4" href="media/binary_pos_emb_done.png">
+				<img class="figure" src="media/binary_pos_emb_done.png"></img>
 			</a>
 		</div>
 		<div class="figure_caption">

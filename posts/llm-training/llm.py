@@ -212,17 +212,17 @@ if __name__ == '__main__':
             "pos_emb":      "sinusoidal"
     }
     
-    per_run_seconds = 300
-    n_runs = 8
+    per_run_seconds = 300*6
+    n_runs = 3
     lr_points = 7
     histogram_runs = 100
     
     do_hist     = 0
-    do_lhd      = 1
+    do_lhd      = 0
     do_lr       = 0
     do_norm     = 0
     do_ffn      = 0
-    do_prepost  = 0
+    do_prepost  = 1
     do_pos_emb  = 0
     do_dropout  = 0
     do_gradclip = 0
