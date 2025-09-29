@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 	<title>Five-minute LLMs</title>
 
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="theme-color" content="#FBEDEA" />
+	<meta charset="utf-8">
 
 	<link rel="shortcut icon" type="image/x-icon"  href="../../favicon.ico?">
 	<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
@@ -63,13 +64,13 @@
 	</div>
 
 	<section class="blog centering post">
-		<h1>Five-minute SLMs</h1>
+		<h1>Five-minute LLMs</h1>
 		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Sep. 2025</div>
 
 		<hr class="squiggly-line"/>
 
 		<p>
-			Over the past few years there has been many innovations in LLM design; smart pretraining recipes, substantial posttraining RL, and architectural improvements. In this post, we'll look at how some of the architectural improvements translate to very small models trained for short amounts of time. This means that we are not optimizing for low parameter count, optimal there would be something like <a href="https://developers.googleblog.com/en/introducing-gemma-3-270m/" target="_blank">Gemma 3 270M</a>. We are also not interested in distillation nor quantization. Instead, we are interested in the optimal design choices when training a model for only five minutes with consumer hardware on a smaller data set. The recent exploration <a href="https://www.seangoedecke.com/model-on-a-mbp/">What's the strongest AI model you can train on a laptop in five minutes?</a> by Sean Goedecke inspired this post and here we will aim to go deeper in terms of optimizing the architecture and doing proper A/B testing. The ultimate form for this type of investigation is <a href="https://github.com/KellerJordan/modded-nanogpt">Modded-NanoGPT</a> which is considerably more hardcore but less accessible.
+			Over the past few years there have been many innovations in LLM design: smart pretraining recipes, substantial post-training RL, and architectural improvements. In this post, we'll look at how some of the architectural improvements translate to very small models trained for short amounts of time. This means that we are not optimizing for low parameter count, the optimal choice there would be something like <a href="https://developers.googleblog.com/en/introducing-gemma-3-270m/" target="_blank">Gemma 3 270M</a>. We are also not interested in distillation nor quantization. Instead, we are interested in the optimal design choices when training a model for only five minutes with consumer hardware on a smaller dataset. The recent exploration <a href="https://www.seangoedecke.com/model-on-a-mbp/">What's the strongest AI model you can train on a laptop in five minutes?</a> by Sean Goedecke inspired this post and here we will aim to go deeper in terms of optimizing the architecture and doing proper A/B testing. The ultimate form for this type of investigation is <a href="https://github.com/KellerJordan/modded-nanogpt">Modded-NanoGPT</a> which is considerably more hardcore but less accessible.
 		</p>
 
 		<div class="figure_container_small">
@@ -110,7 +111,7 @@
 			Introduced in the 2024 <a href="https://arxiv.org/abs/2405.15682" target="_blank">The Road Less Scheduled</a> paper, the Schedule-Free optimizer from Meta promises to outperform the standard AdamW optimizer without the need for a complicated cosine scheduler. Removing the need for a scheduler or, alternatively, getting some of the benefits of a scheduler without the need to add additional hyperparameters sounds like a very nice deal. I've used this for some projects before and the results in the paper for a ResNet and an LLM are promising so I wanted to try it out here.
 		</p>
 		<p>
-			Usage is quite simple but not quite a drop-in replacement. Initialization is standard but we need to keep track of an internal <code>train/eval</code> mode just like we toggle for for model during training/inference.
+			Usage is quite simple but not quite a drop-in replacement. Initialization is standard but we need to keep track of an internal <code>train/eval</code> mode just like we toggle for model during training/inference.
 
 		</p>
 
@@ -133,11 +134,11 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 </code></pre>
 		<h4>Gradient clipping</h4>
 		<p>
-			Gradient clipping is a popular techniques to stabilize training by clipping large gradients, avoiding particularly large gradients which may steer training off its course. In between <code>loss.backward()</code> and <code>optimizer.step()</code> we simply call <code>nn.utils.clip_grad_norm_(model.parameters(), args["grad_clip"])</code>
+			Gradient clipping is a popular technique to stabilize training by clipping large gradients, avoiding particularly large gradients which may steer training off its course. In between <code>loss.backward()</code> and <code>optimizer.step()</code> we simply call <code>nn.utils.clip_grad_norm_(model.parameters(), args["grad_clip"])</code>
 		</p>
 		<h4>SwiGLU</h4>
 		<p>
-			In the latter part of a transformer block is a feedforward-network (FFN) which originally took the form of a standard multilayer perceptron (MLP) with ReLU activation. In the years since, the Swish (also called SiLU) activation functin has grown in popularity and the FFN has been modified to incorporate Gated Linear Units (GLUs). The original paper <a href="https://arxiv.org/abs/2002.05202" target="_blank">GLU Variants Improve Transformer</a> by Noam Shazeer contains extensive tests on older architectures but modern LLMs seem to all include this modification.
+			In the latter part of a transformer block is a feedforward network (FFN) which originally took the form of a standard multilayer perceptron (MLP) with ReLU activation. In the years since, the Swish (also called SiLU) activation function has grown in popularity and the FFN has been modified to incorporate Gated Linear Units (GLUs). The original paper <a href="https://arxiv.org/abs/2002.05202" target="_blank">GLU Variants Improve Transformer</a> by Noam Shazeer contains extensive tests on older architectures but modern LLMs seem to all include this modification.
 		</p>
 <pre><code class="language-py">class SwiGLU(nn.Module):
     def __init__(self, d_model: int, hidden: int, dropout: float):
@@ -155,7 +156,7 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 
 		<h4>Dropout</h4>
 		<p>
-			Dropout is a very old (by modern standards) regularization technique. I feel like I've read papers both positive and negative about dropout in LLMs but the prevaling notion seems to be that it is superflous, especially since we rarely train for high numbers of epochs in todays era of high parameter counts.
+			Dropout is a very old (by modern standards) regularization technique. I feel like I've read papers both positive and negative about dropout in LLMs but the prevailing notion seems to be that it is superfluous, especially since we rarely train for high numbers of epochs in today's era of high parameter counts.
 		</p>
 		<h4>RMSNorm</h4>
 		<p>
@@ -163,12 +164,12 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 		</p>
 		<h4>Pre/post norm</h4>
 		<p>
-			Vanishing gradients has for a long time been a problem for deep networks. Apart from skip connections, the original Vaswani transformer paper also included two normalization layers inside each transformer block to stabilize training. These normalizations were placed after the attention and feedforward-networks but later work has largely placed this part <i>before</i> each sub-block.
+			Vanishing gradients have for a long time been a problem for deep networks. Apart from skip connections, the original Vaswani transformer paper also included two normalization layers inside each transformer block to stabilize training. These normalizations were placed after the attention and feedforward networks but later work has largely placed this part <i>before</i> each sub-block.
 		</p>
 
 		<h4>Sinusoidal/learnable positional embeddings</h4>
 		<p>
-			Sinudoidal positional embeddings were used in the original transformer paper but was quickly replaced by learned learned embeddings and later Rotary Positional Embeddings (RoPE). While RoPE acts directly on the <code>Q</code> and <code>K</code> matrices, sinusoidal and learned positional embeddings simply take the form of adding a vector to each token embedding making them a bit easier to implement.
+			Sinusoidal positional embeddings were used in the original transformer paper but were quickly replaced by learned embeddings and later Rotary Positional Embeddings (RoPE). While RoPE acts directly on the <code>Q</code> and <code>K</code> matrices, sinusoidal and learned positional embeddings simply take the form of adding a vector to each token embedding making them a bit easier to implement.
 		</p>
 
 		<hr class="squiggly-line"/>
@@ -176,7 +177,7 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 		<h2>Methodology</h2>
 
 		<p>
-			We will train all models with automatic mixed precision (<a href="https://docs.pytorch.org/docs/stable/amp.html">AMP</a>) and <code>bfloat16</code> since this generally doubles throughput at the cost of some training stability which is preferable in this time-constrained setting. Searching over all possible configurations is outside my time and electricity budget so we will assume that all choices contribute to the result independently.
+			We will train all models with automatic mixed precision (<a href="https://docs.pytorch.org/docs/stable/amp.html">AMP</a>) and <code>bfloat16</code> since this generally doubles throughput at the cost of some training stability which is preferable in this time-constrained setting. Everything will be run on an RTX 3070 with a context window of <code>256</code> tokens and a batch size of <code>16</code>. Searching over all possible configurations is outside my time and electricity budget so we will assume that all choices contribute to the result independently.
 		</p>
 
 <pre><code class="language-py">args = {
@@ -216,7 +217,7 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 		</p>
 
 		<p>
-			From here, we will tweak the architecture to beat this base validation loss of around <code>2.15</code>. Going over <b>all</b> possible configurations is simple infeasible, even on a 5 minute time budget, without significant parallell compute. Instead, we will work through the hyperparamters in a semi-heuristical way, tweaking the most important parameters first.
+			From here, we will tweak the architecture to beat this base validation loss of around <code>2.15</code>. Going over <b>all</b> possible configurations is simply infeasible, even on a 5 minute time budget, without significant parallel compute. Instead, we will work through the hyperparameters in a semi-heuristic way, tweaking the most important parameters first.
 		</p>
 
 		<hr class="squiggly-line"/>
@@ -263,7 +264,7 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 		</div>
 
 		<p>
-			Note that we cannot say with any $p < 0.05$ confidence that the <code>n_layers=2</code>, <code>n_heads = 4</code>, <code>d_model = 256</code> is the global minimum in our search space but it is clear from the heatmaps that it at least is very close to the global minimum and so we set it in our configuration for now. Next up we compare <code>RMSNorm</code> and <code>LayerNorm</code>.
+			Note that we cannot say with any $p < 0.05$ confidence that the <code>n_layers=2</code>, <code>n_heads = 4</code>, <code>d_model = 256</code> configuration is the global minimum in our search space but it is clear from the heatmaps that it at least is very close to the global minimum and so we set it in our configuration for now. Next up we compare <code>RMSNorm</code> and <code>LayerNorm</code>.
 		</p>
 		
 		<div class="figure_container_small">
@@ -272,7 +273,7 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> Comparision of validation loss for LayerNorm compared to RMSNorm. Note the scale on the y axis.
+			<span class="caption_title">Figure: </span> Comparison of validation loss for LayerNorm compared to RMSNorm. Note the scale on the y-axis.
 		</div>
 
 		<p>
@@ -285,11 +286,11 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> Comparision of validation loss for a standard MLP and SwiGLU for the feedforward netwrok path of the transformer.
+			<span class="caption_title">Figure: </span> Comparison of validation loss for a standard MLP and SwiGLU for the feedforward network path of the transformer.
 		</div>
 
 		<p>
-			For the <code>MLP</code> vs <code>SwiGLU</code> comparision the result is a bit more surprising with the standard <code>MLP</code> handily beating out the more modern <code>SwiGLU</code> block. Still, a multilayer perceptron is still the default solution for a very simple neural network and SwiGLU has not taken its place across the board. Hence it is perhaps reasonable that the MLP stays strong when we're not pushing the boundaries of LLMs.
+			For the <code>MLP</code> vs <code>SwiGLU</code> comparison the result is a bit more surprising with the standard <code>MLP</code> handily beating out the more modern <code>SwiGLU</code> block. Still, a multilayer perceptron is still the default solution for a very simple neural network and SwiGLU has not taken its place across the board. Hence it is perhaps reasonable that the MLP stays strong when we're not pushing the boundaries of LLMs.
 		</p>
 		
 		<div class="figure_container_small">
@@ -298,11 +299,11 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> Comparision of validation loss for pre-norm and post-norm.
+			<span class="caption_title">Figure: </span> Comparison of validation loss for pre-norm and post-norm.
 		</div>
 
 		<p>
-			The difference between pre- and postnorm is absolutely huge in this case, enough so that I reran the experiment with a 30-minute training time (and reviewed the code) to be sure there was no issue with the implementation. At the longer training time, the gap persisted as pre-norm validation loss shrank to about <code>1.7</code> while post-norm remained at the same level. A likely explanation for the large discrepency is that the learning rate was chosen too high to play well with post-norm as pre-norm improves training stability and the learning rate was chosen with pre-norm in mind. To test this out, i quickly tried at learning rate of <code>5e-4</code> which resulting in a significantly lower discrepency but still a small edge for pre-norm.  It is very possible that our decision to use mixed precision further increased the training instability problems for this high learning rate.
+			The difference between pre- and postnorm is absolutely huge in this case, enough so that I reran the experiment with a 30-minute training time (and reviewed the code) to be sure there was no issue with the implementation. At the longer training time, the gap persisted as pre-norm validation loss shrank to about <code>1.7</code> while post-norm remained at the same level. A likely explanation for the large discrepancy is that the learning rate was chosen too high to play well with post-norm as pre-norm improves training stability and the learning rate was chosen with pre-norm in mind. To test this out, I quickly tried at learning rate of <code>5e-4</code> which resulted in a significantly lower discrepancy but still a small edge for pre-norm. It is very possible that our decision to use mixed precision further increased the training instability problems for this high learning rate.
 		</p>
 
 		<div class="figure_container_small">
@@ -311,15 +312,15 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> Comparision between sinusoidal and learned positional embeddings.
+			<span class="caption_title">Figure: </span> Comparison between sinusoidal and learned positional embeddings.
 		</div>
 
 		<p>
-			For the positional embeddings, learned embeddings turn out to perform better than sinusoidal ones. Perhaps because simpler embedding maps can co-evolve with the training instead of starting immediately with effectively <code>256</code> ortgononal embeddings to learn. In the early stages of training, simpler shorter relations for e.g. grammar are more important than longer dependencies which enable more coherency.
+			For the positional embeddings, learned embeddings turn out to perform better than sinusoidal ones. Perhaps because simpler embedding maps can co-evolve with the training instead of starting immediately with effectively <code>256</code> orthogonal embeddings to learn. In the early stages of training, simpler shorter relations for e.g., grammar are more important than longer dependencies which enable more coherence.
 		</p>
 
 		<p>
-			At this point, we should note that, with the exception of learned positional embeddings and a small change in the sizing, the choices in the original configuration were mostly correct. Before continuing with the dropout and gradient clipping sweeps, we take another look at learning rate and the optimizer for our updates configuration with learned positional embeddings. This also let's us choose a learning rate which is possibly better suited for the new choice of layers, heads and hidden dimension. We can also restrict our search to a tigether interval based on the earlier findings. Doing so we obtain the following results:
+			At this point, we should note that, with the exception of learned positional embeddings and a small change in the sizing, the choices in the original configuration were mostly correct. Before continuing with the dropout and gradient clipping sweeps, we take another look at learning rate and the optimizer for our updated configuration with learned positional embeddings. This also lets us choose a learning rate which is possibly better suited for the new choice of layers, heads and hidden dimension. We can also restrict our search to a tighter interval based on the earlier findings. Doing so we obtain the following results:
 		</p>
 
 		<div class="figure_container_small">
@@ -345,7 +346,7 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 		</div>
 
 		<p>
-			We see very clearly that dropout does not help
+			We see very clearly that dropout does not help which perhaps should be expected since we're training for around <code>1.7</code> epochs.
 		</p>
 
 		<div class="figure_container_small">
@@ -354,15 +355,20 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> Comparision between Gradient clipping options for use in training.
+			<span class="caption_title">Figure: </span> Comparison between gradient clipping options for use in training.
 		</div>
 
+		<p>
+			Lastly for the gradient clipping it certainly does not make a big difference and we keep it off.
+		</p>
 
-		
+		<hr class="squiggly-line"/>
 
+		<h2>Conclusions</h2>
 		
-		
-
+		<p>
+			The final model we end up with has <code>27.4M</code> parameters and trains for around <code>30M</code> tokens in the five minutes we give it to a validation loss of around <code>1.85</code> corresponding to a perplexity of <code>6.36</code>. Many of the choices in the initial model configuration turned out to be correct which perhaps should be expected as they are standard choices for a reason. Still, at least for me, this investigation has highlighted how time intensive these sort of hyperparameter searches are and how many iterations it can take to reach a statistically significant answer.
+		</p>
 
 	</section>
 	

@@ -186,6 +186,7 @@ def test_setup(args, train_loader, val_loader, n_runs, per_run_seconds):
     for i in range(n_runs):
         print(f"\n=== Run {i+1}/{n_runs} (time budget: {per_run_seconds}s) ===")
         model = make_model().to(device)
+        
         val_loss = train_limited_time(
             model, train_loader, val_loader, per_run_seconds, args
         )
@@ -213,7 +214,7 @@ if __name__ == '__main__':
     }
     
     per_run_seconds = 300
-    n_runs = 3
+    n_runs = 26
     lr_points = 8
     histogram_runs = 100
     
