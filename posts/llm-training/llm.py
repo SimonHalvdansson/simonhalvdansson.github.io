@@ -213,7 +213,7 @@ if __name__ == '__main__':
     }
     
     per_run_seconds = 300
-    n_runs = 20
+    n_runs = 3
     lr_points = 8
     histogram_runs = 100
     
@@ -224,8 +224,8 @@ if __name__ == '__main__':
     do_ffn      = 0
     do_prepost  = 0
     do_pos_emb  = 0
-    do_dropout  = 1
-    do_gradclip = 0
+    do_dropout  = 0
+    do_gradclip = 1
     
     
     min_time = 0

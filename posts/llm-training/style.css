@@ -464,10 +464,10 @@ h1 {
 
 .blog .figure_container_small {
     width: 75%;
-    padding-left: 42px;
-    padding-right: 42px;
+    padding-left: 8px;
+    padding-right: 8px;
     padding-top: 8px;
-    padding-bottom: 14px;
+    padding-bottom: 8px;
     background: white;
     margin-left: auto;
     margin-right: auto;
