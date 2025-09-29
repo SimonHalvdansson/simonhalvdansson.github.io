@@ -163,7 +163,7 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 		</p>
 		<h4>Pre/post norm</h4>
 		<p>
-			Vanishing gradients has for a long time been a problem for deep networks. Apart from skip connections, the original Vaswani transformer paper also included two normalization layers inside each transformer block to stabilize training. These normalizations were placed after the attention and feedforward-networks but later work has largely placed this part <i>before</i> each sub-block. 
+			Vanishing gradients has for a long time been a problem for deep networks. Apart from skip connections, the original Vaswani transformer paper also included two normalization layers inside each transformer block to stabilize training. These normalizations were placed after the attention and feedforward-networks but later work has largely placed this part <i>before</i> each sub-block.
 		</p>
 
 		<h4>Sinusoidal/learnable positional embeddings</h4>
@@ -272,7 +272,7 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> Comparision of validation loss for LayerNorm compared to RMSNorm. Notice the scale on the y axis.
+			<span class="caption_title">Figure: </span> Comparision of validation loss for LayerNorm compared to RMSNorm. Note the scale on the y axis.
 		</div>
 
 		<p>
@@ -289,7 +289,7 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 		</div>
 
 		<p>
-			For the <code>MLP</code> vs <code>SwiGLU</code> comparision the result is a bit more surprising.
+			For the <code>MLP</code> vs <code>SwiGLU</code> comparision the result is a bit more surprising with the standard <code>MLP</code> handily beating out the more modern <code>SwiGLU</code> block. Still, a multilayer perceptron is still the default solution for a very simple neural network and SwiGLU has not taken its place across the board. Hence it is perhaps reasonable that the MLP stays strong when we're not pushing the boundaries of LLMs.
 		</p>
 		
 		<div class="figure_container_small">
@@ -301,6 +301,10 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 			<span class="caption_title">Figure: </span> Comparision of validation loss for pre-norm and post-norm.
 		</div>
 
+		<p>
+			The difference between pre- and postnorm is absolutely huge in this case, enough so that I reran the experiment with a 30-minute training time (and reviewed the code) to be sure there was no issue with the implementation. At the longer training time, the gap persisted as pre-norm validation loss shrank to about <code>1.7</code> while post-norm remained at the same level. A likely explanation for the large discrepency is that the learning rate was chosen too high to play well with post-norm as pre-norm improves training stability and the learning rate was chosen with pre-norm in mind. To test this out, i quickly tried at learning rate of <code>5e-4</code> which resulting in a significantly lower discrepency but still a small edge for pre-norm.  It is very possible that our decision to use mixed precision further increased the training instability problems for this high learning rate.
+		</p>
+
 		<div class="figure_container_small">
 			<a data-fancybox="gallery4" href="media/binary_pos_emb_done.png">
 				<img class="figure" src="media/binary_pos_emb_done.png"></img>
@@ -310,7 +314,26 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 			<span class="caption_title">Figure: </span> Comparision between sinusoidal and learned positional embeddings.
 		</div>
 
+		<p>
+			For the positional embeddings, learned embeddings turn out to perform better than sinusoidal ones. Perhaps because simpler embedding maps can co-evolve with the training instead of starting immediately with effectively <code>256</code> ortgononal embeddings to learn. In the early stages of training, simpler shorter relations for e.g. grammar are more important than longer dependencies which enable more coherency.
+		</p>
 
+		<p>
+			At this point, we should note that, with the exception of learned positional embeddings and a small change in the sizing, the choices in the original configuration were mostly correct. Before continuing with the dropout and gradient clipping sweeps, we take another look at learning rate and the optimizer for our updates configuration with learned positional embeddings. This also let's us choose a learning rate which is possibly better suited for the new choice of layers, heads and hidden dimension. We can also restrict our search to a tigether interval based on the earlier findings. Doing so we obtain the following results:
+		</p>
+
+		<div class="figure_container_small">
+			<a data-fancybox="gallery3" href="media/lr_sweep_v2.png">
+				<img class="figure" src="media/lr_sweep_v2.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Sweep over feasible learning rates for both AdamW and Schedule-Free with the updated configuration.
+		</div>
+
+		<p>
+			Based on this result, we switch the learning rate to <code>1.1e-3</code> and start using the Schedule-Free optimizer. We are now ready to continue with the dropout and gradient clipping sweeps.
+		</p>
 
 		<div class="figure_container_small">
 			<a data-fancybox="gallery4" href="media/bars_dropout.png">

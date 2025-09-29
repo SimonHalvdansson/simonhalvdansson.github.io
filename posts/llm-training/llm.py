@@ -199,8 +199,8 @@ def test_setup(args, train_loader, val_loader, n_runs, per_run_seconds):
 
 
 if __name__ == '__main__':
-    args = {"lr":           2e-3,
-            "optimizer":    "adamw",
+    args = {"lr":           1.1e-3,
+            "optimizer":    "schedulefree",
             "n_layer":      2,
             "n_head":       4,
             "d_model":      256,
@@ -209,12 +209,12 @@ if __name__ == '__main__':
             "norm":         "layer",
             "ffn":          "mlp",
             "prepost":      "pre",
-            "pos_emb":      "sinusoidal"
+            "pos_emb":      "learned"
     }
     
-    per_run_seconds = 300*6
-    n_runs = 3
-    lr_points = 7
+    per_run_seconds = 300
+    n_runs = 20
+    lr_points = 8
     histogram_runs = 100
     
     do_hist     = 0
@@ -222,9 +222,9 @@ if __name__ == '__main__':
     do_lr       = 0
     do_norm     = 0
     do_ffn      = 0
-    do_prepost  = 1
+    do_prepost  = 0
     do_pos_emb  = 0
-    do_dropout  = 0
+    do_dropout  = 1
     do_gradclip = 0
     
     
@@ -236,7 +236,7 @@ if __name__ == '__main__':
         min_time += 4*4*4*per_run_seconds*n_runs
         
     if do_lr:
-        min_time += lr_points*per_run_seconds*n_runs
+        min_time += lr_points*per_run_seconds*n_runs*2
         
     if do_norm:
         min_time += 2*per_run_seconds*n_runs
@@ -261,7 +261,6 @@ if __name__ == '__main__':
     x_train, y_train, x_val, y_val, vocab_size = load_or_build_packed(context_len, is_cuda)
     train_loader, val_loader = build_loaders(x_train, y_train, x_val, y_val, context_len, batch_size, is_cuda)
 
-    
     
     if do_lhd:
         layers = [1, 2, 4, 6]
@@ -299,7 +298,7 @@ if __name__ == '__main__':
 
     if do_lr:
         plot_lr_sweep_both(train_loader, val_loader,
-                        min_lr=1e-4, max_lr=1e-2, n_points=lr_points,
+                        min_lr=4e-4, max_lr=3e-3, n_points=lr_points,
                         n_runs=n_runs, per_run_seconds=per_run_seconds,
                         base_args=args, test_setup_fn=test_setup)
 
