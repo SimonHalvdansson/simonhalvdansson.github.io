@@ -126,3 +126,20 @@ class LLM(nn.Module):
             
         logits = self.head(x)
         return logits
+    
+    @torch.no_grad()
+    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None, context_len=None):
+        self.eval()
+        device = idx.device
+        if context_len is None:
+            context_len = self.context_len
+        x = idx
+        for _ in range(max_new_tokens):
+            logits = self(x[:, -context_len:])[:, -1, :] / max(temperature, 1e-8)
+            if top_k is not None and 0 < top_k < logits.size(-1):
+                v, _ = torch.topk(logits, top_k)
+                logits[logits < v[:, [-1]]] = -float("inf")
+            probs = F.softmax(logits, dim=-1)
+            next_id = torch.multinomial(probs, num_samples=1)
+            x = torch.cat([x, next_id], dim=1)
+        return x

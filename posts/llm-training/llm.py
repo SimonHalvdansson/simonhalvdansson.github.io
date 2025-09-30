@@ -17,6 +17,7 @@ from plotting import (
     plot_binary_option_bars,
     plot_dropout_bars,
     plot_gradclip_bars,
+    text_to_png
 )
 
 from model import LLM
@@ -196,6 +197,68 @@ def test_setup(args, train_loader, val_loader, n_runs, per_run_seconds):
     return np.array(vals, dtype=np.float64)
 
 
+@torch.no_grad()
+def _sample_ids(model, start_ids, max_new_tokens, temperature=1.0, top_k=None):
+    model.eval()
+    x = torch.as_tensor(start_ids, dtype=torch.long, device=device).view(1, -1)
+    for _ in range(max_new_tokens):
+        logits = model(x[:, -context_len:])[:, -1, :]  # (1, vocab)
+        logits = logits / max(temperature, 1e-8)
+        if top_k is not None and top_k > 0 and top_k < logits.size(-1):
+            v, _ = torch.topk(logits, top_k)
+            logits[logits < v[:, [-1]]] = -float("inf")
+        probs = F.softmax(logits, dim=-1)
+        next_id = torch.multinomial(probs, num_samples=1)  # (1,1)
+        x = torch.cat([x, next_id], dim=1)
+    return x.squeeze(0).tolist()
+
+def train_and_sample_once(
+    train_loader,
+    val_loader,
+    args,
+    per_run_seconds,
+    start_ids,
+    max_new_tokens,
+    decode_fn,
+    temperature=1.0,
+    top_k=None,
+):
+    """
+    Trains a fresh model for up to `per_run_seconds`, then samples `max_new_tokens`.
+    start_ids: list[int] seed tokens (e.g., BOS or tokenized prompt).
+    decode_fn: callable(list[int]) -> str
+    Returns dict with val_loss, out_ids, text.
+    """
+    # build fresh model
+    model = LLM(
+        vocab_size=vocab_size,
+        context_len=context_len,
+        n_layer=args["n_layer"],
+        n_head=args["n_head"],
+        d_model=args["d_model"],
+        dropout=args["dropout"],
+        norm=args["norm"],
+        ffn=args["ffn"],
+        prepost=args["prepost"],
+        pos_emb=args["pos_emb"],
+    ).to(device)
+
+    # time-limited train + full validation
+    val_loss = train_limited_time(
+        model, train_loader, val_loader, per_run_seconds, args
+    )
+
+    # sampling
+    out_ids = _sample_ids(
+        model,
+        start_ids=start_ids,
+        max_new_tokens=max_new_tokens,
+        temperature=temperature,
+        top_k=top_k,
+    )
+    text = decode_fn(out_ids)
+    return {"val_loss": val_loss, "out_ids": out_ids, "text": text}
+
 
 
 
@@ -214,7 +277,7 @@ if __name__ == '__main__':
     }
     
     per_run_seconds = 300
-    n_runs = 26
+    n_runs = 20
     lr_points = 8
     histogram_runs = 100
     
@@ -226,9 +289,8 @@ if __name__ == '__main__':
     do_prepost  = 0
     do_pos_emb  = 0
     do_dropout  = 0
-    do_gradclip = 1
-    
-    
+    do_gradclip = 0
+        
     min_time = 0
     if do_hist:
         min_time += histogram_runs*per_run_seconds
@@ -259,14 +321,14 @@ if __name__ == '__main__':
         
     print(f"Minimum time: {min_time/60/60} hours")
     
-    x_train, y_train, x_val, y_val, vocab_size = load_or_build_packed(context_len, is_cuda)
+    x_train, y_train, x_val, y_val, vocab_size, tokenizer = load_or_build_packed(context_len, is_cuda)
     train_loader, val_loader = build_loaders(x_train, y_train, x_val, y_val, context_len, batch_size, is_cuda)
 
-    
+
     if do_lhd:
         layers = [1, 2, 4, 6]
         heads  = [1, 2, 4, 8]
-        d_models   = [64, 128, 256, 384]  # many cells will be masked when d_model % heads != 0
+        d_models   = [64, 128, 256, 384]
 
         _, _, sweep_results = plot_layers_heads_dims_heatmaps(
             train_loader, val_loader,
@@ -332,5 +394,37 @@ if __name__ == '__main__':
         plot_gradclip_bars(train_loader, val_loader,
             clips=(0.5, 1.0, 1.5, 2.0, None),
             n_runs=n_runs, per_run_seconds=per_run_seconds, base_args=args, test_setup_fn=test_setup)
+
+    
+    
+    
+    # Build model
+    model = LLM(
+        vocab_size=vocab_size,
+        context_len=context_len,
+        n_layer=args["n_layer"],
+        n_head=args["n_head"],
+        d_model=args["d_model"],
+        dropout=args["dropout"],
+        norm=args["norm"],
+        ffn=args["ffn"],
+        prepost=args["prepost"],
+        pos_emb=args["pos_emb"],
+    ).to(device)
+
+    
+    # Train for a time budget
+    val_loss = train_limited_time(model, train_loader, val_loader, time_limit_s=per_run_seconds, args=args)
+    print("Finished training. Val loss:", val_loss)
+    
+    prompt = "Once upon a time"
+    idx = torch.tensor([tokenizer.encode(prompt, add_special_tokens=True)],
+                       dtype=torch.long, device=device)
+    out = model.generate(idx, max_new_tokens=120, temperature=0.9, top_k=50, context_len=context_len)
+    
+    sample = tokenizer.decode(out[0].tolist(), skip_special_tokens=True)
+    print("\n=== SAMPLE ===\n", sample)
+    
+    text_to_png(str(sample))
 
     

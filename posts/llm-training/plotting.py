@@ -472,3 +472,120 @@ def plot_layers_heads_dims_bars(results, *, alpha=0.05, dpi=150,
     
 
     return fig, ax, entries
+
+
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+import torch, os
+
+def text_to_png(
+    text: str,
+    out_path: str = "media/card.png",
+    size=(1600, 1200),  # 4:3
+    font_size: int = 72,
+    seed: int | None = 123
+) -> str:
+    W, H = size
+    if seed is not None:
+        torch.manual_seed(seed)
+
+    # --- background: gradient + noise + speckles ---
+    y = torch.linspace(0, 1, H).unsqueeze(1).expand(H, W)
+    x = torch.linspace(0, 1, W).unsqueeze(0).expand(H, W)
+    g = 0.6 * y + 0.4 * x
+    top = torch.tensor([0.09, 0.15, 0.30])
+    bot = torch.tensor([0.85, 0.50, 0.30])
+    grad = (1 - g.unsqueeze(-1)) * top + g.unsqueeze(-1) * bot
+    noise = 0.06 * torch.randn(H, W, 1)
+    sp_mask = torch.rand(H, W, 1)
+    speckles = torch.zeros_like(sp_mask)
+    speckles[sp_mask < 0.007] = 0.9
+    speckles[sp_mask > 0.993] = -0.9
+    bg = (grad + noise + speckles).clamp(0, 1)
+    im = Image.fromarray((bg * 255).byte().numpy(), mode="RGB")
+
+    vignette = Image.new("L", (W, H), 0)
+    vdraw = ImageDraw.Draw(vignette)
+    vdraw.ellipse((-W*0.2, -H*0.2, W*1.2, H*1.2), fill=255)
+    vignette = vignette.filter(ImageFilter.GaussianBlur(radius=min(W, H)//10))
+    im = Image.composite(im, Image.new("RGB", (W, H), (15, 15, 25)), vignette.point(lambda p: int(p*0.25)))
+
+    # --- monospace font ---
+    candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+        "/System/Library/Fonts/Menlo.ttc",
+        "/Library/Fonts/Menlo.ttc",
+        "/Library/Fonts/Andale Mono.ttf",
+        "C:/Windows/Fonts/consola.ttf",
+        "C:/Windows/Fonts/cour.ttf",
+    ]
+    font = None
+    for path in candidates:
+        if os.path.exists(path):
+            try:
+                font = ImageFont.truetype(path, font_size)
+                font.path = path
+                break
+            except Exception:
+                pass
+    if font is None:
+        font = ImageFont.load_default()
+
+    # --- wrapping with newline support ---
+    margin_w = int(0.09 * W)
+    margin_h = int(0.12 * H)
+    max_w = W - 2 * margin_w
+    tmp_draw = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+
+    def wrapped_lines(fnt):
+        all_lines = []
+        for para in text.splitlines():  # respect explicit newlines
+            if not para.strip():
+                all_lines.append("")
+                continue
+            words, cur = para.split(), []
+            for w in words:
+                test = " ".join(cur + [w])
+                bbox = tmp_draw.textbbox((0, 0), test, font=fnt)
+                wpx = bbox[2] - bbox[0]
+                if wpx <= max_w:
+                    cur.append(w)
+                else:
+                    if cur:
+                        all_lines.append(" ".join(cur))
+                    cur = [w]
+            if cur:
+                all_lines.append(" ".join(cur))
+        return all_lines
+
+    fsize = font_size
+    lines = wrapped_lines(font)
+    while True:
+        bbox = font.getbbox("Ag")
+        lh = max(bbox[3] - bbox[1], font.size)
+        total_h = len(lines) * int(lh * 1.25)
+        if total_h <= H - 2 * margin_h or fsize <= 22:
+            break
+        fsize = int(fsize * 0.92)
+        font = ImageFont.truetype(font.path, fsize) if hasattr(font, "path") else ImageFont.load_default()
+        lines = wrapped_lines(font)
+
+    # --- draw text (white only) ---
+    d = ImageDraw.Draw(im)
+    lh = max(font.getbbox("Ag")[3] - font.getbbox("Ag")[1], font.size)
+    text_h = int(len(lines) * lh * 1.25)
+    y0 = (H - text_h) // 2
+    fill = (245, 246, 250)
+
+    yy = y0
+    for line in lines:
+        if line == "":
+            yy += int(lh * 1.25)  # blank line
+            continue
+        bbox = d.textbbox((0, 0), line, font=font)
+        wpx = bbox[2] - bbox[0]
+        d.text(((W - wpx) // 2, yy), line, font=font, fill=fill)
+        yy += int(lh * 1.25)
+
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    im.save(out_path, format="PNG", optimize=True)
+    return out_path

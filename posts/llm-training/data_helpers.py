@@ -108,4 +108,4 @@ def load_or_build_packed(context_len, is_cuda):
         x_val   = x_val.pin_memory();   y_val   = y_val.pin_memory()
 
     vocab_size = tokenizer.vocab_size
-    return x_train, y_train, x_val, y_val, vocab_size
+    return x_train, y_train, x_val, y_val, vocab_size, tokenizer
