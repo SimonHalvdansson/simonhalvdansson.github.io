@@ -480,7 +480,7 @@ import torch, os
 def text_to_png(
     text: str,
     out_path: str = "media/card.png",
-    size=(1600, 1200),  # 4:3
+    size=(800, 400),  # 2:1
     font_size: int = 72,
     seed: int | None = 123
 ) -> str:

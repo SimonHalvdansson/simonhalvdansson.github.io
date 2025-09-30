@@ -73,7 +73,7 @@
 			Over the past few years there have been many innovations in LLM design: smart pretraining recipes, substantial post-training RL, and architectural improvements. In this post, we'll look at how some of the architectural improvements translate to very small models trained for short amounts of time. This means that we are not optimizing for low parameter count, the optimal choice there would be something like <a href="https://developers.googleblog.com/en/introducing-gemma-3-270m/" target="_blank">Gemma 3 270M</a>. We are also not interested in distillation nor quantization. Instead, we are interested in the optimal design choices when training a model for only five minutes with consumer hardware on a smaller dataset. The recent exploration <a href="https://www.seangoedecke.com/model-on-a-mbp/">What's the strongest AI model you can train on a laptop in five minutes?</a> by Sean Goedecke inspired this post and here we will aim to go deeper in terms of optimizing the architecture and doing proper A/B testing. The ultimate form for this type of investigation is <a href="https://github.com/KellerJordan/modded-nanogpt">Modded-NanoGPT</a> which is considerably more hardcore but less accessible.
 		</p>
 
-		<div class="figure_container_small">
+		<div class="figure_container_small" style="padding:0">
 			<a data-fancybox="gallery0" href="media/card.png">
 				<img class="figure" src="media/card.png"></img>
 			</a>
