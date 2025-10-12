@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Vibe-GPU-accelerating a 2D particle simulator from mathematical physics</title>
+
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#FBEDEA" />
+	<meta charset="utf-8">
+
+	<link rel="shortcut icon" type="image/x-icon"  href="../../favicon.ico?">
+	<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+
+	<link rel="stylesheet" href="style.css">
+
+	<script>
+	window.MathJax = {
+	tex: {
+		inlineMath: [['$', '$'], ['\\(', '\\)']]
+	}
+	};
+	</script>
+
+	<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+	<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+	<link rel="stylesheet" href="../atom-one-dark.min.css">
+	<script src="../highlight.min.js"></script>
+
+	<script>hljs.highlightAll();</script>
+
+</head>
+<body>
+	<div class="blog centering" id="back_container">
+		<a href="../index.html" class="back"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="14" fill="currentColor" class="bi bi-caret-left" viewBox="0 0 22 18">
+			<path fill-rule="evenodd" clip-rule="evenodd" d="M14.0303 7.46967C14.3232 7.76256 14.3232 8.23744 14.0303 8.53033L10.5607 12L14.0303 15.4697C14.3232 15.7626 14.3232 16.2374 14.0303 16.5303C13.7374 16.8232 13.2626 16.8232 12.9697 16.5303L8.96967 12.5303C8.67678 12.2374 8.67678 11.7626 8.96967 11.4697L12.9697 7.46967C13.2626 7.17678 13.7374 7.17678 14.0303 7.46967Z"/>
+		  </svg>All posts</a>
+	</div>
+
+	<section class="blog centering post">
+		<h1>Vibe-GPU-accelerating a 2D particle simulator from mathematical physics</h1>
+		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Oct. 2025</div>
+
+		<hr class="squiggly-line"/>
+
+		<p>
+			In 2019, as part of my Bachelor's thesis, I wrote a simple <a target="_blank" href="https://simonhalvdansson.github.io/2D-Coulomb-Gas-Tools/index.html">2D particle simulator</a> for a certain system in mathematical physics called the <i>2D Coulomb gas</i> with a remarkable amount of theory behind it. I've always wanted to add GPU acceleration to this simulation but prospects were even worse back then with WebGL / WebGL 2.0 being the standard solutions for utilizing the GPU on the web. In this short post, we'll go over some background on the simulation and discuss how GPT-5 was the first tool which managed to write a WebGPU version.
+		</p>
+
+		<div class="figure_container">
+			<a data-fancybox="gallery0" href="media/back-to-back.png">
+				<img class="figure" src="media/back-to-back.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Left: The original CPU-based simulator from 2019. Right: The new Web-GPU based simulator from 2025. Try them out <a target="_blank" href="https://simonhalvdansson.github.io/2D-Coulomb-Gas-Tools/index.html">here (old)</a> and <a  target="_blank" href="https://simonhalvdansson.github.io/2D-Coulomb-Gas-Tools/index_gpu.html">here (new)</a>
+		</div>
+
+		<p>
+			I encourage you to try the simulators out briefly before continuing on. Either way, the problem we are interested in shows up in several different contexts but they one I find easiest to follow is the physical one with charged particles. Consider a collection of $n$ electrons in the 2D plane, all experiencing pariwise Coulomb repulsion. Such a system has a fairly predictable behavior of spreading out across the plane as time progresses. To make this system a bit more interesting, we can add a electrical potential which goes to infinity far out on the plane. With these counteracting forces, we stand a chance of obtaining a stable system, provided the potential is chosen appropriately.
+		</p>
+
+		<p>
+			It can be worked out that in 2D, Coulomb repulsion between charged particles is proportional to the logarithm of the distance between the particles. With this, we can write the Hamiltonian (total energy) of the system with appropriately chosen constants as
+			$$
+			H_n(z_1, \dots, z_n) = \sum_{i \neq j} \log \frac{1}{|z_i - z_j|} + n\sum_{j=1}^n Q(z_j)
+			$$
+			where $z_1, \dots, z_n \in \mathbb{R}^2$ are the locations of the particles. Note that the number of terms in the first sum is proportional to $n^2$ which is why we have added the factor $n$ to the second sum.
+		</p>
+
+		<p>
+			In studying the Coulomb gas, we are generally interested in random realizations of this system in the sense of statistical mechanics, meaning that the probability of observing a single configuration $(z_1, \dots, z_n)$ is proportional to $\exp(-\beta H_n(z_1, \dots, z_n))$ where $\beta = 1/T$ is the <i>inverse temperature</i> of our system. Generally, we fix $\beta = 1$ for simplicity.
+		</p>
+
+		<hr class="squiggly-line"/>
+
+		<h2>Ginibre ensemble</h2>
+
+		<p>
+			As a quick aside, we will discuss the prototypical example of interaction between the 2D Coulomb gas and <i>random matrix theory</i>, the <i>Ginibre ensemble</i>. This is the case of $Q(z) = |z|^2$ which turns out to precisely correspond to the eigenvalues of a random matrix with complex $\mathcal{N}(0,1/\sqrt{n})$ entries. Here we need to identify points of $\mathbb{R}^2$ with points of $\mathbb{C}$ in the classical way $(x, y) \sim x+iy$. If we then run
+		</p>
+
+		<pre><code class="language-py">import numpy as np
+
+n = 100
+A = (np.random.randn(n, n) + 1j*np.random.randn(n, n))/np.sqrt(2*n)
+
+eigvals = np.linalg.eigvals(A)</code></pre>
+
+		<p>
+			and plot the results, we get the following type of plots:
+		</p>
+
+		<div class="figure_container">
+			<a data-fancybox="gallery0" href="media/ginibre.png">
+				<img class="figure" src="media/ginibre.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Complex eigenvalues of $N(0,1/\sqrt{n})$ $n \times n$ matrices for $n = 100,\,500,\,1000,\,5000$.</a>
+		</div>
+
+		<p>
+			Note that the eigenvalues generally tend to fall in the unit disk, boundary indicated in red in the figure. This is a special case of the universal behavior that eigenvalues tend to occupy a certain compact subset of the plane called the <i>droplet</i> $S$ with density proportional to $\Delta S$. In the case of the Ginibre ensemble, $\Delta Q \equiv 1$ which explains the even spread of the points within the unit disk.
+		</p>
+		
+		<hr class="squiggly-line"/>
+
+		<h2>Simulator</h2>
+
+		<p>
+			Actually sampling the joint probabilities induced by the $\exp(-\beta H_n)$ law is extremely expensive so if you want to get a feel for the behavior of the points without breaking the bank, treating the points as actual charged particle subject to the forces induced by our Hamiltonian is a great solution. As you might have guessed, this is equivalent to minimizing $H_n$ using gradient descent.
+		</p>
+
+		<p>
+			On a related note, this is similar to the <a target="_blank" href="https://en.wikipedia.org/wiki/Thomson_problem">Thomson problem</a> in which there is no external potential but the particles are instead restricted to the unit sphere and the goal is to find the minimum energy configuration. I was interested in this problem long before learning of statistical mechanics and the 2D Coulomb gas and had already written a super simple simulator for it  
+		</p>
+
+		<p>
+			More...
+		</p>
+
+		<hr class="squiggly-line"/>
+
+		<h2>WebGPU conversion</h2>
+
+		<ul>
+			<li>I think rapid prototyping will be increasingly important for more theoretical work as well in the future and scientists would do good to learn how to quickly whip up an example.</li>
+			<li></li>
+		</ul>
+
+
+
+	</section>
+	
+	<link rel="stylesheet" href="../fancybox.css" />
+	<script src="../fancybox.umd.js"></script>
+
+	<script>
+		Fancybox.bind("[data-fancybox]", {
+			closeButton: false,
+		});
+	  </script>
+
+
+</body>
+</html>
