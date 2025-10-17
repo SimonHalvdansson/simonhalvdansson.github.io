@@ -47,7 +47,7 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			In 2019, as part of my Bachelor's thesis, I wrote a simple <a target="_blank" href="https://simonhalvdansson.github.io/2D-Coulomb-Gas-Tools/index.html">2D particle simulator</a> for a certain system in mathematical physics called the <i>2D Coulomb gas</i> with a remarkable amount of theory behind it. I've always wanted to add GPU acceleration to this simulation but prospects were even worse back then with WebGL / WebGL 2.0 being the standard solutions for utilizing the GPU on the web. In this short post, we'll go over some background on the simulation and discuss how GPT-5 was the first tool which managed to write a WebGPU version.
+			In 2019, as part of my <a href="https://simonhalvdansson.github.io/bachelor_thesis.pdf" target="_blank">Bachelor's thesis</a>, I wrote a simple <a target="_blank" href="https://simonhalvdansson.github.io/2D-Coulomb-Gas-Tools/index.html">2D particle simulator</a> for a certain system in mathematical physics called the <i>2D Coulomb gas</i> with a remarkable amount of theory behind it. I've always wanted to add GPU acceleration to this simulation but prospects were even worse back then with WebGL / WebGL 2.0 being the standard solutions for utilizing the GPU on the web. In this short post, we'll go over some background on the simulation and discuss how GPT-5 was the first tool which managed to write a WebGPU version.
 		</p>
 
 		<div class="figure_container">
@@ -80,7 +80,7 @@
 		<h2>Ginibre ensemble</h2>
 
 		<p>
-			As a quick aside, we will discuss the prototypical example of interaction between the 2D Coulomb gas and <i>random matrix theory</i>, the <i>Ginibre ensemble</i>. This is the case of $Q(z) = |z|^2$ which turns out to precisely correspond to the eigenvalues of a random matrix with complex $\mathcal{N}(0,1/\sqrt{n})$ entries. Here we need to identify points of $\mathbb{R}^2$ with points of $\mathbb{C}$ in the classical way $(x, y) \sim x+iy$. If we then run
+			As a quick aside, we will discuss the prototypical example of interaction between the 2D Coulomb gas and another field, namely random matrix theory, in the form of the <i>Ginibre ensemble</i>. This is the case of $Q(z) = |z|^2$ which turns out to precisely correspond to the eigenvalues of a random matrix with complex $\mathcal{N}(0,1/\sqrt{n})$ entries. Here we need to identify points of $\mathbb{R}^2$ with points of $\mathbb{C}$ in the classical way $(x, y) \sim x+iy$. If we then run
 		</p>
 
 		<pre><code class="language-py">import numpy as np
@@ -104,7 +104,7 @@ eigvals = np.linalg.eigvals(A)</code></pre>
 		</div>
 
 		<p>
-			Note that the eigenvalues generally tend to fall in the unit disk, boundary indicated in red in the figure. This is a special case of the universal behavior that eigenvalues tend to occupy a certain compact subset of the plane called the <i>droplet</i> $S$ with density proportional to $\Delta S$. In the case of the Ginibre ensemble, $\Delta Q \equiv 1$ which explains the even spread of the points within the unit disk.
+			Note that the eigenvalues generally tend to fall in the unit disk, boundary indicated in red in the figure. This is a special case of the universal behavior that eigenvalues tend to occupy a certain compact subset of the plane called the <i>droplet</i> $S$ with density proportional to $\Delta S$. In the case of the Ginibre ensemble, $\Delta Q \equiv 1$ which explains the even spread of the points within the unit disk. We won't say more about the underlying theory but remark that we truly have just scratched the surface and the <a href="https://simonhalvdansson.github.io/bachelor_thesis.pdf" target="_blank">thesis</a> has a longer introduction.
 		</p>
 		
 		<hr class="squiggly-line"/>
@@ -112,15 +112,15 @@ eigvals = np.linalg.eigvals(A)</code></pre>
 		<h2>Simulator</h2>
 
 		<p>
-			Actually sampling the joint probabilities induced by the $\exp(-\beta H_n)$ law is extremely expensive so if you want to get a feel for the behavior of the points without breaking the bank, treating the points as actual charged particle subject to the forces induced by our Hamiltonian is a great solution. As you might have guessed, this is equivalent to minimizing $H_n$ using gradient descent.
+			Actually sampling the joint probabilities induced by the $\exp(-\beta H_n)$ law is extremely expensive so if you want to get a feel for the behavior of the points without breaking the bank, treating the points as actual charged particle subject to the forces induced by our Hamiltonian is a great solution. As you might have guessed, this is equivalent to minimizing $H_n$ using gradient descent. Note that $\beta \to \infty$ corresponds to the minimum energy configuration and $\beta \to 0$ corresponds to an increasingly random configuration with variance going to $\infty$. 
 		</p>
 
 		<p>
-			On a related note, this is similar to the <a target="_blank" href="https://en.wikipedia.org/wiki/Thomson_problem">Thomson problem</a> in which there is no external potential but the particles are instead restricted to the unit sphere and the goal is to find the minimum energy configuration. I was interested in this problem long before learning of statistical mechanics and the 2D Coulomb gas and had already written a super simple simulator for it  
+			On a related note, simulating the 2D Coulomb gas is similar to the <a target="_blank" href="https://en.wikipedia.org/wiki/Thomson_problem">Thomson problem</a> in which there is no external potential but the particles are instead restricted to the unit sphere and the goal is to find the minimum energy configuration. I was interested in this problem long before learning of statistical mechanics and the 2D Coulomb gas and had already written a super simple simulator for it which inspired the simulator for the 2D Coulomb gas.
 		</p>
 
 		<p>
-			More...
+			
 		</p>
 
 		<hr class="squiggly-line"/>
