@@ -47,7 +47,8 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			In 2019, as part of my <a href="https://simonhalvdansson.github.io/bachelor_thesis.pdf" target="_blank">Bachelor's thesis</a>, I wrote a simple <a target="_blank" href="https://simonhalvdansson.github.io/2D-Coulomb-Gas-Tools/index.html">2D particle simulator</a> for a certain system in mathematical physics called the <i>2D Coulomb gas</i> with a remarkable amount of theory behind it. I've always wanted to add GPU acceleration to this simulation but prospects were even worse back then with WebGL / WebGL 2.0 being the standard solutions for utilizing the GPU on the web. In this short post, we'll go over some background on the simulation and discuss how GPT-5 was the first tool which managed to write a WebGPU version.
+			In 2019, as part of my <a href="https://simonhalvdansson.github.io/bachelor_thesis.pdf" target="_blank">Bachelor's thesis</a>, I wrote a simple <a target="_blank" href="https://simonhalvdansson.github.io/2D-Coulomb-Gas-Tools/index.html">2D particle simulator</a> for a certain system in mathematical physics called the <i>2D Coulomb gas</i> with a remarkable amount of theory behind it. I've always wanted to add GPU acceleration to this simulation but prospects were even worse back then with WebGL / WebGL 2.0 being the standard solutions for utilizing the GPU on the web. Recently, after trying for several years, I was able to get an LLM to do this conversion and an updated version of the simulator is now live. In this post, I'll discuss the simulator and the problem in limited detail.
+			
 		</p>
 
 		<div class="figure_container">
@@ -120,24 +121,26 @@ eigvals = np.linalg.eigvals(A)</code></pre>
 		</p>
 
 		<p>
-			
+			Either way, this first simulator worked fine and I used it to generate some visualizations for the thesis by leaving the computer running overnight. The speed certainly leaves something to desire but it's fast enough that you can (mostly) run it with <code>50,000</code> particles without the Chrome tab crashing. The pairwise repulsion leads to a $O(N^2)$ runtime and the need for precision to conform to the theory means that we cannot make do with approximations.
 		</p>
 
 		<hr class="squiggly-line"/>
 
 		<h2>WebGPU conversion</h2>
 
-		<ul>
-			<li>I think rapid prototyping will be increasingly important for more theoretical work as well in the future and scientists would do good to learn how to quickly whip up an example.</li>
-			<li></li>
-		</ul>
+		<p>
+			After the thesis, I tried my hand at converting to code to run using first WebGL and later WebGPU but without sufficient motivation, this proved difficult. Still, this seemed like just the type of tedious work which LLMs should be able to complete. With new model releases, I tried my hand at this and at one point Claude Sonnet had an almost working version but it wasn't until GPT-5 that this could be solved in a sufficiently nice way. The <a target="_blank" href="https://simonhalvdansson.github.io/2D-Coulomb-Gas-Tools/index_gpu.html">result</a> turned out really nice and I ended up making some quality of life improvements as well.
+		</p>
 
-
+		<p>
+			I might build something extra onto the simulator in the future but until then I'm really happy with how the project turned out. With modern LLMs it is so much easier to make programs to verify or visualize research and I hope this practice is much more common in the future.
+		</p>
 
 	</section>
 	
 	<link rel="stylesheet" href="../fancybox.css" />
 	<script src="../fancybox.umd.js"></script>
+
 
 	<script>
 		Fancybox.bind("[data-fancybox]", {
