@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>What do learned positional embeddings look like?</title>
+
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#FBEDEA" />
+	<meta charset="utf-8">
+
+	<link rel="shortcut icon" type="image/x-icon"  href="../../favicon.ico?">
+	<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+
+	<link rel="stylesheet" href="style.css">
+
+	<script>
+	window.MathJax = {
+	tex: {
+		inlineMath: [['$', '$'], ['\\(', '\\)']]
+	}
+	};
+	</script>
+
+	<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+	<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+	<link rel="stylesheet" href="../atom-one-dark.min.css">
+	<script src="../highlight.min.js"></script>
+
+	<script>hljs.highlightAll();</script>
+
+</head>
+<body>
+	<div class="blog centering" id="back_container">
+		<a href="../index.html" class="back"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="14" fill="currentColor" class="bi bi-caret-left" viewBox="0 0 22 18">
+			<path fill-rule="evenodd" clip-rule="evenodd" d="M14.0303 7.46967C14.3232 7.76256 14.3232 8.23744 14.0303 8.53033L10.5607 12L14.0303 15.4697C14.3232 15.7626 14.3232 16.2374 14.0303 16.5303C13.7374 16.8232 13.2626 16.8232 12.9697 16.5303L8.96967 12.5303C8.67678 12.2374 8.67678 11.7626 8.96967 11.4697L12.9697 7.46967C13.2626 7.17678 13.7374 7.17678 14.0303 7.46967Z"/>
+		  </svg>All posts</a>
+	</div>
+
+	<section class="blog centering post">
+		<h1>What do learned positional embeddings look like?</h1>
+		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Nov. 2025</div>
+
+		<hr class="squiggly-line"/>
+
+		<p>
+			Transformer blocks are famously a set operation, meaning that with intervention, they cannot tell the order of the tokens. One solution to this problem is to learn a tensor of shape <code>(d_model, seq_len)</code>
+			
+			The original solution to this problem was to add sinusoids with geometrically spaced frequencies to each token vector after the embeddings.  
+		</p>
+
+		<div class="figure_container">
+			<a data-fancybox="gallery0" href="media/back-to-back.png">
+				<img class="figure" src="media/back-to-back.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Left: The original CPU-based simulator from 2019. Right: The new Web-GPU based simulator from 2025. Try them out <a target="_blank" href="https://simonhalvdansson.github.io/2D-Coulomb-Gas-Tools/index.html">here (old)</a> and <a  target="_blank" href="https://simonhalvdansson.github.io/2D-Coulomb-Gas-Tools/index_gpu.html">here (new)</a>
+		</div>
+
+		
+
+	</section>
+	
+	<link rel="stylesheet" href="../fancybox.css" />
+	<script src="../fancybox.umd.js"></script>
+
+
+	<script>
+		Fancybox.bind("[data-fancybox]", {
+			closeButton: false,
+		});
+	  </script>
+
+
+</body>
+</html>
