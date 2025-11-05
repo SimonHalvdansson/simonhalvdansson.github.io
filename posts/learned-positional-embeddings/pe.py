@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import numpy as np
 
+from data_helpers import load_or_build_packed, build_loaders
 
 from model import LLM
 
@@ -32,7 +33,8 @@ def make_autocast_and_scaler():
 
 def run_epoch(model, loader, args, optimizer, train=True,
               autocast_ctx=nullcontext, scaler=None,
-              deadline=None):
+              deadline=None,
+              selfsim=None):
     """
     Returns: (avg_loss, total_tokens, stopped_early)
     - For TRAIN: if deadline is not None and deadline is reached mid-epoch, stop early.
@@ -103,6 +105,32 @@ def run_epoch(model, loader, args, optimizer, train=True,
             pbar.refresh()
             first_draw = False
 
+        # Periodic self-similarity snapshots during training (step-based)
+        if train and selfsim is not None and "interval_steps" in selfsim:
+            try:
+                # count completed optimizer steps
+                selfsim["step"] = selfsim.get("step", 0) + 1
+                while (
+                    selfsim["step"] >= selfsim.get("next_step", selfsim["interval_steps"]) and
+                    selfsim.get("next_step", selfsim["interval_steps"]) <= selfsim.get("max_steps", float("inf"))
+                ):
+                    step_for_name = selfsim["next_step"]
+                    fname = f"{selfsim['prefix']}_step{step_for_name:05d}.png"
+                    fpath = os.path.join(selfsim["save_dir"], fname)
+                    os.makedirs(selfsim["save_dir"], exist_ok=True)
+                    plot_positional_self_similarity(
+                        model,
+                        save_path=fpath,
+                        dpi=300,
+                        figsize=(5, 4.5),
+                        show=False,
+                        title=f"Self-similarity, step: {step_for_name}"
+                    )
+                    selfsim["next_step"] = step_for_name + selfsim["interval_steps"]
+            except Exception:
+                # Don't break training if plotting fails; ignore.
+                pass
+
         if train and deadline is not None and t_now >= deadline:
             stopped_early = True
             break
@@ -110,11 +138,11 @@ def run_epoch(model, loader, args, optimizer, train=True,
     avg_loss = total_loss_sum / max(total_tokens, 1)
     return avg_loss, total_tokens, stopped_early
 
-def train_limited_time(model, train_loader, val_loader, time_limit_s, args):
+def train_one_epoch(model, train_loader, val_loader, args, selfsim=None):
     """
-    Train for up to `time_limit_s` seconds (early-stopping inside epoch if needed),
-    then ALWAYS do a full validation pass.
-    Returns: (val_loss, tokens_this_run)
+    Train for exactly one epoch over `train_loader`, then run a full validation pass.
+    Also emits step-based self-similarity plots as configured by `selfsim`.
+    Returns: val_loss
     """
     autocast_ctx, scaler = make_autocast_and_scaler()
     if args["optimizer"] == "adamw":
@@ -122,33 +150,40 @@ def train_limited_time(model, train_loader, val_loader, time_limit_s, args):
     else:
         optimizer = schedulefree.AdamWScheduleFree(model.parameters(), lr=args["lr"])
 
-    start = time.perf_counter()
-    deadline = start + time_limit_s
-    total_train_tokens = 0
+    train_loss, train_tokens, _ = run_epoch(
+        model, train_loader, args=args, optimizer=optimizer, train=True,
+        autocast_ctx=autocast_ctx, scaler=scaler, deadline=None, selfsim=selfsim
+    )
 
-    # Loop until run_epoch returns stopped_early=True
-    stopped = False
-    while True:
-        _, train_toks, stopped_early = run_epoch(
-            model, train_loader, args=args, optimizer=optimizer, train=True,
-            autocast_ctx=autocast_ctx, scaler=scaler,
-            deadline=deadline
-        )
-        total_train_tokens += train_toks
-        if stopped_early:
-            stopped = True
-            break
-        # otherwise continue to next epoch loop
+    # Final self-similarity snapshot at the last step before training finishes
+    if selfsim is not None and "interval_steps" in selfsim:
+        try:
+            last_step = selfsim.get("step", 0)
+            fname = f"{selfsim['prefix']}_step{last_step:05d}_final.png"
+            fpath = os.path.join(selfsim["save_dir"], fname)
+            os.makedirs(selfsim["save_dir"], exist_ok=True)
+            plot_positional_self_similarity(
+                model, save_path=fpath, dpi=300, figsize=(5, 4.5), show=False,
+                title=f"Self-similarity, step: {last_step}"
+            )
+        except Exception:
+            pass
 
-    # Validation: always full pass, regardless of time
-    val_loss, _, _ = run_epoch(model, val_loader, args, optimizer=None, train=False, autocast_ctx=autocast_ctx)    
+    # Full validation pass
+    val_loss, _, _ = run_epoch(
+        model, val_loader, args, optimizer=None, train=False, autocast_ctx=autocast_ctx
+    )
 
-    print(f"Train_tokens={total_train_tokens:,} | "
-          f"Val_ce={val_loss:.3f} | "
-          f"Val_ppl={math.exp(val_loss):.2f} | "
-          f"{'stopped early' if stopped else 'clean epoch end'}")
+    print(
+        f"Train_tokens={train_tokens:,} | Train_ce={train_loss:.3f} | "
+        f"Val_ce={val_loss:.3f} | Val_ppl={math.exp(val_loss):.2f}"
+    )
 
     return val_loss
+
+# Backward-compatible shim for previous time-limited API
+def train_limited_time(model, train_loader, val_loader, time_limit_s, args, selfsim=None):
+    return train_one_epoch(model, train_loader, val_loader, args, selfsim)
 
 def test_setup(args, train_loader, val_loader, n_runs, per_run_seconds):
     """
@@ -272,7 +307,7 @@ def _get_positional_weights(model: nn.Module) -> np.ndarray:
     raise ValueError("Model does not expose recognizable positional embeddings under model.pos_emb.")
 
 
-def plot_positional_embeddings_and_fft(model: nn.Module, dims=(0, 1, 2), save_path: str = None):
+def plot_positional_embeddings_and_fft(model: nn.Module, dims=(0, 1, 2), save_path: str = None, *, figsize=(10, 8), dpi=240, show=True):
     """
     Produces a 3x2 grid: each row is one embedding dim in `dims`.
     Left column: positional embedding values over positions.
@@ -283,7 +318,7 @@ def plot_positional_embeddings_and_fft(model: nn.Module, dims=(0, 1, 2), save_pa
     pe = _get_positional_weights(model)  # (T, D)
     T = pe.shape[0]
 
-    fig, axes = plt.subplots(3, 2, figsize=(12, 10), constrained_layout=True)
+    fig, axes = plt.subplots(3, 2, figsize=figsize, constrained_layout=True)
 
     for r, d in enumerate(dims):
         curve = pe[:, d]
@@ -306,11 +341,14 @@ def plot_positional_embeddings_and_fft(model: nn.Module, dims=(0, 1, 2), save_pa
 
     if save_path is not None:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        plt.savefig(save_path, dpi=150)
-    plt.show()
+        plt.savefig(save_path, dpi=dpi)
+    if show:
+        plt.show()
+    else:
+        plt.close()
 
 
-def plot_positional_self_similarity(model: nn.Module, save_path: str = None):
+def plot_positional_self_similarity(model: nn.Module, save_path: str = None, *, figsize=(5, 4.5), dpi=300, show=True, title=None):
     """
     Plots cosine self-similarity across positions using L2-normalized position vectors.
     """
@@ -323,16 +361,19 @@ def plot_positional_self_similarity(model: nn.Module, save_path: str = None):
     # Cosine similarity matrix
     sim = pe_norm @ pe_norm.T
 
-    plt.figure(figsize=(7, 6))
+    plt.figure(figsize=figsize)
     im = plt.imshow(sim, cmap="coolwarm", vmin=-1, vmax=1, origin="upper", interpolation="nearest")
-    plt.title("Positional Self-Similarity (cosine)")
+    plt.title(title if title is not None else "Positional Self-Similarity (cosine)")
     plt.xlabel("Position")
     plt.ylabel("Position")
     plt.colorbar(im, fraction=0.046, pad=0.04)
     if save_path is not None:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        plt.savefig(save_path, dpi=150)
-    plt.show()
+        plt.savefig(save_path, dpi=dpi)
+    if show:
+        plt.show()
+    else:
+        plt.close()
 
 
 if __name__ == "__main__":
@@ -352,32 +393,76 @@ if __name__ == "__main__":
     # Where to save figures: under this post's media folder
     base_dir = os.path.dirname(__file__)
     media_dir = os.path.join(base_dir, "media")
-    grid_path = os.path.join(media_dir, "learned_positional_embeddings.png")
-    sim_path = os.path.join(media_dir, "positional_self_similarity.png")
+    grid_path_learned = os.path.join(media_dir, "positional_embeddings_fft_learned_d0_127_255.png")
+    sim_path_learned = os.path.join(media_dir, "positional_self_similarity_learned.png")  # kept for backward compat (unused below)
+    grid_path_sinus = os.path.join(media_dir, "positional_embeddings_fft_sinusoidal_d0_127_255.png")
+    sim_path_sinus = os.path.join(media_dir, "positional_self_similarity_sinusoidal.png")
+    sim_during_dir = os.path.join(media_dir, "self_similarity_during_training")
 
-    # Prefer an externally-provided `model` (e.g., pre-trained) if available.
-    if "model" in globals() and isinstance(globals()["model"], nn.Module):
-        model = globals()["model"].to(device)
-    else:
-        # Build a lightweight, untrained model purely for visualization of PE structure.
-        # A placeholder vocab_size is sufficient for positional embedding visualization.
-        placeholder_vocab = 1000
-        model = LLM(
-            vocab_size=placeholder_vocab,
-            context_len=context_len,
-            n_layer=args["n_layer"],
-            n_head=args["n_head"],
-            d_model=args["d_model"],
-            dropout=args["dropout"],
-            norm=args["norm"],
-            ffn=args["ffn"],
-            prepost=args["prepost"],
-            pos_emb=args["pos_emb"],
-        ).to(device)
 
-    # Plots:
-    # 1) 3x2 grid with embeddings (col 1) and FFT magnitudes (col 2)
-    plot_positional_embeddings_and_fft(model, dims=(0, 1, 2), save_path=grid_path)
+    placeholder_vocab = 50257
+    
+    # Sinusoidal baseline model (no training) for comparison plots
+    sinus_args = dict(args)
+    sinus_args["pos_emb"] = "sinusoidal"
+    sinus_model = LLM(
+        vocab_size=placeholder_vocab,
+        context_len=context_len,
+        n_layer=sinus_args["n_layer"],
+        n_head=sinus_args["n_head"],
+        d_model=sinus_args["d_model"],
+        dropout=sinus_args["dropout"],
+        norm=sinus_args["norm"],
+        ffn=sinus_args["ffn"],
+        prepost=sinus_args["prepost"],
+        pos_emb=sinus_args["pos_emb"],
+    ).to(device)
 
-    # 2) Self-similarity heatmap with cosine similarity (L2-normalized per position)
-    plot_positional_self_similarity(model, save_path=sim_path)
+    # Plots for sinusoidal: self-similarity and 3x2 grid for dims 0,127,255
+    plot_positional_self_similarity(sinus_model, save_path=sim_path_sinus, dpi=300, figsize=(5, 4.5))
+    plot_positional_embeddings_and_fft(sinus_model, dims=(0, 127, 255), save_path=grid_path_sinus, dpi=300, figsize=(10, 8))
+
+    # Learned positional embeddings model (to train)
+    model = LLM(
+        vocab_size=placeholder_vocab,
+        context_len=context_len,
+        n_layer=args["n_layer"],
+        n_head=args["n_head"],
+        d_model=args["d_model"],
+        dropout=args["dropout"],
+        norm=args["norm"],
+        ffn=args["ffn"],
+        prepost=args["prepost"],
+        pos_emb=args["pos_emb"],
+    ).to(device)
+    
+    x_train, y_train, x_val, y_val, vocab_size, tokenizer = load_or_build_packed(context_len, is_cuda)
+    train_loader, val_loader = build_loaders(x_train, y_train, x_val, y_val, context_len, batch_size, is_cuda)
+    
+    # Configure periodic self-similarity snapshots: every 50 steps, stop after 1000 steps
+    selfsim_cfg = {
+        "interval_steps": 50,
+        "next_step": 50,
+        "max_steps": 1000,
+        "step": 0,
+        "save_dir": sim_during_dir,
+        "prefix": "positional_self_similarity_learned",
+    }
+
+    # Train for 6 epochs, with step-based snapshots every 50 steps (max 1000),
+    # and save an additional self-sim figure at the end of each epoch.
+    for epoch in range(1, 7):
+        val_loss = train_one_epoch(model, train_loader, val_loader, args=args, selfsim=selfsim_cfg)
+        print(f"Finished epoch {epoch}. Val loss: {val_loss:.3f}")
+        # Save a per-epoch self-sim figure in main media dir
+        epoch_sim_path = os.path.join(media_dir, f"positional_self_similarity_learned_epoch{epoch}.png")
+        plot_positional_self_similarity(
+            model,
+            save_path=epoch_sim_path,
+            dpi=300,
+            figsize=(5, 4.5),
+            title=f"Self-similarity, step: {selfsim_cfg['step']}"
+        )
+
+    # After all epochs, save the FFT grid at dims 0,127,255 for the learned model
+    plot_positional_embeddings_and_fft(model, dims=(0, 127, 255), save_path=grid_path_learned, dpi=300, figsize=(10, 8))

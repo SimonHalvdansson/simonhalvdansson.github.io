@@ -78,6 +78,9 @@ def run_epoch(model, loader, args, optimizer, train=True,
         with autocast_ctx():
             logits = model(x)
             vocab_size = model.head.out_features
+            
+            print(vocab_size)
+            
             loss = F.cross_entropy(logits.view(-1, vocab_size), y.view(-1))
 
         if train:
