@@ -47,20 +47,42 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			Transformer blocks are famously a set operation, meaning that with intervention, they cannot tell the order of the tokens. One solution to this problem is to learn a tensor of shape <code>(d_model, seq_len)</code>
-			
-			The original solution to this problem was to add sinusoids with geometrically spaced frequencies to each token vector after the embeddings.  
+			Transformer blocks are famously a set operation, meaning that without intervention, they cannot tell the order of the tokens. One solution to this problem is to learn a tensor of shape <code>(d_model, seq_len)</code> which we add to after embedding our data. I've always wondered what type of properties these learned positional embeddings have and it turns out they are quite different from classical positional embeddings. In this post, we give some background on positional embeddings and look at learned positional embeddings for text and image data and compare to other solutions. 
 		</p>
 
 		<div class="figure_container">
-			<a data-fancybox="gallery0" href="media/back-to-back.png">
-				<img class="figure" src="media/back-to-back.png"></img>
+			<a data-fancybox="gallery0" href="media/positional_self_similarity_learned.png">
+				<img style="width: 50%; float: left;" class="figure" src="media/positional_self_similarity_learned.png"></img>
+			</a>
+			<a data-fancybox="gallery0" href="media/positional_self_similarity_sinusoidal.png">
+				<img style="width: 50%; float:left" class="figure" src="media/positional_self_similarity_sinusoidal.png"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> Left: The original CPU-based simulator from 2019. Right: The new Web-GPU based simulator from 2025. Try them out <a target="_blank" href="https://simonhalvdansson.github.io/2D-Coulomb-Gas-Tools/index.html">here (old)</a> and <a  target="_blank" href="https://simonhalvdansson.github.io/2D-Coulomb-Gas-Tools/index_gpu.html">here (new)</a>
+			<span class="caption_title">Figure: </span> Cosine self-similarity of learned positional embeddings for <code>seq_len = 256</code> (left) and standard sinusoidal positional mebeddings (right).
 		</div>
 
+		<p>
+			Some outline here
+		</p>
+
+		<hr class="squiggly-line"/>
+
+		<h2>Basics of positional embeddings</h2>
+
+		<p>
+			Talk through sinus, learned. Then adding stuff onto attention scores, finally quick RoPE.
+		</p>
+
+		<hr class="squiggly-line"/>
+
+		<h2>Language modelling</h2>
+
+		<p>Text</p>
+
+		<h2>Vision transformers, 2D structure</h2>
+
+		<p>Text here</p>
 		
 
 	</section>
