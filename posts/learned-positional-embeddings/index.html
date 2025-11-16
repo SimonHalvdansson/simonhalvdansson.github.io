@@ -47,12 +47,12 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			Transformer blocks are famously a set operation, meaning that without intervention, they cannot tell the order of the tokens. One solution to this problem is to learn a tensor of shape <code>(d_model, seq_len)</code> which we add to after embedding our data. I've always wondered what type of properties these learned positional embeddings have and it turns out they are quite different from classical positional embeddings. In this post, we give some background on positional embeddings and look at learned positional embeddings for text and image data and compare to other solutions. 
+			Transformer blocks are famously permutation equivariant, meaning that without intervention, they cannot tell the order of the tokens. One solution to this problem is to learn a tensor of shape <code>(d_model, seq_len)</code> which we add to after embedding our data. I've always wondered what type of properties these learned positional embeddings have and it turns out they are quite different from classical positional embeddings. In this post, we give some background on positional embeddings and investigate what they look like from different direction.
 		</p>
 
 		<div class="figure_container">
-			<a data-fancybox="gallery0" href="media/positional_self_similarity_learned.png">
-				<img style="width: 50%; float: left;" class="figure" src="media/positional_self_similarity_learned.png"></img>
+			<a data-fancybox="gallery0" href="media/output.mp4">
+				<video style="width: 50%; float: left;" class="figure" src="media/output.mp4" autoplay muted playsinline loop preload="metadata"></video>
 			</a>
 			<a data-fancybox="gallery0" href="media/positional_self_similarity_sinusoidal.png">
 				<img style="width: 50%; float:left" class="figure" src="media/positional_self_similarity_sinusoidal.png"></img>
@@ -62,27 +62,47 @@
 			<span class="caption_title">Figure: </span> Cosine self-similarity of learned positional embeddings for <code>seq_len = 256</code> (left) and standard sinusoidal positional mebeddings (right).
 		</div>
 
+		<hr class="squiggly-line"/>
+
+		<h2>Mathematics of additive positional embeddings</h2>
+
 		<p>
-			Some outline here
+			The self-attention mechanism is a self-map which is <b>equivariant</b> to permutations, meaning that if we permute the inputs, the output is permuted in the same way. To see this formally, let $P$ be a permutation matrix and consider
+			$$
+			\begin{align*}
+				\operatorname{attention}(PX) &= \operatorname{softmax}\left( \frac{P X W_Q ( P X W_K)^T}{\sqrt{d_k}} \right) PX W_V\\ &= P \operatorname{softmax}\left( \frac{X W_Q ( X W_K)^T}{\sqrt{d_k}} \right) P^T PX W_V = P \operatorname{attention}(X).
+			\end{align*}
+			$$
+			When we extract a value from the transformer after the final transformer block, we usually read a special <code>[CLS]</code> token or pool all the tokens. Either way, this does not let the transformer react to the order of the tokens in any special way. The original transformer paper used sinusoidal positional embeddings meaning that each token got added a fixed vector which was a sampled sinusoid with increasing frequency along the token dimension. This breaks permutation invariance by adding three new terms to the query-key multiplication in a way which depends on the position. Specifically, with $X$ replaced by $X + E_{\text{emb}}$,
+			$$
+			\begin{align*}
+				\operatorname{attention}(X) = \operatorname{softmax}\Bigg( &\frac{X W_Q (X W_K)^T}{\sqrt{d_k}} + \frac{X W_Q (E_{\text{emb}} W_K)^T}{\sqrt{d_k}} \\
+				&+ \frac{E_{\text{emb}} W_Q (X W_K)^T}{\sqrt{d_k}} + \frac{E_{\text{emb}} W_Q (E_{\text{emb}} W_K)^T}{\sqrt{d_k}} \Bigg) X W_V.
+			\end{align*}
+			$$
+			The output of the softmax, the <i>attention weigths</i>, is a <code>seq_len</code> $\times$ <code>seq_len</code> matrix which we take to encode how much the new representation after the self-attention should be influenced by the other tokens. Indeed, $(A V)_i = \sum_{j=1}^L A_{ij} V_j$ where $L$ is <code>seq_len</code>. If this matrix is just the identity, this means that the new representations do not get any extra inter-token dependencies from the self attention (note that $V$ is already a function of $X$ so some inter-token dependency comes built in).
+		</p>
+		
+		<p>
+			In the expanded form of the attention above, the first term in the softmax is just the standard attention scores. Meanwhile the second and third terms can be interpreted as their own query-key interactions where we somehow relate the positonal embeddings to the content of the tokens (although the usefulness of these interactions are <a href="https://arxiv.org/pdf/2006.15595" target="_blank">somewhat dubious</a>). The last one is most interesting. If $W_Q W_K^T = I$, then the numerator is precisely the Gram matrix $E_\text{emb} E_{\text{emb}}^T$ which is essentially the cosine similarity from the first figure! Now since $W_Q W_K^T \neq I$, we don't get precisely this but rather something related to it. This provides at least some of the motivation for why we want an off diagonal decay of the self-similarity matrix; representation should be influenced more by tokens close by.
+		</p>
+
+		<p>
+			Newer ideas in positional embeddings generally treat the problem in a more direct way. A family of ideas going under the name relative positional embeddings have proposed changing the $QK^T$ multiplication in variuos ways, including replacing $E_{\text{emb}} W_Q W_K^T E_{\text{emb}}^T$ by $E_{\text{emb}} U U^T E_{\text{emb}}^T$ with the new matrix $U$ disentangled from the standard query and key projections. One can also directly add a $L \times L$ bias matrix $B$ to the attention scores. We will not look any further at these approaches here but refer to the review in the <a href="https://arxiv.org/abs/2104.09864" target="_blank">RoPE paper</a>.
 		</p>
 
 		<hr class="squiggly-line"/>
 
-		<h2>Basics of positional embeddings</h2>
+		<h2>Examples</h2>
 
 		<p>
-			Talk through sinus, learned. Then adding stuff onto attention scores, finally quick RoPE.
+			Set up first experiment which is just capture the Gram matrix during training, show different L.
 		</p>
 
-		<hr class="squiggly-line"/>
+		<p>
+			Then it'd be nice to 
+		</p>
 
-		<h2>Language modelling</h2>
-
-		<p>Text</p>
-
-		<h2>Vision transformers, 2D structure</h2>
-
-		<p>Text here</p>
 		
 
 	</section>

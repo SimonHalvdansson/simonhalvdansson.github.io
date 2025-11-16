@@ -443,15 +443,15 @@ if __name__ == "__main__":
     selfsim_cfg = {
         "interval_steps": 50,
         "next_step": 50,
-        "max_steps": 1000,
+        "max_steps": 5000,
         "step": 0,
         "save_dir": sim_during_dir,
         "prefix": "positional_self_similarity_learned",
     }
 
-    # Train for 6 epochs, with step-based snapshots every 50 steps (max 1000),
+    # Train for 100 epochs, with step-based snapshots every 50 steps (max 1000),
     # and save an additional self-sim figure at the end of each epoch.
-    for epoch in range(1, 7):
+    for epoch in range(1, 2):
         val_loss = train_one_epoch(model, train_loader, val_loader, args=args, selfsim=selfsim_cfg)
         print(f"Finished epoch {epoch}. Val loss: {val_loss:.3f}")
         # Save a per-epoch self-sim figure in main media dir
