@@ -105,18 +105,24 @@
 		<p>
 			We will start off with the case $ab = 1$ as the \( ab > 1 \) case follows from it.
 			Note first that we can without loss of generality assume that \( C_1 = C_2 = 1 \) by dividing \( f \) by e.g., \( C_1 + C_2 \). Next we show that we can set \( a = 1 \) without loss of generality. Indeed, assume the theorem holds true for \( a = 1 \) and let \( g(x) = f(x/\sqrt{a}) \), then \( \hat{g}(\omega) = \sqrt{a} \hat{f}(\sqrt{a}\omega) \) and the bounds on \( f \) imply that
+		</p>
+		<div class="equation">
 			$$
 				|g(x)| \leq e^{-\pi x^2},\qquad |\hat{g}(\omega)| \leq \sqrt{a}e^{-\pi ab \omega^2}.
 			$$
+		</div>
+		<p>
 			Applying the theorem to \( g \), we get that \( g(x) = Ce^{-\pi x^2} \) which in turn yields that \( f(x) = Ce^{-\pi a x^2} \) which is what we wished to show. From now on we are free to assume that \( |f(x)| \leq e^{-\pi x^2} \) and \( |\hat{f}(\omega)| \leq e^{-\pi \omega^2} \).
 		</p>
 
 		<p>
 			Next up we will extend \( \hat{f} \) to an entire function on the complex plane. Specifically, we define
+		</p>
+		<div class="equation">
 			$$
 			F(z) = \int_{\mathbb{R}} f(u)e^{-2\pi i z u} \,du
 			$$
-		</p>
+		</div>
 
 		<div class="claim">Claim: \( F \) is entire.</div>
 		<div id="claim-proof1"></div>
@@ -136,9 +142,13 @@
 			</div>
 			<p>
 				That our integrand is analytic in $z$ is clear. To construct our $f_K$, note that we trivially have the bound
+			</p>
+			<div class="equation">
 				$$
 				|f(u)| |e^{-2\pi i z u}| \leq e^{-\pi u^2} e^{2\pi u \operatorname{Im}(z)} \leq e^{-\pi u^2} e^{2\pi u |z|}
 				$$
+			</div>
+			<p>
 				Now for $z \in K$ we can bound $|z|$ uniformly by the compactness of $K$ by e.g., $M_K = \sup_{z \in K} |z|$. Integrability follows from the fact that $e^{-\pi u^2}$ dominates the $e^{2\pi u M_K}$ factor.
 			</p>
 
@@ -146,25 +156,45 @@
 		
 		<p>
 			We now move to bounding \( |F| \). Using \( |f(x)| \leq e^{-\pi x^2} \) and \( |e^z| = e^{\operatorname{Re}(z)} \), we get
+		</p>
+		<div class="equation">
 			$$
 			|F(x+iy)| \leq \int_{\mathbb{R}} |f(u)| |e^{2\pi i z u}|\,du \leq \int_{\mathbb{R}} e^{-\pi u^2 + 2 \pi y u}\,du
 			$$
+		</div>
+		<p>
 			The quantity in the exponent can be written as
+		</p>
+		<div class="equation">
 			$$
 			-\pi u^2 + 2 \pi y u = -\pi(u^2 - 2y u + y^2) + \pi y^2 = -\pi(u - y)^2 + \pi y^2,
 			$$
+		</div>
+		<p>
 			and hence,
+		</p>
+		<div class="equation">
 			$$
 			|F(x+iy)| \leq \int_{\mathbb{R}} e^{-\pi u^2 + 2 \pi y u}\,du = e^{\pi y^2} \underbrace{\int_{\mathbb{R}} e^{-\pi(u-y)^2}\,du}_{= 1} = e^{\pi y^2}.
 			$$
-			Next up we will define the function \( G(z) = e^{\pi z^2} F(z) \). Clearly, \( G \) is entire just like \( F \). Moreover, \( |G| \) is bounded by \( 1 \) along the real and imaginary axes. Indeed, by \( |F(x)| \leq e^{-\pi x^2} \),
+		</div>
+		<p>
+		Next up we will define the function \( G(z) = e^{\pi z^2} F(z) \). Clearly, \( G \) is entire just like \( F \). Moreover, \( |G| \) is bounded by \( 1 \) along the real and imaginary axes. Indeed, by \( |F(x)| \leq e^{-\pi x^2} \),
+		</p>	
+		<div class="equation">
 			$$
 			|G(x)| = |e^{\pi x^2}| |F(x)| \leq 1
 			$$
-			and by \( |F(iy)| \leq e^{\pi y^2}, \)
+		</div>
+		<p>
+		and by \( |F(iy)| \leq e^{\pi y^2}, \)
+		</p>
+		<div class="equation">
 			$$
 			|G(iy)| = |e^{\pi (iy)^2}| |F(iy)| \leq 1.
 			$$
+		</div>
+		<p>
 			Our goal is to show that $G$ is bounded on the entire complex plane so that we may apply Liouville's theorem and conclude that \( G(z) = C \) as rearranging \( G(z) = e^{\pi z^2} F(z) \) would then ultimately allow us to conclude that \(  f \) is of the desired Gaussian form.
 		</p>
 
@@ -175,33 +205,55 @@
 			<div class="title">Theorem:</div>
 			<p>
 				Let \(S = \{ z \in \mathbb{C} : \alpha < \arg z < \beta \}\) be a sector of \( \mathbb{C} \) and \( F \) a function which is analytic in \( S \) that is continuous on \( \overline{S} \). If \( |F(z)| \leq M \) on \( \partial S \) and
+			</p>
+			<div class="equation"> 
 				$$
 				|F(z)| \leq C e^{c |z|^\rho}
 				$$
-            	for some \( c, C > 0 \) and \( \rho <  \frac{\pi}{\beta - \alpha} \), then \( |F(z)| \leq M \)  on \( \overline{S} \).
+			</div>
+            <p>
+				for some \( c, C > 0 \) and \( \rho <  \frac{\pi}{\beta - \alpha} \), then \( |F(z)| \leq M \)  on \( \overline{S} \).
 			</p>
 		</div>
 		<p>
 			Let's start off by verifying the type of growth \( G \) has on \( \mathbb{C} \). Using the \( |F(x+iy)| \leq e^{\pi y^2} \) result and \( |e^z| = e^{\operatorname{Re}(z)} \), we find that
+		</p>
+		<div class="equation"> 
 			$$
 			|G(z)| = |G(x+iy)| = |e^{\pi (x+iy)^2}| |F(x+iy)|\leq |e^{\pi (x^2 + 2ixy - y^2)}| e^{\pi y^2} = e^{\pi x^2} \leq e^{\pi |z|^2}
 			$$
+		</div>
+		<p>	
 			which in the language of the theorem means that \( \rho = 2 \). This means that we cannot apply the theorem to the first quadrant with \( \alpha = 0 \) and \( \beta = \pi/2 \) because \( \frac{\pi}{\beta - \alpha} = 2 \not > \rho=2 \). To get around this we will need to consider a slightly narrower sector. Specifically, for a parameter \( \delta > 0 \), define
+		</p>
+		<div class="equation"> 
 			$$
 			S_\theta = \{ z \in S : 0 < \arg z < \theta \}
 			$$
+		</div>
+		<p>
 			where \( \theta = \theta(\delta) \) is dependent on \( \delta \). Our function \( G \) will not be bounded on \( \partial S_\theta \) so we will define an additional function \( H_\delta \) which is. Specifically, we choose \( H_\delta(z) = e^{i\delta z^2} G(z) \). On the real axis, we trivially have the bound
+		</p>
+		<div class="equation"> 
 			$$
 			|H_\delta(x)| = |e^{i\delta x^2}| |G(x)| \leq 1.
 			$$
+		</div>
+		<p>
 			The remainder of the boundary \( \partial S_{\theta(\delta)} \) may be parametrized by the ray \( z = re^{i\theta} \). Along it, using \( |G(x+iy)| \leq e^{\pi x^2} \) and \( |e^z| = e^{\operatorname{Re}(z)} \), we have that
+		</p>
+		<div class="equation"> 
 			$$
 			\begin{cases}
             |G(z)| \leq e^{\pi r^2 \cos(\theta)^2},\\
             |e^{i\delta z^2}| = e^{-\delta r^2 \sin(2\theta)}
         	\end{cases}\qquad |H_\delta(re^{i\theta})| \leq \exp(r^2 \cos\theta(\pi\cos\theta - 2 \delta \sin\theta))
 			$$
+		</div>
+		<p>
 			by collecting factors. Now in order for this quantity to be bounded along the ray, we want the exponent to be negative. Since \( r^2 \cos\theta > 0\) on the entire quadrant, this means that we want for
+		</p>
+		<div class="equation"> 
 			$$
 			\begin{align}
 			\pi\cos\theta - 2 \delta \sin\theta &< 0\\
@@ -209,19 +261,33 @@
 			\iff \frac{\pi}{2\delta} &<  \tan\theta.
 			\end{align}
 			$$
+		</div>
+		<p>
 			To enforce this, we can set $\theta(\delta) = \arctan\frac{\pi}{\delta}$. With this choice of $\theta(\delta)$, $H_\delta$ is bounded along the ray. Before applying Phragmén-Lindelöf, we need to assure ourselves that we still have $\rho = 2$ growth. Indeed, 
+		</p>
+		<div class="equation"> 
 			$$
 			|H_\delta(z)| = |e^{i\delta z^2}| |G(z)| \leq e^{\delta |z|^2} e^{\pi |z|^2} \leq e^{2\pi |z|^2}
 			$$
+		</div>
+		<p>
 			using the growth bound we had already established for $|G|$. Now since $\rho = 2 < \frac{\pi}{\theta(\delta)-0}$, we are free to apply Phragmén-Lindelöf and conclude that $|H_\delta(z)| \leq 1$ for all $z \in S_{\theta(\delta)}$ for all $\delta > 0$. To lift this to a bound on $G$ on $S_{\pi/2}$, fix a $z_0 \in S_{\pi/2}$ and $\varepsilon > 0$. Since $\theta(\delta) \to \pi/2$ as $\delta \to 0$, there exists a $\delta_0 > 0$ such that $\delta < \delta_0 \implies z_0 \in S_{\theta(\delta)}$. By the continuity of the function $z \mapsto e^{i\delta z^2}$, we can find another $\delta_1$ such that
+		</p>
+		<div class="equation"> 
 			$$
 			\delta < \delta_1 \implies |e^{-i\delta z_0^2} - 1| < \varepsilon.
 			$$
+		</div>
+		<p>
 			For $\delta < \delta_0, \delta_1$, we can use the bound $|H_\delta(z_0)| \leq 1$ to conclude that
+		</p>
+		<div class="equation"> 
 			$$
 			|H_\delta(z_0)| = |e^{i \delta z_0^2}| |G(z_0)| \leq 1
         	\implies |G(z_0)| \leq |e^{-i \delta z_0^2}| < 1+\varepsilon.
 			$$
+		</div>
+		<p>
 			Since $\varepsilon$ was arbitrary, we conclude that $|G(z_0)| \leq 1$. The bound further holds on $\overline{S_{\pi/2}}$ since we already established that $|G(iy)| \leq 1$.
 		</p>
 
@@ -233,13 +299,19 @@
 
 		<p>
 			Define $H_\delta(z) = e^{-i\delta z^2}$, $\theta(\delta) = \pi - \arctan\frac{\pi}{\delta}$ and $S_{\theta(\delta)} = \{ z \in \mathbb{C} : \theta(\delta) < \arg z \leq \pi \}$. Then clearly $H_\delta$ is still bounded by $1$ along the real axis and its growth is bounded by $e^{2\pi |z|^2}$ for the same reason as for the $H_\delta$ in the first quadrant. As for bounding $H_\delta$ along the ray $re^{i\theta(\delta)}$, we have that
+		</p>	
+		<div class="equation"> 
 			$$
 			\begin{cases}
             |G(z)| \leq e^{\pi r^2 \cos(\theta)^2},\\
             |e^{-i\delta z^2}| = e^{\delta r^2 \sin(2\theta)}
         	\end{cases}\qquad |H_\delta(re^{i\theta})| \leq \exp(r^2 \cos\theta(\pi\cos\theta + 2 \delta \sin\theta)).
 			$$
-			This time, $\cos\theta < 0$ so a negative exponent is contingent on 
+		</div>
+		<p>
+		This time, $\cos\theta < 0$ so a negative exponent is contingent on 
+		</p>	
+		<div class="equation"> 
 			$$
 			\begin{align}
 				\pi\cos\theta + 2 \delta \sin\theta &> 0\\
@@ -247,19 +319,27 @@
 				\iff \frac{\pi}{2\delta} &<  -\tan\theta.
 				\end{align}
 			$$
+		</div>
+		<p>
 			Our choice of $\theta(\delta) = \pi - \arctan\frac{\pi}{\delta}$ satisfies this inequality since $\tan(\pi-x) = -\tan(x)$. From here the same Phragmén-Lindelöf and $\varepsilon-\delta$ arguments apply to bound $H_\delta$ and in turn $G$ from above by $1$.
 		</p>
 		
 		<h3>Third quadrant</h3>
 		<p>
 			Here we again choose $H_\delta(z) = e^{i\delta z^2}$ but $\theta(\delta) = \pi + \arctan\frac{\pi}{\delta}$ and $S_{\theta(\delta)} = \{ z \in \mathbb{C} : \pi < \arg z < \theta(\delta) \}$. Bounding along the real and imaginary axes follows the standard formula. Along the $\theta$ ray we have 
+		</p>
+		<div class="equation"> 
 			$$
 			\begin{cases}
             |G(z)| \leq e^{\pi r^2 \cos(\theta)^2},\\
             |e^{i\delta z^2}| = e^{-\delta r^2 \sin(2\theta)}
         	\end{cases}\qquad |H_\delta(re^{i\theta})| \leq \exp(r^2 \cos\theta(\pi\cos\theta - 2 \delta \sin\theta))
 			$$
+		</div>
+		<p>
 			just as in the first quadrant. Since $\cos\theta$ is negative inside the third quadrant, a negative exponent requires 
+		</p>	
+		<div class="equation"> 
 			$$
 			\begin{align}
 				\pi\cos\theta - 2 \delta \sin\theta &> 0\\
@@ -267,6 +347,8 @@
 				\iff \frac{\pi}{2\delta} &<  \tan\theta
 			\end{align}
 			$$
+		</div>
+		<p>
 			and it can be easily verified that this is satisfied by our choice of $\theta$. The remaining details are identical to those of the first and second quadrants.
 		</p>
 
@@ -279,23 +361,34 @@
 
 		<p>
 			Having bounded $G$ by $1$ over all of $\mathbb{C}$, Liouville's theorem allows us to conclude that $G$ is the constant function $G(z) = C$. Since $G(x) = e^{\pi x^2} \hat{f}(x) = C$, this means that
+		</p>
+		<div class="equation"> 
 			$$
 			\hat{f}(x) = Ce^{-\pi x^2} \implies f(x) = Ce^{-\pi x^2}
 			$$
+		</div>
+		<p>
 			which finishes the proof of the $ab = 1$ case.
-			
 		</p>
 
 
 		<p>
 			Now for the $ab > 1$ case, assume that we have a function $f$ such that $|f(x)| \leq e^{-\pi a x^2}$ and $|\hat{f}(\omega)| \leq e^{-\pi b \omega^2}$. Then setting $a_0 = \frac{1}{b} < \frac{ab}{b} = a$, it holds that $|f(x)| \leq e^{-\pi a_0 x^2}$ and $|\hat{f}(\omega)| \leq e^{-\pi b \omega^2}$. As such, we can apply the $ab=1$ version of Hardy's uncertainty principle since $a_0 b = 1$ and conclude that
+		</p>
+		<div class="equation">
 			$$
 			f(x) = Ce^{-\pi a_0 x^2}.
 			$$
+		</div>
+		<p>
 			However, combining this fact with that $|f(x)| \leq e^{-\pi a x^2}$, we can conclude that
+		</p>
+		<div class="equation">
 			$$
 			|Ce^{-\pi a_0 x^2}| \leq e^{-\pi a x^2} \implies |C| \leq e^{-\pi (a-a_0) x^2}
 			$$
+		</div>
+		<p>
 			for all $x \in \mathbb{R}$. Since $a > a_0$, this can only hold true if $C = 0$ meaning that $f(x) = 0$ for all $x$, which is what we wished to show.
 			<div class="qed"></div>
 		</p>

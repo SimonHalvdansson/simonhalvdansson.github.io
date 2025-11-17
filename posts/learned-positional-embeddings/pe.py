@@ -21,7 +21,14 @@ amp_dtype = torch.bfloat16
 
 # global hyperparams
 context_len = 256
-batch_size = 16
+batch_size = 8
+max_epochs = 3
+
+def print_model_parameter_count(model: nn.Module, label: str = "LLM") -> int:
+    """Prints and returns the total number of parameters in `model`."""
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"{label} parameters: {total_params:,}")
+    return total_params
 
 # --------------------------
 # Train/Eval
@@ -58,7 +65,7 @@ def run_epoch(model, loader, args, optimizer, train=True,
     pbar = tqdm(
         loader, leave=False, desc="train" if train else "eval",
         dynamic_ncols=True, mininterval=0.1, maxinterval=1.0, miniters=1,
-        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}",
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}] {postfix}"
     )
     first_draw = True
 
@@ -110,10 +117,7 @@ def run_epoch(model, loader, args, optimizer, train=True,
             try:
                 # count completed optimizer steps
                 selfsim["step"] = selfsim.get("step", 0) + 1
-                while (
-                    selfsim["step"] >= selfsim.get("next_step", selfsim["interval_steps"]) and
-                    selfsim.get("next_step", selfsim["interval_steps"]) <= selfsim.get("max_steps", float("inf"))
-                ):
+                while selfsim["step"] >= selfsim.get("next_step", selfsim["interval_steps"]):
                     step_for_name = selfsim["next_step"]
                     fname = f"{selfsim['prefix']}_step{step_for_name:05d}.png"
                     fpath = os.path.join(selfsim["save_dir"], fname)
@@ -121,10 +125,23 @@ def run_epoch(model, loader, args, optimizer, train=True,
                     plot_positional_self_similarity(
                         model,
                         save_path=fpath,
-                        dpi=300,
+                        dpi=250,
                         figsize=(5, 4.5),
                         show=False,
-                        title=f"Self-similarity, step: {step_for_name}"
+                        title=f"Self-similarity ({step_for_name})",
+                        raw_title=f"Raw positional embeddings (step {step_for_name})",
+                    )
+                    base, ext = os.path.splitext(fpath)
+                    ext = ext if ext else ".png"
+                    density_path = f"{base}_density{ext}"
+                    plot_embedding_density_map(
+                        model,
+                        save_path=density_path,
+                        dpi=250,
+                        figsize=(8, 4.5),
+                        show=False,
+                        title=f"Learned positional embedding density (step {step_for_name})",
+                        value_range=(-0.1, 0.1),
                     )
                     selfsim["next_step"] = step_for_name + selfsim["interval_steps"]
             except Exception:
@@ -155,20 +172,6 @@ def train_one_epoch(model, train_loader, val_loader, args, selfsim=None):
         autocast_ctx=autocast_ctx, scaler=scaler, deadline=None, selfsim=selfsim
     )
 
-    # Final self-similarity snapshot at the last step before training finishes
-    if selfsim is not None and "interval_steps" in selfsim:
-        try:
-            last_step = selfsim.get("step", 0)
-            fname = f"{selfsim['prefix']}_step{last_step:05d}_final.png"
-            fpath = os.path.join(selfsim["save_dir"], fname)
-            os.makedirs(selfsim["save_dir"], exist_ok=True)
-            plot_positional_self_similarity(
-                model, save_path=fpath, dpi=300, figsize=(5, 4.5), show=False,
-                title=f"Self-similarity, step: {last_step}"
-            )
-        except Exception:
-            pass
-
     # Full validation pass
     val_loss, _, _ = run_epoch(
         model, val_loader, args, optimizer=None, train=False, autocast_ctx=autocast_ctx
@@ -195,8 +198,8 @@ def test_setup(args, train_loader, val_loader, n_runs, per_run_seconds):
       - val_losses: np.ndarray shape (n_runs,)
       - tokens_per_run: np.ndarray shape (n_runs,)
     """
-    def make_model():
-        return LLM(vocab_size=vocab_size,
+    def make_model(label=None):
+        model = LLM(vocab_size=vocab_size,
                        context_len=context_len, 
                        n_layer=args["n_layer"],
                        n_head=args["n_head"],
@@ -205,12 +208,14 @@ def test_setup(args, train_loader, val_loader, n_runs, per_run_seconds):
                        norm=args["norm"],
                        ffn=args["ffn"],
                        prepost=args["prepost"],
-                       pos_emb=args["pos_emb"])    
+                       pos_emb=args["pos_emb"]).to(device)
+        print_model_parameter_count(model, label or "LLM")
+        return model
     
     vals = []
     for i in range(n_runs):
         print(f"\n=== Run {i+1}/{n_runs} (time budget: {per_run_seconds}s) ===")
-        model = make_model().to(device)
+        model = make_model(label=f"Run {i+1} model")
         
         val_loss = train_limited_time(
             model, train_loader, val_loader, per_run_seconds, args
@@ -266,6 +271,7 @@ def train_and_sample_once(
         prepost=args["prepost"],
         pos_emb=args["pos_emb"],
     ).to(device)
+    print_model_parameter_count(model, "train_and_sample_once LLM")
 
     # time-limited train + full validation
     val_loss = train_limited_time(
@@ -307,7 +313,46 @@ def _get_positional_weights(model: nn.Module) -> np.ndarray:
     raise ValueError("Model does not expose recognizable positional embeddings under model.pos_emb.")
 
 
-def plot_positional_embeddings_and_fft(model: nn.Module, dims=(0, 1, 2), save_path: str = None, *, figsize=(10, 8), dpi=240, show=True):
+def _plot_embedding_value_heatmap(
+    pe: np.ndarray,
+    *,
+    save_path: str = None,
+    figsize=(5, 4.5),
+    dpi=250,
+    show=True,
+    title=None,
+    value_range=None,
+):
+    """Plots raw positional embedding values as a heatmap."""
+    import matplotlib.pyplot as plt
+
+    plt.figure(figsize=figsize)
+    if value_range is None:
+        value_max = float(np.max(pe))
+        value_min = float(np.min(pe))
+        display = pe
+    else:
+        value_min, value_max = value_range
+        value_min = float(value_min)
+        value_max = float(value_max)
+        display = np.clip(pe, value_min, value_max)
+    data = display.T  # rows: embedding dims, columns: positions
+    im = plt.imshow(data, aspect="auto", cmap="coolwarm", origin="lower", vmin=value_min, vmax=value_max)
+    plt.title(title or "Raw positional embeddings")
+    plt.xlabel("Position")
+    plt.ylabel("Embedding dimension")
+    cbar = plt.colorbar(im, fraction=0.046, pad=0.04)
+    cbar.set_label("Value")
+    if save_path is not None:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=dpi)
+    if show:
+        plt.show()
+    else:
+        plt.close()
+
+
+def plot_positional_embeddings_and_fft(model: nn.Module, dims=(0, 1, 2), save_path: str = None, *, figsize=(10, 8), dpi=250, show=True):
     """
     Produces a 3x2 grid: each row is one embedding dim in `dims`.
     Left column: positional embedding values over positions.
@@ -348,7 +393,18 @@ def plot_positional_embeddings_and_fft(model: nn.Module, dims=(0, 1, 2), save_pa
         plt.close()
 
 
-def plot_positional_self_similarity(model: nn.Module, save_path: str = None, *, figsize=(5, 4.5), dpi=300, show=True, title=None):
+def plot_positional_self_similarity(
+    model: nn.Module,
+    save_path: str = None,
+    *,
+    figsize=(5, 4.5),
+    dpi=250,
+    show=True,
+    title=None,
+    raw_save_path: str = None,
+    raw_title: str = None,
+    raw_value_range=(-0.1, 0.1),
+):
     """
     Plots cosine self-similarity across positions using L2-normalized position vectors.
     """
@@ -375,14 +431,108 @@ def plot_positional_self_similarity(model: nn.Module, save_path: str = None, *, 
     else:
         plt.close()
 
+    if raw_save_path is None and save_path is not None:
+        base, ext = os.path.splitext(save_path)
+        ext = ext if ext else ".png"
+        raw_save_path = f"{base}_values{ext}"
+
+    heatmap_title = raw_title or "Raw positional embeddings"
+    _plot_embedding_value_heatmap(
+        pe,
+        save_path=raw_save_path,
+        figsize=figsize,
+        dpi=dpi,
+        show=show,
+        title=heatmap_title,
+        value_range=raw_value_range,
+    )
+
+
+def plot_embedding_density_map(
+    model: nn.Module,
+    *,
+    num_bins: int = 128,
+    save_path: str = None,
+    figsize=(8, 4.5),
+    dpi=250,
+    show=True,
+    title: str = None,
+    value_range=None,
+):
+    """
+    Plots a per-token normalized histogram (density) of embedding values.
+    Each column corresponds to a token position; each column is normalized
+    independently so the maximum bin density is 1 (relative density).
+    If `value_range` is provided, the y-axis and bins are fixed to that range.
+    """
+    import matplotlib.pyplot as plt
+
+    pe = _get_positional_weights(model)
+    seq_len, _ = pe.shape
+    if value_range is None:
+        flat = pe.reshape(-1)
+        value_min = float(np.min(flat))
+        value_max = float(np.max(flat))
+        if value_min == value_max:
+            value_min -= 1e-5
+            value_max += 1e-5
+    else:
+        value_min, value_max = value_range
+    bins = np.linspace(value_min, value_max, num_bins + 1)
+
+    density = np.zeros((num_bins, seq_len), dtype=np.float32)
+    for idx in range(seq_len):
+        row = pe[idx]
+        if value_range is not None:
+            row = np.clip(row, value_min, value_max)
+        hist, _ = np.histogram(row, bins=bins)
+        hist = hist.astype(np.float32)
+        max_hist = np.max(hist)
+        if max_hist > 0:
+            hist /= max_hist
+        density[:, idx] = hist
+
+    plt.figure(figsize=figsize)
+    im = plt.imshow(
+        density,
+        aspect="auto",
+        origin="lower",
+        cmap="magma",
+        extent=(0, seq_len - 1, value_min, value_max),
+        vmin=0.0,
+        vmax=1.0,
+    )
+    plt.xlabel("Position")
+    plt.ylabel("Embedding value")
+    plt.title(title or "Normalized embedding value density")
+    cbar = plt.colorbar(im, fraction=0.046, pad=0.04)
+    cbar.set_label("Relative density")
+
+    if save_path is not None:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=dpi)
+    if show:
+        plt.show()
+    else:
+        plt.close()
+
 
 if __name__ == "__main__":
+    if device == "cuda":
+        torch.cuda.empty_cache()
+    
+    # Quick toggles for individual experiments.
+    RUN_SINUSOIDAL_BASELINE = 1
+    RUN_LEARNED_TRAINING = 1
+    RUN_LEARNED_FFT_GRID = 1
+    RUN_DENSITY_PLOTS = 1
+
     # Default hyperparameters for constructing a model if none is provided.
-    args = {"lr":           1.1e-3,
+    args = {"lr":           2e-4,
             "optimizer":    "adamw",
-            "n_layer":      2,
+            "n_layer":      12,
             "n_head":       4,
-            "d_model":      256,
+            "d_model":      512,
             "dropout":      0.0,
             "grad_clip":    None,
             "norm":         "layer",
@@ -394,75 +544,129 @@ if __name__ == "__main__":
     base_dir = os.path.dirname(__file__)
     media_dir = os.path.join(base_dir, "media")
     grid_path_learned = os.path.join(media_dir, "positional_embeddings_fft_learned_d0_127_255.png")
-    sim_path_learned = os.path.join(media_dir, "positional_self_similarity_learned.png")  # kept for backward compat (unused below)
     grid_path_sinus = os.path.join(media_dir, "positional_embeddings_fft_sinusoidal_d0_127_255.png")
     sim_path_sinus = os.path.join(media_dir, "positional_self_similarity_sinusoidal.png")
-    sim_during_dir = os.path.join(media_dir, "self_similarity_during_training")
-
+    raw_values_path_sinus = os.path.join(media_dir, "positional_embedding_values_sinusoidal.png")
+    density_path_sinus = os.path.join(media_dir, "positional_embedding_density_sinusoidal.png")
+    density_path_learned = os.path.join(media_dir, "positional_embedding_density_learned.png")
+    training_snapshots_dir = os.path.join(media_dir, "training_snapshots")
 
     placeholder_vocab = 50257
-    
-    # Sinusoidal baseline model (no training) for comparison plots
-    sinus_args = dict(args)
-    sinus_args["pos_emb"] = "sinusoidal"
-    sinus_model = LLM(
-        vocab_size=placeholder_vocab,
-        context_len=context_len,
-        n_layer=sinus_args["n_layer"],
-        n_head=sinus_args["n_head"],
-        d_model=sinus_args["d_model"],
-        dropout=sinus_args["dropout"],
-        norm=sinus_args["norm"],
-        ffn=sinus_args["ffn"],
-        prepost=sinus_args["prepost"],
-        pos_emb=sinus_args["pos_emb"],
-    ).to(device)
+    learned_model = None
 
-    # Plots for sinusoidal: self-similarity and 3x2 grid for dims 0,127,255
-    plot_positional_self_similarity(sinus_model, save_path=sim_path_sinus, dpi=300, figsize=(5, 4.5))
-    plot_positional_embeddings_and_fft(sinus_model, dims=(0, 127, 255), save_path=grid_path_sinus, dpi=300, figsize=(10, 8))
+    if RUN_SINUSOIDAL_BASELINE:
+        # Sinusoidal baseline model (no training) for comparison plots
+        sinus_args = dict(args)
+        sinus_args["pos_emb"] = "sinusoidal"
+        sinus_model = LLM(
+            vocab_size=placeholder_vocab,
+            context_len=context_len,
+            n_layer=sinus_args["n_layer"],
+            n_head=sinus_args["n_head"],
+            d_model=sinus_args["d_model"],
+            dropout=sinus_args["dropout"],
+            norm=sinus_args["norm"],
+            ffn=sinus_args["ffn"],
+            prepost=sinus_args["prepost"],
+            pos_emb=sinus_args["pos_emb"],
+        ).to(device)
+        print_model_parameter_count(sinus_model, "Sinusoidal positional LLM")
 
-    # Learned positional embeddings model (to train)
-    model = LLM(
-        vocab_size=placeholder_vocab,
-        context_len=context_len,
-        n_layer=args["n_layer"],
-        n_head=args["n_head"],
-        d_model=args["d_model"],
-        dropout=args["dropout"],
-        norm=args["norm"],
-        ffn=args["ffn"],
-        prepost=args["prepost"],
-        pos_emb=args["pos_emb"],
-    ).to(device)
-    
-    x_train, y_train, x_val, y_val, vocab_size, tokenizer = load_or_build_packed(context_len, is_cuda)
-    train_loader, val_loader = build_loaders(x_train, y_train, x_val, y_val, context_len, batch_size, is_cuda)
-    
-    # Configure periodic self-similarity snapshots: every 50 steps, stop after 1000 steps
-    selfsim_cfg = {
-        "interval_steps": 50,
-        "next_step": 50,
-        "max_steps": 5000,
-        "step": 0,
-        "save_dir": sim_during_dir,
-        "prefix": "positional_self_similarity_learned",
-    }
-
-    # Train for 100 epochs, with step-based snapshots every 50 steps (max 1000),
-    # and save an additional self-sim figure at the end of each epoch.
-    for epoch in range(1, 2):
-        val_loss = train_one_epoch(model, train_loader, val_loader, args=args, selfsim=selfsim_cfg)
-        print(f"Finished epoch {epoch}. Val loss: {val_loss:.3f}")
-        # Save a per-epoch self-sim figure in main media dir
-        epoch_sim_path = os.path.join(media_dir, f"positional_self_similarity_learned_epoch{epoch}.png")
+        # Plots for sinusoidal: self-similarity, raw values, FFT grid, and density
         plot_positional_self_similarity(
-            model,
-            save_path=epoch_sim_path,
-            dpi=300,
+            sinus_model,
+            save_path=sim_path_sinus,
+            raw_save_path=raw_values_path_sinus,
+            dpi=250,
             figsize=(5, 4.5),
-            title=f"Self-similarity, step: {selfsim_cfg['step']}"
+            title="Sinusoidal positional embeddings self-similarity",
+            raw_title="Raw sinusoidal positional embeddings",
+            raw_value_range = (-1, 1),
         )
+        plot_positional_embeddings_and_fft(sinus_model, dims=(0, 127, 255), save_path=grid_path_sinus, dpi=250, figsize=(10, 8))
+        if RUN_DENSITY_PLOTS:
+            plot_embedding_density_map(
+                sinus_model,
+                save_path=density_path_sinus,
+                dpi=250,
+                figsize=(8, 4.5),
+                title="Sinusoidal positional embedding density",
+            )
 
-    # After all epochs, save the FFT grid at dims 0,127,255 for the learned model
-    plot_positional_embeddings_and_fft(model, dims=(0, 127, 255), save_path=grid_path_learned, dpi=300, figsize=(10, 8))
+    if RUN_LEARNED_TRAINING:
+        # Learned positional embeddings model (to train)
+        model = LLM(
+            vocab_size=placeholder_vocab,
+            context_len=context_len,
+            n_layer=args["n_layer"],
+            n_head=args["n_head"],
+            d_model=args["d_model"],
+            dropout=args["dropout"],
+            norm=args["norm"],
+            ffn=args["ffn"],
+            prepost=args["prepost"],
+            pos_emb=args["pos_emb"],
+        ).to(device)
+        print_model_parameter_count(model, "Learned positional LLM")
+
+        x_train, y_train, x_val, y_val, vocab_size, tokenizer = load_or_build_packed(context_len, is_cuda)
+        train_loader, val_loader = build_loaders(x_train, y_train, x_val, y_val, context_len, batch_size, is_cuda)
+
+        # Configure periodic self-similarity snapshots: every 300 steps
+        selfsim_cfg = {
+            "interval_steps": 300,
+            "next_step": 300,
+            "step": 0,
+            "save_dir": training_snapshots_dir,
+            "prefix": "learned",
+        }
+
+        # and save an additional self-sim figure at the end of each epoch.
+        for epoch in range(1, max_epochs + 1):
+            val_loss = train_one_epoch(model, train_loader, val_loader, args=args, selfsim=selfsim_cfg)
+            print(f"Finished epoch {epoch}. Val loss: {val_loss:.3f}")
+            # Save a per-epoch self-sim figure in main media dir
+            epoch_sim_path = os.path.join(media_dir, f"positional_self_similarity_learned_epoch{epoch}.png")
+            plot_positional_self_similarity(
+                model,
+                save_path=epoch_sim_path,
+                dpi=250,
+                figsize=(5, 4.5),
+                title=f"Self-similarity, step: {selfsim_cfg['step']}",
+                raw_title=f"Raw learned positional embeddings (step {selfsim_cfg['step']})",
+            )
+
+        learned_model = model
+
+    if RUN_LEARNED_FFT_GRID:
+        if learned_model is None:
+            learned_model = LLM(
+                vocab_size=placeholder_vocab,
+                context_len=context_len,
+                n_layer=args["n_layer"],
+                n_head=args["n_head"],
+                d_model=args["d_model"],
+                dropout=args["dropout"],
+                norm=args["norm"],
+                ffn=args["ffn"],
+                prepost=args["prepost"],
+                pos_emb=args["pos_emb"],
+            ).to(device)
+            print_model_parameter_count(learned_model, "Learned positional LLM (fresh)")
+
+        plot_positional_embeddings_and_fft(
+            learned_model,
+            dims=(0, 127, 255),
+            save_path=grid_path_learned,
+            dpi=250,
+            figsize=(10, 8),
+        )
+        if RUN_DENSITY_PLOTS:
+            plot_embedding_density_map(
+                learned_model,
+                save_path=density_path_learned,
+                dpi=250,
+                figsize=(8, 4.5),
+                title="Learned positional embedding density",
+                value_range=(-0.1, 0.1),
+            )

@@ -831,3 +831,7 @@ h1 {
     padding-left: 16px;
     padding-right: 16px;
 }
+
+mjx-container {
+    margin: 0 !important;   /* removes MathJax’s default vertical spacing */
+}

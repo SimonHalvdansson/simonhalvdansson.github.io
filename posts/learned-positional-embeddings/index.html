@@ -47,12 +47,12 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			Transformer blocks are famously permutation equivariant, meaning that without intervention, they cannot tell the order of the tokens. One solution to this problem is to learn a tensor of shape <code>(d_model, seq_len)</code> which we add to after embedding our data. I've always wondered what type of properties these learned positional embeddings have and it turns out they are quite different from classical positional embeddings. In this post, we give some background on positional embeddings and investigate what they look like from different direction.
+			Transformer blocks are famously permutation equivariant, meaning that without intervention, they cannot tell the order of the tokens. One solution to this problem is to learn a tensor of shape <code>(d_model, seq_len)</code> which we add to after embedding our data. It is not clear a-priori what properties these learned positional embeddings should take and it turns out they are substantially different from classical sinusoidal positional embeddings. In this post, we give some background on positional embeddings and investigate what they look like from different directions.
 		</p>
 
-		<div class="figure_container">
-			<a data-fancybox="gallery0" href="media/output.mp4">
-				<video style="width: 50%; float: left;" class="figure" src="media/output.mp4" autoplay muted playsinline loop preload="metadata"></video>
+		<div class="figure_container" id="main_figure">
+			<a data-fancybox="gallery0" href="media/output_self_sim.mp4">
+				<video style="width: 50%; float: left;" class="figure" src="media/output_self_sim.mp4" autoplay muted playsinline loop preload="metadata"></video>
 			</a>
 			<a data-fancybox="gallery0" href="media/positional_self_similarity_sinusoidal.png">
 				<img style="width: 50%; float:left" class="figure" src="media/positional_self_similarity_sinusoidal.png"></img>
@@ -62,24 +62,36 @@
 			<span class="caption_title">Figure: </span> Cosine self-similarity of learned positional embeddings for <code>seq_len = 256</code> (left) and standard sinusoidal positional mebeddings (right).
 		</div>
 
+		<p>
+			We will first go over some of the mathematics behind positional embeddings before looking closer at visualizations.
+		</p>
+
 		<hr class="squiggly-line"/>
 
 		<h2>Mathematics of additive positional embeddings</h2>
 
 		<p>
 			The self-attention mechanism is a self-map which is <b>equivariant</b> to permutations, meaning that if we permute the inputs, the output is permuted in the same way. To see this formally, let $P$ be a permutation matrix and consider
+		</p>
+		<div class="equation">
 			$$
 			\begin{align*}
 				\operatorname{attention}(PX) &= \operatorname{softmax}\left( \frac{P X W_Q ( P X W_K)^T}{\sqrt{d_k}} \right) PX W_V\\ &= P \operatorname{softmax}\left( \frac{X W_Q ( X W_K)^T}{\sqrt{d_k}} \right) P^T PX W_V = P \operatorname{attention}(X).
 			\end{align*}
 			$$
+		</div>
+		<p>
 			When we extract a value from the transformer after the final transformer block, we usually read a special <code>[CLS]</code> token or pool all the tokens. Either way, this does not let the transformer react to the order of the tokens in any special way. The original transformer paper used sinusoidal positional embeddings meaning that each token got added a fixed vector which was a sampled sinusoid with increasing frequency along the token dimension. This breaks permutation invariance by adding three new terms to the query-key multiplication in a way which depends on the position. Specifically, with $X$ replaced by $X + E_{\text{emb}}$,
+		</p>
+		<div class="equation">
 			$$
 			\begin{align*}
 				\operatorname{attention}(X) = \operatorname{softmax}\Bigg( &\frac{X W_Q (X W_K)^T}{\sqrt{d_k}} + \frac{X W_Q (E_{\text{emb}} W_K)^T}{\sqrt{d_k}} \\
 				&+ \frac{E_{\text{emb}} W_Q (X W_K)^T}{\sqrt{d_k}} + \frac{E_{\text{emb}} W_Q (E_{\text{emb}} W_K)^T}{\sqrt{d_k}} \Bigg) X W_V.
 			\end{align*}
 			$$
+		</div>
+		<p>
 			The output of the softmax, the <i>attention weigths</i>, is a <code>seq_len</code> $\times$ <code>seq_len</code> matrix which we take to encode how much the new representation after the self-attention should be influenced by the other tokens. Indeed, $(A V)_i = \sum_{j=1}^L A_{ij} V_j$ where $L$ is <code>seq_len</code>. If this matrix is just the identity, this means that the new representations do not get any extra inter-token dependencies from the self attention (note that $V$ is already a function of $X$ so some inter-token dependency comes built in).
 		</p>
 		
@@ -93,16 +105,124 @@
 
 		<hr class="squiggly-line"/>
 
-		<h2>Examples</h2>
+		<h2>Embedding visualizations</h2>
 
 		<p>
-			Set up first experiment which is just capture the Gram matrix during training, show different L.
+			So far, everything we have said about positional embeddings have been mostly speculation. Meanwhile, transformers and modern machine learning at large is firmly an empirical science. To actually investigate learned embedding, we train a simple <code>89M</code> parameter LLM with <code>n_layers=12</code>, <code>d_model=512</code> and <code>n_head=4</code> on the TinyStories dataset. For more on the model, see the <a href="../llm-training/index.html">earlier post</a>. Throughout traning, we can take snapshots to see how the embeddings evolve.
 		</p>
 
 		<p>
-			Then it'd be nice to 
+			The perhaps most obvious, but also most crude, way to visualize learned embeddings are by plotting the <code>seq_len</code>$\times$<code>d_model</code> matrix which we learn. This is done in the figure below:
 		</p>
 
+		<div class="figure_container" style="background-color:white; padding-left: 10px; padding-right: 10px;">
+			<a data-fancybox="gallery1" href="media/output_values.mp4">
+				<video style="width: 50%; float: left;" class="figure" src="media/output_values.mp4" autoplay muted playsinline loop preload="metadata"></video>
+			</a>
+			<a data-fancybox="gallery1" href="media/positional_embedding_values_sinusoidal.png">
+				<img style="width: 50%; float:left" class="figure" src="media/positional_embedding_values_sinusoidal.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Positional embedding matrix over 2 epochs of training, learned on the left and sinusoidal on the right.
+		</div>
+
+		<p>
+			In the figure we see some structure evolve for the learned positional embeddings, at least along the position axis. This means that for two positions near each other, there is correlation in the values for a certain given dimension, often at least. Meanwhile along a specific position, there is not any apparent correlation as we traverse the embedding dimension. This makes sense because there is no a priori reason that hidden dimension <code>#33</code> should have anything to do with hidden dimension <code>#34</code>. Next up we look closer at three dimensions.
+		</p>
+		
+		<div class="figure_container_small" >
+			<a data-fancybox="gallery2" href="media/positional_embeddings_fft_learned_d0_127_255.png">
+				<img class="figure" src="media/positional_embeddings_fft_learned_d0_127_255.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Learned positional embeddings along the position axis, and their Fourier transforms.
+		</div>
+
+		<p>
+			There is some notion of drift that can be seen here, albeit a weak one. We see this in the fact that there is marginally more power in the lower frequencies.
+		</p>
+
+		<p>
+			If we compare this to sinusoidal positional embeddings, the difference is stark and the patterns are much smoother.
+		</p>
+
+		<div class="figure_container_small" >
+			<a data-fancybox="gallery2" href="media/positional_embeddings_fft_sinusoidal_d0_127_255.png">
+				<img class="figure" src="media/positional_embeddings_fft_sinusoidal_d0_127_255.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Sinusoidal positional embeddings along the position axis, and their Fourier transforms.
+		</div>
+
+		<h3>Cosine self-similarity</h3>
+
+		<p>
+			On the topic of inner products, self-similarity is a common way to visualize the inter-dependence between positional embeddings and is the method we used for the figure at the top of the post, and below. Formally, the cosine self-similarity between two vectors $u,v$ is the normalized inner product
+		</p>
+		<div class="equation">
+			$$
+			\frac{\langle u,v\rangle}{ \Vert u \Vert \Vert v \Vert}
+			$$
+		</div>
+		<p>
+			which we know is always normalized in the $[-1, 1]$ range. In the figure, we see how the off-diagonal decay gets weaker as the embedding settle in.
+		</p>
+
+		<div class="figure_container" style="background-color:white; padding-left: 10px; padding-right: 10px;">
+			<a data-fancybox="gallery3" href="media/output_self_sim.mp4">
+				<video style="width: 50%; float: left;" class="figure" src="media/output_self_sim.mp4" autoplay muted playsinline loop preload="metadata"></video>
+			</a>
+			<a data-fancybox="gallery3" href="media/positional_self_similarity_sinusoidal.png">
+				<img style="width: 50%; float:left" class="figure" src="media/positional_self_similarity_sinusoidal.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Cosine self-similarity of learned positional embeddings for <code>seq_len = 256</code> (left) and standard sinusoidal positional mebeddings (right).
+		</div>
+
+		<p>
+			It can be shown that not-too-fast off-diagonal decay of this Gram matrix is equivalent to the uniform continuity of vectors in the index variable. Indeed, let $(u_n)_n$ be a sequence of normalized vectors (in a real inner product space), then $\Vert u_n - u_m \Vert^2 = 2(1-\langle u_n, u_m \rangle)$ and so
+		</p>
+		<div class="equation">
+			$$
+			\begin{align*}
+				\langle u_n, u_m \rangle \geq 1-C|n - m| &\iff 1 - \frac{1}{2}\Vert u_n - u_m \Vert^2 \geq 1 - C|n - m|\\
+				&\iff \Vert u_n - u_m \Vert^2 \leq 2C |n-m|.
+			\end{align*}
+			$$
+		</div>
+
+		<p>
+			Note that for us, the index variable is the embedding dimension .
+		</p>
+
+		<p>
+			Lastly, inspired by the fact that order does not matter for learned embeddings, we look at the density 
+
+			TODO: Should we look at density for a fixed embedding dimension instead?
+		</p>
+
+
+		<div class="figure_container_small">
+			<a data-fancybox="gallery4" href="media/output_density.mp4">
+				<video class="figure" src="media/output_density.mp4" autoplay muted playsinline loop preload="metadata"></video>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> TODO!
+		</div>
+
+		<div class="figure_container_small" >
+			<a data-fancybox="gallery2" href="media/positional_embedding_density_sinusoidal.png">
+				<img class="figure" src="media/positional_embedding_density_sinusoidal.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Sinusoidal positional embeddings along the position axis, and their Fourier transforms.
+		</div>
 		
 
 	</section>
