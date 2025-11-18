@@ -352,11 +352,13 @@ def _plot_embedding_value_heatmap(
         plt.close()
 
 
-def plot_positional_embeddings_and_fft(model: nn.Module, dims=(0, 1, 2), save_path: str = None, *, figsize=(10, 8), dpi=250, show=True):
+def plot_positional_embeddings_and_autocorr(
+    model: nn.Module, dims=(0, 1, 2), save_path: str = None, *, figsize=(10, 8), dpi=250, show=True
+):
     """
     Produces a 3x2 grid: each row is one embedding dim in `dims`.
     Left column: positional embedding values over positions.
-    Right column: magnitude of the 1D FFT of that curve.
+    Right column: autocorrelation of that curve (all lags).
     """
     import matplotlib.pyplot as plt
 
@@ -374,15 +376,61 @@ def plot_positional_embeddings_and_fft(model: nn.Module, dims=(0, 1, 2), save_pa
         ax_time.set_xlabel("Position")
         ax_time.set_ylabel("Value")
 
-        # Right: frequency domain (magnitude spectrum)
-        ax_freq = axes[r, 1]
-        spec = np.fft.rfft(curve)
-        mag = np.abs(spec)
-        freqs = np.fft.rfftfreq(T, d=1.0)
-        ax_freq.plot(freqs, mag, lw=1.0)
-        ax_freq.set_title(f"FFT magnitude dim {d}")
-        ax_freq.set_xlabel("Frequency (cycles/pos)")
-        ax_freq.set_ylabel("|FFT|")
+        # Right: autocorrelation across lags
+        ax_auto = axes[r, 1]
+        centered = curve - np.mean(curve)
+        autocorr = np.correlate(centered, centered, mode="full")
+        lags = np.arange(-T + 1, T)
+        ax_auto.plot(lags, autocorr, lw=1.0)
+        ax_auto.set_title(f"Autocorrelation dim {d}")
+        ax_auto.set_xlabel("Lag")
+        ax_auto.set_ylabel("Autocorr")
+
+    if save_path is not None:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=dpi)
+    if show:
+        plt.show()
+    else:
+        plt.close()
+
+
+def plot_mean_abs_positional_autocorr(
+    model: nn.Module,
+    save_path: str = None,
+    *,
+    max_lag: int = 20,
+    figsize=(6, 4),
+    dpi=250,
+    show=True,
+    title=None,
+):
+    """
+    Plots the average absolute autocorrelation across all embedding dimensions for lags 0..`max_lag`.
+    """
+    import matplotlib.pyplot as plt
+
+    pe = _get_positional_weights(model)  # (T, D)
+    centered = pe - np.mean(pe, axis=0, keepdims=True)
+    T = centered.shape[0]
+    if max_lag > T - 1:
+        max_lag = T - 1
+
+    # Collect absolute autocorrelations per dimension for positive lags
+    pos_corrs = []
+    for d in range(centered.shape[1]):
+        corr = np.correlate(centered[:, d], centered[:, d], mode="full")
+        pos_corr = np.abs(corr[T - 1 : T + max_lag])
+        pos_corrs.append(pos_corr)
+    mean_abs_corr = np.mean(pos_corrs, axis=0)
+
+    lags = np.arange(0, max_lag + 1)
+    plt.figure(figsize=figsize)
+    plt.plot(lags, mean_abs_corr, lw=1.5)
+    plt.title(title if title is not None else f"Mean |autocorr| up to lag {max_lag}")
+    plt.xlabel("Lag")
+    plt.ylabel("Mean |autocorr|")
+    plt.grid(True, alpha=0.3)
 
     if save_path is not None:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -474,8 +522,8 @@ def plot_embedding_density_map(
         value_min = float(np.min(flat))
         value_max = float(np.max(flat))
         if value_min == value_max:
-            value_min -= 1e-5
-            value_max += 1e-5
+            value_min -= 1e-1
+            value_max += 1e-1
     else:
         value_min, value_max = value_range
     bins = np.linspace(value_min, value_max, num_bins + 1)
@@ -545,6 +593,8 @@ if __name__ == "__main__":
     media_dir = os.path.join(base_dir, "media")
     grid_path_learned = os.path.join(media_dir, "positional_embeddings_fft_learned_d0_127_255.png")
     grid_path_sinus = os.path.join(media_dir, "positional_embeddings_fft_sinusoidal_d0_127_255.png")
+    mean_abs_autocorr_path_learned = os.path.join(media_dir, "positional_autocorr_mean_abs_learned.png")
+    mean_abs_autocorr_path_sinus = os.path.join(media_dir, "positional_autocorr_mean_abs_sinusoidal.png")
     sim_path_sinus = os.path.join(media_dir, "positional_self_similarity_sinusoidal.png")
     raw_values_path_sinus = os.path.join(media_dir, "positional_embedding_values_sinusoidal.png")
     density_path_sinus = os.path.join(media_dir, "positional_embedding_density_sinusoidal.png")
@@ -583,13 +633,24 @@ if __name__ == "__main__":
             raw_title="Raw sinusoidal positional embeddings",
             raw_value_range = (-1, 1),
         )
-        plot_positional_embeddings_and_fft(sinus_model, dims=(0, 127, 255), save_path=grid_path_sinus, dpi=250, figsize=(10, 8))
+        plot_positional_embeddings_and_autocorr(
+            sinus_model, dims=(0, 127, 255), save_path=grid_path_sinus, dpi=250, figsize=(10, 8)
+        )
+        plot_mean_abs_positional_autocorr(
+            sinus_model,
+            save_path=mean_abs_autocorr_path_sinus,
+            dpi=250,
+            figsize=(6, 4),
+            max_lag=20,
+            title="Mean |autocorr| (sinusoidal)",
+        )
         if RUN_DENSITY_PLOTS:
             plot_embedding_density_map(
                 sinus_model,
                 save_path=density_path_sinus,
                 dpi=250,
                 figsize=(8, 4.5),
+                value_range=(-1,1, 1.1),
                 title="Sinusoidal positional embedding density",
             )
 
@@ -654,12 +715,20 @@ if __name__ == "__main__":
             ).to(device)
             print_model_parameter_count(learned_model, "Learned positional LLM (fresh)")
 
-        plot_positional_embeddings_and_fft(
+        plot_positional_embeddings_and_autocorr(
             learned_model,
             dims=(0, 127, 255),
             save_path=grid_path_learned,
             dpi=250,
             figsize=(10, 8),
+        )
+        plot_mean_abs_positional_autocorr(
+            learned_model,
+            save_path=mean_abs_autocorr_path_learned,
+            dpi=250,
+            figsize=(6, 4),
+            max_lag=20,
+            title="Mean |autocorr| (learned)",
         )
         if RUN_DENSITY_PLOTS:
             plot_embedding_density_map(
