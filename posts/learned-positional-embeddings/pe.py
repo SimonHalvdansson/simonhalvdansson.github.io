@@ -650,7 +650,7 @@ if __name__ == "__main__":
                 save_path=density_path_sinus,
                 dpi=250,
                 figsize=(8, 4.5),
-                value_range=(-1,1, 1.1),
+                value_range=(-1.1, 1.1),
                 title="Sinusoidal positional embedding density",
             )
 
