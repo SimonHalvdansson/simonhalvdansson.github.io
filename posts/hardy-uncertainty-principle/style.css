@@ -822,3 +822,7 @@ h1 {
 	border-radius: calc(var(--border-radius) - var(--border-size));
 	color: var(--foreground);
 }
+
+mjx-container {
+    margin: 0 !important;   /* removes MathJax’s default vertical spacing */
+}

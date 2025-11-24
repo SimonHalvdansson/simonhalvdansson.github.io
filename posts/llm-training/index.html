@@ -210,9 +210,13 @@ if args["optimizer"] == "schedulefree" and optimizer is not None:
 
 		<p>
 			As we (hopefully) see in the figure, this distribution is at least somewhat Gaussian. For a given configuration, we will want to estimate the mean of the probability distribution which validation cross-entropy for models trained with this distribution follows. Since we do not know the variance, we will model our estimate for the true mean using the <a target="_blank" href="https://en.wikipedia.org/wiki/Student%27s_t-distribution">Student's $t$-distribution</a>. Using this distribution, we can get confidence intervals for the true mean as
+		</p>
+		<div class="equation">
 			$$
 			\bar{x} \pm t_{1-\alpha/2,\, n-1} \frac{s}{\sqrt{n}}
 			$$
+		</div>
+		<p>
 			where $\bar{x}$ is the sample mean, $s$ is the sample standard deviation, $n$ is the number of samples and $\alpha$ is the parameter for the confidence interval.
 		</p>
 
