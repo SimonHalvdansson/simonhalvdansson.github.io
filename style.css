@@ -30,10 +30,12 @@ body {
     margin-block-end: 1em;
 }
 
-@media (min-width: 768px) {
-    .about {
-        padding-top: 70px;
-    }
+.about .headshot {
+    width: 250px;
+    border-radius: 50%;
+    float: right;
+    margin-top: -155px;
+    margin-left: 40px;
 }
 
 .about p {
@@ -42,6 +44,8 @@ body {
 }
 
 .about h1 {
+    display: inline-block;
+    width: calc(100% - 250px);
     margin-top: 8px;
     margin-bottom: 8px;
 }
@@ -393,7 +397,13 @@ h1 {
     margin-bottom: 14px;
 }
 
-@media (max-width: 600px) {
+@media (min-width: 768px) {
+    .about {
+        padding-top: 70px;
+    }
+}
+
+@media (max-width: 630px) {
     .masonry-grid {
         column-count: 1;
     }
@@ -402,6 +412,13 @@ h1 {
     }
     .about {
         font-size: 19px;
+    }
+    .about h1 {
+        width: calc(100% - 120px);
+    }
+    .about .headshot {
+        width: 200px;
+        margin-top: -140px;
     }
     .paper {
         padding: 20px;
@@ -429,5 +446,48 @@ h1 {
     }
     .talk .name {
         font-size: 21px;
+    }
+}
+
+@media (max-width: 535px) {
+    .about {
+        font-size: 18px;
+    }
+
+    h1 {
+        font-size: 38px;
+    }
+    .about h1 {
+        width: calc(100% - 100px);
+    }
+    .about .headshot {
+        width: 150px;
+        margin-top: -120px;
+    }
+}
+
+@media (max-width: 445px) {
+    h1 {
+        font-size: 38px;
+    }
+    .about h1 {
+        width: calc(100% - 70px);
+    }
+    .about .headshot {
+        width: 100px;
+        margin-top: -100px;
+    }
+}
+
+@media (max-width: 380px) {
+    h1 {
+        font-size: 30px;
+    }
+    .about h1 {
+        width: calc(100% - 70px);
+    }
+    .about .headshot {
+        width: 100px;
+        margin-top: -100px;
     }
 }
