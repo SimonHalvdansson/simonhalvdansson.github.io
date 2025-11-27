@@ -47,7 +47,7 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			Transformer blocks are famously permutation equivariant, meaning that without intervention, they cannot tell the order of the tokens. One solution to this problem is to learn a tensor of shape <code>(d_model, seq_len)</code> which we add to after embedding our data. It is not clear a priori what properties these learned positional embeddings should take and it turns out they are substantially different from classical sinusoidal positional embeddings. In this post, we give some background on positional embeddings and investigate what they look like from different directions.
+			Transformer blocks are famously permutation equivariant, meaning that without intervention, they cannot tell the order of the tokens. One solution to this problem is to learn a tensor of shape <code>(d_model, seq_len)</code> which we add after embedding our data. It is not clear a priori what properties these learned positional embeddings should take and it turns out they are substantially different from classical sinusoidal positional embeddings. In this post, we give some background on positional embeddings and investigate what they look like from different directions.
 		</p>
 
 		<div class="figure_container" id="main_figure">
