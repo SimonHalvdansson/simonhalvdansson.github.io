@@ -1,47 +1,29 @@
 import torch
-import torch.nn.functional as F
 from torch import nn
-from torchvision.io import read_image
 from tqdm import tqdm
 from pathlib import Path
-import matplotlib.pyplot as plt
-from matplotlib.ticker import LogLocator
-from models import GeneralModel, MOEMLP, SIREN
+from models import GeneralModel
+from utils import load_target_image, save_loss_curve, evaluate_and_save_output, plot_moe_activations
 
 BATCH_SIZE = 4096
-IMAGE_SIZE = 1024
-MAX_EPOCHS = 40
+IMAGE_SIZE = 512
+MAX_EPOCHS = 200
 LR = 3e-4
-PLOT_SNAPSHOTS = True
+PLOT_INTERVAL = 5
 
-# mlp gets val loss 0.01
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
-def load_target_image(image_path):
-    image = read_image(str(image_path)).float().unsqueeze(0) / 255.0
-    image = F.interpolate(
-        image,
-        size=(IMAGE_SIZE, IMAGE_SIZE),
-        mode="bilinear",
-        align_corners=False,
-    )
-
-    return image.squeeze(0).permute(1, 2, 0)
-
-
-def main():
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+def train_model(image_name, model_args, report_progress=False):
 
     base_path = Path(__file__).resolve().parent
-    image_path = base_path / "image5.jpg"
+    image_path = base_path / image_name
     media_path = base_path / "media"
     media_path.mkdir(exist_ok=True)
 
-    # Target to GPU
-    target = load_target_image(image_path).to(device)  # (H, W, 3)
+    target = load_target_image(image_path, IMAGE_SIZE).to(device) 
     height, width, _ = target.shape
     target_cpu = target.detach().cpu().numpy()
 
-    # Build coords directly on GPU
     y_coords = torch.linspace(0.0, 1.0, steps=height, device=device)
     x_coords = torch.linspace(0.0, 1.0, steps=width, device=device)
     grid_y, grid_x = torch.meshgrid(y_coords, x_coords, indexing="ij")
@@ -52,107 +34,29 @@ def main():
     num_samples = coords.shape[0]
     indices = torch.arange(num_samples, device=device)
 
-    model = GeneralModel().to(device)
-    total_params = sum(p.numel() for p in model.parameters())
-    print(f"Model parameters: {total_params:,}")
+    model = GeneralModel(**model_args).to(device)
+    if report_progress:
+        total_params = sum(p.numel() for p in model.parameters())
+        print(f"Model parameters: {total_params:,}")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
     criterion = nn.MSELoss()
+    eval_batch_size = BATCH_SIZE
 
     train_losses = []
 
-    def save_loss_curve(losses):
-        if not PLOT_SNAPSHOTS:
-            return
-        fig, ax = plt.subplots(figsize=(6, 4))
-        ax.plot(range(1, len(losses) + 1), losses, linewidth=2)
-        ax.set_yscale("log")
-        ax.yaxis.set_major_locator(LogLocator(base=10.0, numticks=12))
-        ax.yaxis.set_minor_locator(LogLocator(base=10.0, subs=range(1, 10), numticks=100))
-        ax.grid(True, which="both", linestyle="--", alpha=0.3)
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Training Loss (MSE)")
-        ax.set_title("Training Loss Curve")
-        fig.tight_layout()
-        fig.savefig(media_path / "loss_curve.png", dpi=200)
-        plt.close(fig)
+    epoch_progress = tqdm(range(1, MAX_EPOCHS + 1), desc="Epochs", leave=False)
 
-    def evaluate_and_save_output(epoch_idx: int):
-        if not PLOT_SNAPSHOTS:
-            return
-        model.eval()
-        predictions = []
-        val_loss = 0.0
-        val_samples = 0
-
-        with torch.no_grad():
-            for start in range(0, num_samples, BATCH_SIZE):
-                end = min(start + BATCH_SIZE, num_samples)
-                batch_idx = indices[start:end]
-
-                batch_coords = coords[batch_idx]
-                batch_pixels = pixels[batch_idx]
-
-                preds = model(batch_coords)
-                predictions.append(preds)
-
-                batch_size = batch_coords.size(0)
-                val_loss += criterion(preds, batch_pixels).item() * batch_size
-                val_samples += batch_size
-
-        predictions_cat = torch.cat(predictions, dim=0)
-        predicted_image = (
-            predictions_cat.reshape(height, width, 3)
-            .clamp(0.0, 1.0)
-            .detach()
-            .cpu()
-            .numpy()
-        )
-
-        avg_val_loss = val_loss / max(val_samples, 1)
-
-        fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-        axes[0].imshow(target_cpu)
-        axes[0].set_title("Target")
-        axes[0].axis("off")
-
-        axes[1].imshow(predicted_image)
-        axes[1].set_title("INR Output")
-        axes[1].axis("off")
-        axes[1].text(
-            0.98,
-            0.97,
-            f"Epoch {epoch_idx} | MSE={avg_val_loss:.2e}",
-            ha="right",
-            va="top",
-            transform=axes[1].transAxes,
-            bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.6, edgecolor="none"),
-            fontsize=9,
-        )
-
-        plt.tight_layout()
-        plt.savefig(media_path / "last_output.png", dpi=200)
-        plt.close(fig)
-
-    # Training loop
-    for epoch in range(MAX_EPOCHS):
+    for epoch in epoch_progress:
         model.train()
         running_loss = 0.0
         seen_samples = 0
 
-        # Shuffle indices on GPU
         perm = indices[torch.randperm(num_samples, device=device)]
 
-        batch_iter = range(0, num_samples, BATCH_SIZE)
-        progress = tqdm(
-            batch_iter,
-            desc=f"Epoch {epoch + 1}/{MAX_EPOCHS}",
-            leave=False,
-        )
-
-        for start in progress:
-            end = min(start + BATCH_SIZE, num_samples)
-            batch_idx = perm[start:end]
+        for start_idx in range(0, num_samples, BATCH_SIZE):
+            end = min(start_idx + BATCH_SIZE, num_samples)
+            batch_idx = perm[start_idx:end]
 
             batch_coords = coords[batch_idx]
             batch_pixels = pixels[batch_idx]
@@ -164,21 +68,95 @@ def main():
             optimizer.step()
 
             batch_size = batch_coords.size(0)
-            running_loss += loss.item() * batch_size
+            running_loss += loss.detach() * batch_size
             seen_samples += batch_size
-            progress.set_postfix(
-                loss=f"{running_loss / max(seen_samples, 1):.2e}"
+
+        train_losses.append(running_loss.item() / max(seen_samples, 1))
+
+        # Compute full-image loss for progress reporting
+        model.eval()
+        full_loss = 0.0
+        full_samples = 0
+        with torch.no_grad():
+            for start in range(0, num_samples, eval_batch_size):
+                end = min(start + eval_batch_size, num_samples)
+                batch_coords = coords[start:end]
+                batch_pixels = pixels[start:end]
+                preds = model(batch_coords)
+                batch_size = batch_coords.size(0)
+                full_loss += criterion(preds, batch_pixels).item() * batch_size
+                full_samples += batch_size
+
+        avg_full_loss = full_loss / max(full_samples, 1)
+        epoch_progress.set_postfix(loss=f"{avg_full_loss:.2e}")
+
+        if report_progress and epoch % PLOT_INTERVAL == 0:
+            save_loss_curve(train_losses, media_path)
+            evaluate_and_save_output(
+                model,
+                criterion,
+                eval_batch_size,
+                epoch,
+                num_samples,
+                indices,
+                coords,
+                pixels,
+                media_path,
+                target_cpu,
+                report_progress,
             )
-
-        train_losses.append(running_loss / max(seen_samples, 1))
-        if (epoch + 1) % 5 == 0:
-            save_loss_curve(train_losses)
-            evaluate_and_save_output(epoch + 1)
-
-    if MAX_EPOCHS % 5 != 0:
-        save_loss_curve(train_losses)
-        evaluate_and_save_output(MAX_EPOCHS)
+            if getattr(model, "n_experts", 1) > 1:
+                plot_moe_activations(
+                    model,
+                    coords,
+                    indices,
+                    height,
+                    width,
+                    eval_batch_size,
+                    media_path,
+                )
+    
+    evaluate_and_save_output(
+        model,
+        criterion,
+        eval_batch_size,
+        MAX_EPOCHS,
+        num_samples,
+        indices,
+        coords,
+        pixels,
+        media_path,
+        target_cpu,
+        report_progress,
+    )
+    
+    if report_progress and getattr(model, "n_experts", 1) > 1:
+        plot_moe_activations(
+            model,
+            coords,
+            indices,
+            height,
+            width,
+            eval_batch_size,
+            media_path,
+        )
+    
+    if report_progress:
+        save_loss_curve(train_losses, media_path)
 
 
 if __name__ == "__main__":
-    main()
+    model_args = dict(
+        position_encoding="gabor",
+        trainable_embeddings=True,
+        freq_scale=70,
+        encoding_dim=256,
+        n_layers=6,
+        n_experts=2,
+        hidden_dim=512,
+        layernorm=True,
+        layer_type="relu",
+    )
+    train_model("image3.jpg", model_args, report_progress=True)
+
+#gabor 7e-5
