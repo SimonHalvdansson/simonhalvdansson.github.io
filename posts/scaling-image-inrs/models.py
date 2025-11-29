@@ -50,6 +50,14 @@ class ReLULayer(nn.Module):
     def forward(self, x):
         return F.relu(self.linear(x))
     
+class GELULayer(nn.Module):
+    def __init__(self, in_features, out_features):
+        super().__init__()
+        self.linear = nn.Linear(in_features, out_features)
+
+    def forward(self, x):
+        return F.gelu(self.linear(x))
+    
 class SiLULayer(nn.Module):
     def __init__(self, in_features, out_features):
         super().__init__()
@@ -115,8 +123,10 @@ class MLPExpert(nn.Module):
         def make_layer(in_features, out_features, is_first=False):
             if layer_type == "relu":
                 return ReLULayer(in_features, out_features)
-            elif layer_type == "silu":
+            elif layer_type in {"silu", "swish"}:
                 return SiLULayer(in_features, out_features)
+            elif layer_type == "gelu":
+                return GELULayer(in_features, out_features)
             elif layer_type in {"sin", "sine"}:
                 return SIRENLayer(
                     in_features,
@@ -175,6 +185,11 @@ class GeneralModel(nn.Module):
                  layernorm=True,
                  layer_type="relu"):
         super(GeneralModel, self).__init__()
+
+        layer_type = layer_type.lower()
+        disable_positional_encoding = layer_type in {"wire", "sin", "sine"}
+        if disable_positional_encoding:
+            position_encoding = None  # WIRE/SIREN use raw coordinates
 
         if position_encoding is None:
             self.pos_enc = nn.Identity()
