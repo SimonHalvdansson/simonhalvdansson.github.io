@@ -129,3 +129,38 @@ def plot_moe_activations(model, coords, indices, height, width, batch_size, medi
     fig.tight_layout(rect=[0, 0, 1, 0.96])
     fig.savefig(media_path / "moe_activations.png", dpi=200)
     plt.close(fig)
+
+
+def print_sweep_summary(sweep_result):
+    print(f"Sweep finished. Bar plot: {sweep_result['bar_plot_path']}")
+    if sweep_result.get("loss_curve_plot_path"):
+        print(f"Loss curves plot: {sweep_result['loss_curve_plot_path']}")
+
+    params = sweep_result.get("params")
+    if params:
+        if len(params) == 2:
+            p_x, p_y = params
+            flat_results = [item for row in sweep_result["results"] for item in row]
+            for res in flat_results:
+                vx, vy = res["values"]
+                print(
+                    f"{p_x}={vx}, {p_y}={vy} "
+                    f"mean={res['mean_loss']:.3e} stderr={res['std_error']:.3e}"
+                )
+        elif len(params) == 3:
+            p_a, p_b, p_c = params
+            for panel in sweep_result["results"]:
+                for row in panel["results"]:
+                    for res in row:
+                        va, vb, vc = res["values"]
+                        print(
+                            f"{p_a}={va}, {p_b}={vb}, {p_c}={vc} "
+                            f"mean={res['mean_loss']:.3e} stderr={res['std_error']:.3e}"
+                        )
+        return
+
+    for res in sweep_result["results"]:
+        print(
+            f"{sweep_result['param']}={res['value']} "
+            f"mean={res['mean_loss']:.3e} stderr={res['std_error']:.3e}"
+        )

@@ -47,12 +47,12 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			Implicit neural representations (INRs) aim to encode functions by means of a neural network. The field is evolving rapidly but is still relatively nascent and there are several competing architectures. Comparing methods in papers, there is seldom a focus on fair comparisons, what "fair" means, and how the models scale with their size. This post is devoted to starting to probe these questions by looking at INR performance at fixed compute budgets and how performance scales with compute budget.
+			Implicit neural representations (INRs) aim to encode functions by means of a neural network. The field is evolving rapidly and is still relatively nascent with no clear concensus on the proper architecture to use. Comparing methods in papers, ablations studies often leave a lot to wish for. In this post, we compare several methods to try and determine what a good architecture is for an INR of images and how this changes as we increase the number of parameters and runtime of the models.
 		</p>
 
 		<div class="figure_container">
-			<a data-fancybox="gallery0" href="media/positional_self_similarity_learned.png">
-				<img class="figure" src="media/positional_self_similarity_learned.png"></img>
+			<a data-fancybox="gallery0" href="media/">
+				<img class="figure" src="media/"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
@@ -68,8 +68,17 @@
 		<h2>The benchmark problem</h2>
 
 		<p>
-			We choose to focus fully on INRs of <i>images</i>, meaning that we learn functions $I : [0,1]^2 \to [0,1]^3$ where $(x,y) \mapsto (r,g,b).$
+			We choose to focus fully on INRs of <i>images</i>, meaning that we learn functions $I : [0,1]^2 \to [0,1]^3$ where $(x,y) \mapsto (r,g,b)$. Specifically, let $\mathcal{N}$ be a neural network. We then choose something like mean squared error as our loss function meaning that we minimize
 		</p>
+		<div class="equation">
+			$
+			\displaystyle\frac{1}{W\cdot H}\displaystyle\sum_{0 \leq x \leq W} \displaystyle\sum_{0 \leq y \leq H} \big| I(x/W, y/H) - \mathcal{N}(x/W, y/H)\big|^2.
+			$
+		</div>
+		<p>
+			For a fair comparision which has hopes of generalizing, we choose a collection of 5 images, each of resolution <code>768×768</code> pixels. Our error metric will be the standard <a target="_blank" href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio">peak signal-to-noise ratio</a> (PSNR) since this is often used in papers when comparing models.
+		</p>
+
 
 		<hr class="squiggly-line"/>
 

@@ -1,15 +1,17 @@
-import numpy as np
 import torch
 import torch.nn.functional as F
-from torch import nn
+import torch.nn as nn
 
 class GaborFeatures(nn.Module):
-    def __init__(self, input_dim, dim_per_input=20, freq_scale=40, trainable=False):
+    def __init__(self, input_dim, dim_per_input=20, freq_scale=None, trainable=False):
         super().__init__()
         
+        if freq_scale is None:
+            freq_scale = 0.5*dim_per_input/torch.sqrt(torch.tensor(2 * torch.pi))
+
         centers = torch.rand(dim_per_input, input_dim)
         frequencies = torch.randn(dim_per_input, input_dim) * freq_scale
-        sigmas = torch.full((dim_per_input, input_dim), 0.1)
+        sigmas = torch.full((dim_per_input, input_dim), 0.1*torch.sqrt(torch.tensor(256/input_dim)))
 
         if trainable:
             self.centers = nn.Parameter(centers)
@@ -23,7 +25,7 @@ class GaborFeatures(nn.Module):
     def forward(self, x):
         diff = x.unsqueeze(1) - self.centers.unsqueeze(0)
         envelope = torch.exp(- (diff ** 2 / (self.sigma.unsqueeze(0) ** 2)).sum(dim=2) / 2)
-        phase = 2 * np.pi * (diff * self.frequencies.unsqueeze(0)).sum(dim=2)
+        phase = 2 * torch.pi * (diff * self.frequencies.unsqueeze(0)).sum(dim=2)
 
         return torch.cat([envelope * torch.cos(phase), envelope * torch.sin(phase)], dim=-1)
 
@@ -47,27 +49,45 @@ class ReLULayer(nn.Module):
         super().__init__()
         self.linear = nn.Linear(in_features, out_features)
 
+    def linear_forward(self, x):
+        return self.linear(x)
+
+    def apply_activation(self, x):
+        return F.relu(x)
+
     def forward(self, x):
-        return F.relu(self.linear(x))
+        return self.apply_activation(self.linear_forward(x))
     
 class GELULayer(nn.Module):
     def __init__(self, in_features, out_features):
         super().__init__()
         self.linear = nn.Linear(in_features, out_features)
 
+    def linear_forward(self, x):
+        return self.linear(x)
+
+    def apply_activation(self, x):
+        return F.gelu(x)
+
     def forward(self, x):
-        return F.gelu(self.linear(x))
+        return self.apply_activation(self.linear_forward(x))
     
 class SiLULayer(nn.Module):
     def __init__(self, in_features, out_features):
         super().__init__()
         self.linear = nn.Linear(in_features, out_features)
 
+    def linear_forward(self, x):
+        return self.linear(x)
+
+    def apply_activation(self, x):
+        return F.silu(x)
+
     def forward(self, x):
-        return F.silu(self.linear(x))
+        return self.apply_activation(self.linear_forward(x))
     
 class SIRENLayer(nn.Module):
-    def __init__(self, in_features, out_features, is_first=False, omega_0=30):
+    def __init__(self, in_features, out_features, is_first=False, omega_0=60):
         super().__init__()
         self.omega_0 = omega_0
         self.is_first = is_first
@@ -81,11 +101,17 @@ class SIRENLayer(nn.Module):
                 self.linear.weight.uniform_(-1 / self.linear.in_features,
                                              1 / self.linear.in_features)
             else:
-                self.linear.weight.uniform_(-np.sqrt(6 / self.linear.in_features) / self.omega_0,
-                                             np.sqrt(6 / self.linear.in_features) / self.omega_0)
+                self.linear.weight.uniform_(-torch.sqrt(torch.tensor(6) / self.linear.in_features) / self.omega_0,
+                                             torch.sqrt(torch.tensor(6) / self.linear.in_features) / self.omega_0)
+
+    def linear_forward(self, x):
+        return self.linear(x)
+
+    def apply_activation(self, x):
+        return torch.sin(self.omega_0 * x)
 
     def forward(self, x):
-        return torch.sin(self.omega_0 * self.linear(x))
+        return self.apply_activation(self.linear_forward(x))
 
 class WIRELayer(nn.Module):
     def __init__(self, in_features, out_features, s0, w0):
@@ -94,11 +120,15 @@ class WIRELayer(nn.Module):
         self.register_buffer("w0", torch.tensor(w0))
         self.register_buffer("s0", torch.tensor(s0))
 
-    def forward(self, x):
-        x = self.linear(x)
-        x = torch.exp(-(self.s0 * x) ** 2) * torch.sin(self.w0 * x)
-        return x
+    def linear_forward(self, x):
+        return self.linear(x)
 
+    def apply_activation(self, x):
+        return torch.exp(-(self.s0 * x) ** 2) * torch.sin(self.w0 * x)
+
+    def forward(self, x):
+        return self.apply_activation(self.linear_forward(x))
+    
 
 class MLPExpert(nn.Module):
     def __init__(
@@ -127,7 +157,7 @@ class MLPExpert(nn.Module):
                 return SiLULayer(in_features, out_features)
             elif layer_type == "gelu":
                 return GELULayer(in_features, out_features)
-            elif layer_type in {"sin", "sine"}:
+            elif layer_type in {"sin", "sine", "siren"}:
                 return SIRENLayer(
                     in_features,
                     out_features,
@@ -144,27 +174,54 @@ class MLPExpert(nn.Module):
             else:
                 raise ValueError(f"Unknown layer_type {layer_type}")
 
-        layers = []
+        hidden_layers = []
         # first layer
-        layers.append(make_layer(input_dim, hidden_dim, is_first=True))
+        hidden_layers.append(make_layer(input_dim, hidden_dim, is_first=True))
         # hidden layers
         for _ in range(n_layers - 2):
-            layers.append(make_layer(hidden_dim, hidden_dim))
-        # output layer
-        layers.append(nn.Linear(hidden_dim, output_dim))
+            hidden_layers.append(make_layer(hidden_dim, hidden_dim))
 
-        self.layers = nn.ModuleList(layers)
-        
-        if layernorm:
-            self.layernorm = nn.LayerNorm(hidden_dim)
+        self.hidden_layers = nn.ModuleList(hidden_layers)
+        self.output_layer = nn.Linear(hidden_dim, output_dim)
+
+        if layernorm is None:
+            self.norm_layers = None
+            self.norm_position = "post"
         else:
-            self.layernorm = nn.Identity()
+            valid_norms = {
+                "layernorm_pre",
+                "layernorm_post",
+                "rmsnorm_pre",
+                "rmsnorm_post",
+            }
+
+            norm_name = str(layernorm).lower()
+            if norm_name not in valid_norms:
+                raise ValueError(f"layernorm must be one of {valid_norms}, got {layernorm}")
+
+            self.norm_position = "pre" if norm_name.endswith("_pre") else "post"
+            norm_base = norm_name.replace("_pre", "").replace("_post", "")
+
+            norm_factory = nn.LayerNorm if norm_base == "layernorm" else nn.RMSNorm
+            self.norm_layers = nn.ModuleList(
+                [norm_factory(hidden_dim) for _ in range(len(self.hidden_layers))]
+            )
 
     def forward(self, x):
-        for layer in self.layers[:-1]:
-            x = layer(x)
-            x = self.layernorm(x)
-        x = self.layers[-1](x)
+        for idx, layer in enumerate(self.hidden_layers):
+            x = layer.linear_forward(x)
+
+            norm_layer = self.norm_layers[idx] if self.norm_layers is not None else None
+
+            if norm_layer is not None and self.norm_position == "pre":
+                x = norm_layer(x)
+
+            x = layer.apply_activation(x)
+
+            if norm_layer is not None and self.norm_position == "post":
+                x = norm_layer(x)
+
+        x = self.output_layer(x)
         return x
 
 class GeneralModel(nn.Module):
@@ -177,19 +234,19 @@ class GeneralModel(nn.Module):
                  output_dim=3,
                  position_encoding="fourier",
                  trainable_embeddings = True,
-                 freq_scale=40,
+                 freq_scale=None,
                  encoding_dim=256,
                  n_layers=5,
                  n_experts=4,
                  hidden_dim=512,
-                 layernorm=True,
+                 layernorm="layernorm_post",
                  layer_type="relu"):
         super(GeneralModel, self).__init__()
 
         layer_type = layer_type.lower()
-        disable_positional_encoding = layer_type in {"wire", "sin", "sine"}
+        disable_positional_encoding = layer_type in {"wire", "siren"}
         if disable_positional_encoding:
-            position_encoding = None  # WIRE/SIREN use raw coordinates
+            position_encoding = None
 
         if position_encoding is None:
             self.pos_enc = nn.Identity()
@@ -218,6 +275,8 @@ class GeneralModel(nn.Module):
                 layernorm=layernorm,
                 n_layers=n_layers,
                 layer_type=layer_type,
+                omega_0=freq_scale,
+                wire_w0=freq_scale,
             )
             for _ in range(n_experts)
         ])
