@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Making GPUs go brrr for five minute LLM training</title>
+
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#FBEDEA" />
+	<meta charset="utf-8">
+
+	<link rel="shortcut icon" type="image/x-icon"  href="../../favicon.ico?">
+	<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+
+	<link rel="stylesheet" href="style.css">
+
+	<script>
+	window.MathJax = {
+	tex: {
+		inlineMath: [['$', '$'], ['\\(', '\\)']]
+	}
+	};
+	</script>
+
+	<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+	<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+	<link rel="stylesheet" href="../atom-one-dark.min.css">
+	<script src="../highlight.min.js"></script>
+
+	<script>hljs.highlightAll();</script>
+
+	<style>
+		.audio-title {
+			text-align: center;
+			font-weight: 900;
+			width: 100%;
+			font-size: 24px;
+			font-family: 'Roboto Mono', monospace;
+		}
+
+		audio {
+			display: block;
+			margin-left: auto;
+			margin-right: auto;
+			margin-top: 4px;
+			margin-bottom: 10px;
+		}
+		
+		.result_group img {
+			width: 100%;
+			margin-bottom: 36px;
+		}
+	</style>
+
+</head>
+<body>
+	<div class="blog centering" id="back_container">
+		<a href="../index.html" class="back"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="14" fill="currentColor" class="bi bi-caret-left" viewBox="0 0 22 18">
+			<path fill-rule="evenodd" clip-rule="evenodd" d="M14.0303 7.46967C14.3232 7.76256 14.3232 8.23744 14.0303 8.53033L10.5607 12L14.0303 15.4697C14.3232 15.7626 14.3232 16.2374 14.0303 16.5303C13.7374 16.8232 13.2626 16.8232 12.9697 16.5303L8.96967 12.5303C8.67678 12.2374 8.67678 11.7626 8.96967 11.4697L12.9697 7.46967C13.2626 7.17678 13.7374 7.17678 14.0303 7.46967Z"/>
+		  </svg>All posts</a>
+	</div>
+
+	<section class="blog centering post">
+		<h1>Making GPUs go brrr for five minute LLM training</h1>
+		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Jan. 2026</div>
+
+		<hr class="squiggly-line"/>
+
+		<p>
+			Modern machine learning is famously very concerned with <a target="_blank" href="https://hazyresearch.stanford.edu/blog/2024-05-12-tk">making GPUs go brrr</a> (read: maximizing performance). This post is devoted to improving the training performance on the task of <a target="_blank" href="../posts/llm-training/index.html">training an LLM in only five minutes</a> but this is mainly a proxy for transformer training in general. We'll start from a basline training recipie and improve it step by step by avoiding CPU syncing, using <code>torch.compile</code>, migrating to Nvidia's <a target="_blank" href="https://github.com/NVIDIA/TransformerEngine">Transformer Engine</a>, migrating some training to <code>fp8</code> and finally tweaking the architecture once the <code>tok/s</code> has been maximized. The results (spoilers) can be seen in the figure below.
+		</p>
+
+		<div class="figure_container_small" style="padding:0">
+			<a data-fancybox="gallery0" href="media/card.png">
+				<img class="figure" src="media/card.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> The training improvements applied throughout the post.
+		</div>
+
+		<p>
+			Before walking through these steps, we'll go over what the baseline recipie is.
+		</p>
+
+		<hr class="squiggly-line"/>
+		
+		<h2>Baseline</h2>
+
+		<p>
+			In an <a href="../llm-training/index.html">earlier post</a>, we investigated some architecture tweaks for a small LLM trained with a five minute time limit. The setup there was fairly standard with a <code>DataLoader</code> which we <code>tqdm</code> through, 
+		</p>
+
+<pre><code class="language-py">pbar = tqdm(
+	loader, leave=False, desc="train" if train else "eval",
+	dynamic_ncols=True, mininterval=0.1, maxinterval=1.0, miniters=1,
+	bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}",
+)
+
+for x, y in pbar:
+	x = x.to(device, non_blocking=is_cuda)
+	y = y.to(device, non_blocking=is_cuda)
+
+	with autocast_ctx():
+		logits = model(x)
+		vocab_size = model.head.out_features
+				
+		loss = F.cross_entropy(logits.view(-1, vocab_size), y.view(-1))
+
+	if train:
+		optimizer.zero_grad(set_to_none=True)
+		if scaler is not None and scaler.is_enabled():
+			scaler.scale(loss).backward()
+			scaler.step(optimizer)
+			scaler.update()
+		else:
+			loss.backward()
+			optimizer.step()
+
+	torch.cuda.synchronize()
+
+	toks = x.numel()
+	t_now = time.perf_counter()
+
+	t_stamps.append(t_now); tok_hist.append(toks)
+	toks_in_window += toks
+	while t_stamps and (t_now - t_stamps[0]) > window_s:
+		t_stamps.popleft()
+		toks_in_window -= tok_hist.popleft()
+
+	total_loss_sum += loss.item() * toks
+	total_tokens += toks
+
+	pbar.set_postfix(loss=f"{loss.item():.3f}")
+
+	if train and deadline is not None and t_now >= deadline:
+		stopped_early = True
+		break
+</code></pre>
+
+		<hr class="squiggly-line"/>
+		
+		<h3>Buy a new GPU</h3>
+
+		<p>
+			Tried and validated over the years, indirectly investing in stylish black leather jackets has proven to be a surefire way of improving ML performance. By exchanging an RTX 3070 with an RTX 5070 Ti we manage to chew through <code>49M</code> tokens instead of <code>30M</code>. This moves the validation loss from <code>1.85</code> to <code>1.78</code> but by <a href="https://arxiv.org/abs/2203.15556" target="_blank">Chinchilla scaling</a> our model is now likely undersized for the training we put it through. Still, we try to improve the <code>tok/s</code> further before sizing up. 
+		</p>
+
+		<h3>Keeping data on the GPU</h3>
+		
+		<p>
+			Avoiding CPU syncing and the like is still somewhat black magic to me but I did recently watch a good <a href="https://www.youtube.com/watch?v=pHqcHzxx6I8" target="_blank">Jane Street talk</a> about writing good GPU compatible code in PyTorch. The gist of it is to involve the CPU as little as possible in anything inside the main training loop which perhaps sounds obvious but is not always so easy. There's all the standard tricks like <code>pin_memory=True</code> on your <code>DataLoader</code> and making sure to <code>.to(device)</code> as soon as possible but something of an aha moment for me was when I realized that we sometimes can go even simpler. Specifically, if your entire dataset fits in GPU memory, we can just keep it there permanently and skip the CPU and RAM considerations associated to DataLoaders completely. The price is some extra work on our part but it can definitively be worth it.
+		</p>
+
+		<p>
+			Let's look at what this means in our case. The training data consists of <code>90446</code> tuples of <code>256</code> tokens (the context window). Each token is represented by the token index which is a <code>32 bit</code> integer. At <code>90446×256×32 b= 740933632 b = 741 Mb = 93 MB</code>, this trivial to keep in GPU memory.
+		</p>
+
+
+	</section>
+	
+	<link rel="stylesheet" href="../fancybox.css" />
+	<script src="../fancybox.umd.js"></script>
+
+	<script>
+		Fancybox.bind("[data-fancybox]", {
+			closeButton: false,
+		});
+	  </script>
+
+
+</body>
+</html>
