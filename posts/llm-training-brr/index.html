@@ -70,7 +70,7 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			Modern machine learning is famously very concerned with <a target="_blank" href="https://hazyresearch.stanford.edu/blog/2024-05-12-tk">making GPUs go brrr</a> (read: maximizing performance). This post is devoted to improving the training performance on the task of <a target="_blank" href="../posts/llm-training/index.html">training an LLM in only five minutes</a> but this is mainly a proxy for transformer training in general. We'll start from a basline training recipie and improve it step by step by avoiding CPU syncing, using <code>torch.compile</code>, migrating to Nvidia's <a target="_blank" href="https://github.com/NVIDIA/TransformerEngine">Transformer Engine</a>, migrating some training to <code>fp8</code> and finally tweaking the architecture once the <code>tok/s</code> has been maximized. The results (spoilers) can be seen in the figure below.
+			Modern machine learning is famously very concerned with <a target="_blank" href="https://hazyresearch.stanford.edu/blog/2024-05-12-tk">making GPUs go brrr</a> (read: maximizing performance). This post is devoted to improving the training performance on the task of <a target="_blank" href="../posts/llm-training/index.html">training an LLM in only five minutes</a> but this is mainly a proxy for transformer training in general. We'll start from a baseline training recipie and improve it step by step by avoiding CPU syncing, using <code>torch.compile</code>, migrating to Nvidia's <a target="_blank" href="https://github.com/NVIDIA/TransformerEngine">Transformer Engine</a>, migrating some training to <code>fp8</code> and finally tweaking the architecture once the <code>tok/s</code> has been maximized. The results (spoilers) can be seen in the figure below.
 		</p>
 
 		<div class="figure_container_small" style="padding:0">
@@ -156,8 +156,14 @@ for x, y in pbar:
 		</p>
 
 		<p>
-			Let's look at what this means in our case. The training data consists of <code>90446</code> tuples of <code>256</code> tokens (the context window). Each token is represented by the token index which is a <code>32 bit</code> integer. At <code>90446×256×32 b= 740933632 b = 741 Mb = 93 MB</code>, this trivial to keep in GPU memory.
+			Let's look at what this means in our case. The training data consists of <code>90446</code> tuples of <code>256</code> tokens (the context window). Each token is represented by the token index which is a <code>32 bit</code> integer. At <code>90446×256×32 b= 740933632 b = 741 Mb = 93 MB</code>, this trivial to keep in GPU memory. Consequently, the speedup from keeping the data in memory is not massive either but we do get a speedup.
 		</p>
+
+		<p>
+			By getting rid of dataloaders and no longer calling <code>loss.item()</code> inside the training loop speeds up training so that we can work through <code>59M</code> tokens and get the validation loss down to <code>1.76</code> in the five minute window. This small (statistically significant) jump in validation loss could again be a sign that our model is missized. Still, we keep on trying to improve <code>tok/s</code> and leave the architectural tweaks for later.
+		</p>
+
+		<h3>Using <code>torch.compile</code></h3>
 
 
 	</section>

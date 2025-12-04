@@ -1,6 +1,6 @@
-import os, math, time
+import os, math
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from datasets import load_dataset
 from transformers import AutoTokenizer
 
@@ -41,28 +41,59 @@ def to_packed_ids(tok_ds, context_len):
     y = ids[1 : n * context_len + 1].view(n, context_len)
     return x, y
 
-class PackedDataset(Dataset):
-    def __init__(self, x, y):
-        self.x, self.y = x, y
+class DeviceDataset(Dataset):
+    """
+    Simple dataset that keeps x/y tensors on the target device permanently.
+    """
+    def __init__(self, x, y, device):
+        if x.shape != y.shape:
+            raise ValueError(f"x and y must have matching shape, got {x.shape} vs {y.shape}")
+        self.device = torch.device(device)
+        self.x = x.contiguous().to(self.device)
+        self.y = y.contiguous().to(self.device)
+
     def __len__(self):
         return self.x.size(0)
+
     def __getitem__(self, i):
         return self.x[i], self.y[i]
 
-def build_loaders(x_train, y_train, x_val, y_val, context_len, batch_size, is_cuda):
-    train_ds = PackedDataset(x_train, y_train)
-    val_ds   = PackedDataset(x_val,   y_val)
-    train_loader = DataLoader(
-        train_ds, batch_size=batch_size, shuffle=True,
-        pin_memory=is_cuda, persistent_workers=False, drop_last=False,
-    )
-    val_loader = DataLoader(
-        val_ds, batch_size=batch_size, shuffle=False,
-        pin_memory=is_cuda, persistent_workers=False, drop_last=False,
-    )
-    return train_loader, val_loader
 
-def load_or_build_packed(context_len, is_cuda):
+class DeviceBatcher:
+    """
+    Lightweight iterable for batching an in-memory DeviceDataset.
+    """
+    def __init__(self, dataset: DeviceDataset, batch_size: int, shuffle: bool):
+        self.dataset = dataset
+        self.batch_size = int(batch_size)
+        self.shuffle = shuffle
+
+    def __len__(self):
+        return math.ceil(len(self.dataset) / self.batch_size)
+
+    def __iter__(self):
+        n = len(self.dataset)
+        if self.shuffle:
+            idx = torch.randperm(n, device=self.dataset.device)
+        else:
+            idx = torch.arange(n, device=self.dataset.device)
+
+        for start in range(0, n, self.batch_size):
+            sl = idx[start:start + self.batch_size]
+            yield (
+                self.dataset.x.index_select(0, sl),
+                self.dataset.y.index_select(0, sl),
+            )
+
+
+def build_device_batches(x_train, y_train, x_val, y_val, batch_size, device):
+    train_ds = DeviceDataset(x_train, y_train, device)
+    val_ds   = DeviceDataset(x_val,   y_val,   device)
+    train_batches = DeviceBatcher(train_ds, batch_size=batch_size, shuffle=True)
+    val_batches   = DeviceBatcher(val_ds,   batch_size=batch_size, shuffle=False)
+    return train_batches, val_batches
+
+def load_or_build_packed(context_len):
     print("Loading TinyStories… (will reuse local cache if present)")
     ds_train = load_dataset(
         "roneneldan/TinyStories",
@@ -102,10 +133,6 @@ def load_or_build_packed(context_len, is_cuda):
         x_val,   y_val   = to_packed_ids(tok_val,   context_len)
         torch.save({"x": x_train, "y": y_train}, PACKED_TRAIN_PATH)
         torch.save({"x": x_val,   "y": y_val},   PACKED_VAL_PATH)
-
-    if is_cuda:
-        x_train = x_train.pin_memory(); y_train = y_train.pin_memory()
-        x_val   = x_val.pin_memory();   y_val   = y_val.pin_memory()
 
     vocab_size = tokenizer.vocab_size
     return x_train, y_train, x_val, y_val, vocab_size, tokenizer

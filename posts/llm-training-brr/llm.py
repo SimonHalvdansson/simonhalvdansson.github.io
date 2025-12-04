@@ -21,7 +21,7 @@ from plotting import (
 )
 
 from model import LLM
-from data_helpers import load_or_build_packed, build_loaders
+from data_helpers import load_or_build_packed, build_device_batches
 
 # device
 device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
@@ -55,7 +55,8 @@ def run_epoch(model, loader, args, optimizer, train=True,
             optimizer.train()
         else:
             optimizer.eval()
-    total_loss_sum, total_tokens = 0.0, 0
+    total_loss_sum = torch.zeros((), device=device, dtype=torch.float32)
+    total_tokens = 0
     stopped_early = False
 
     # small rolling window tok/s meter
@@ -67,14 +68,11 @@ def run_epoch(model, loader, args, optimizer, train=True,
     pbar = tqdm(
         loader, leave=False, desc="train" if train else "eval",
         dynamic_ncols=True, mininterval=0.1, maxinterval=1.0, miniters=1,
-        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}] {postfix}",
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]",
     )
-    first_draw = True
+    step = 0
 
     for x, y in pbar:
-        x = x.to(device, non_blocking=is_cuda)
-        y = y.to(device, non_blocking=is_cuda)
-
         with autocast_ctx():
             logits = model(x)
             vocab_size = model.head.out_features
@@ -96,32 +94,26 @@ def run_epoch(model, loader, args, optimizer, train=True,
                     nn.utils.clip_grad_norm_(model.parameters(), args["grad_clip"])
                 optimizer.step()
 
-        if is_cuda:
-            torch.cuda.synchronize()
-
         toks = x.numel()
         t_now = time.perf_counter()
 
-        t_stamps.append(t_now); tok_hist.append(toks)
+        t_stamps.append(t_now)
+        tok_hist.append(toks)
         toks_in_window += toks
         while t_stamps and (t_now - t_stamps[0]) > window_s:
             t_stamps.popleft()
             toks_in_window -= tok_hist.popleft()
 
-        total_loss_sum += loss.item() * toks
+        total_loss_sum = total_loss_sum + loss.detach() * toks
         total_tokens += toks
-
-        pbar.set_postfix(loss=f"{loss.item():.3f}")
-        if first_draw:
-            pbar.refresh()
-            first_draw = False
 
         if train and deadline is not None and t_now >= deadline:
             stopped_early = True
             break
+        step += 1
 
-    avg_loss = total_loss_sum / max(total_tokens, 1)
-    return avg_loss, total_tokens, stopped_early
+    avg_loss = (total_loss_sum / max(total_tokens, 1)).item()
+    return float(avg_loss), total_tokens, stopped_early
 
 def train_limited_time(model, train_loader, val_loader, time_limit_s, args):
     """
@@ -281,7 +273,7 @@ if __name__ == '__main__':
     per_run_seconds = 300
     n_runs = 20
     lr_points = 8
-    histogram_runs = 3
+    histogram_runs = 30
     
     do_hist     = 1
     do_lhd      = 0
@@ -323,8 +315,11 @@ if __name__ == '__main__':
         
     print(f"Minimum time: {min_time/60/60} hours")
     
-    x_train, y_train, x_val, y_val, vocab_size, tokenizer = load_or_build_packed(context_len, is_cuda)
-    train_loader, val_loader = build_loaders(x_train, y_train, x_val, y_val, context_len, batch_size, is_cuda)
+    x_train, y_train, x_val, y_val, vocab_size, tokenizer = load_or_build_packed(context_len)
+    train_loader, val_loader = build_device_batches(
+        x_train, y_train, x_val, y_val, batch_size=batch_size, device=device
+    )
+    del x_train, y_train, x_val, y_val
 
 
     if do_lhd:
