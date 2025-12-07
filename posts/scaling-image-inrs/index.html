@@ -47,7 +47,7 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			Implicit neural representations (INRs) aim to encode functions by means of a neural network. The field is evolving rapidly and is still relatively nascent with no clear concensus on the proper architecture to use. Comparing methods in papers, ablations studies often leave a lot to wish for. In this post, we compare several methods to try and determine what a good architecture is for an INR of images and how this changes as we increase the number of parameters and runtime of the models.
+			Implicit neural representations (INRs) aim to encode functions between low dimensional spaces such as audio signals, images, 3D models or videos by means of a neural network. The field is evolving rapidly but is still relatively nascent with some variability in the architectures used. While there has been some <a href="https://arxiv.org/pdf/2411.03688?" target="_blank">survey work</a>, in this post we aim to provide a more comprehensive comparisons between some methods, talk about possible improvements (mixture-of-experts, LayerNorm and skip connections) and provide insights into performance scaling.
 		</p>
 
 		<div class="figure_container">
@@ -60,15 +60,32 @@
 		</div>
 
 		<p>
-			To make this a proper investigation, we need to give 
+			Our findings may be summarized as follows;   , MoE, while expensive, 
 		</p>
+		<ul>
+			<li>
+				more intricate activation functions are harder to tweak but can achieve better performance for smal networks
+			</li>
+			<li>
+				the ReLU activation function appears to be optimal when using feature mappings
+			</li>
+			<li>
+				MoE, while expensive parameter-wise, can indeed improve performance
+			</li>
+			<li>
+				LayerNorm is very strong for improving convergence speed and training stability 
+			</li>
+			<li>
+				some scaling begavior here
+			</li>
+		</ul>
 
 		<hr class="squiggly-line"/>
 
 		<h2>The benchmark problem</h2>
 
 		<p>
-			We choose to focus fully on INRs of <i>images</i>, meaning that we learn functions $I : [0,1]^2 \to [0,1]^3$ where $(x,y) \mapsto (r,g,b)$. Specifically, let $\mathcal{N}$ be a neural network. We then choose something like mean squared error as our loss function meaning that we minimize
+			We choose to focus fully on INRs of <i>images</i> to reduce the amount of work, meaning that we learn functions $I : [0,1]^2 \to [0,1]^3$ where $(x,y) \mapsto (r,g,b)$. Specifically, let $\mathcal{N}$ be a neural network. We then choose something like mean squared error as our loss function meaning that we minimize
 		</p>
 		<div class="equation">
 			$
