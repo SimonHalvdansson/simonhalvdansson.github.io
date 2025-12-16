@@ -53,42 +53,24 @@ class ReLULayer(nn.Module):
         super().__init__()
         self.linear = nn.Linear(in_features, out_features)
 
-    def linear_forward(self, x):
-        return self.linear(x)
-
-    def apply_activation(self, x):
-        return F.relu(x)
-
     def forward(self, x):
-        return self.apply_activation(self.linear_forward(x))
+        return F.relu(self.linear(x))
     
 class GELULayer(nn.Module):
     def __init__(self, in_features, out_features):
         super().__init__()
         self.linear = nn.Linear(in_features, out_features)
 
-    def linear_forward(self, x):
-        return self.linear(x)
-
-    def apply_activation(self, x):
-        return F.gelu(x)
-
     def forward(self, x):
-        return self.apply_activation(self.linear_forward(x))
+        return F.gelu(self.linear(x))
     
 class SiLULayer(nn.Module):
     def __init__(self, in_features, out_features):
         super().__init__()
         self.linear = nn.Linear(in_features, out_features)
 
-    def linear_forward(self, x):
-        return self.linear(x)
-
-    def apply_activation(self, x):
-        return F.silu(x)
-
     def forward(self, x):
-        return self.apply_activation(self.linear_forward(x))
+        return F.silu(self.linear(x))
     
 class SIRENLayer(nn.Module):
     def __init__(self, in_features, out_features, is_first=False, omega_0=60):
@@ -108,14 +90,8 @@ class SIRENLayer(nn.Module):
                 self.linear.weight.uniform_(-torch.sqrt(torch.tensor(6) / self.linear.in_features) / self.omega_0,
                                              torch.sqrt(torch.tensor(6) / self.linear.in_features) / self.omega_0)
 
-    def linear_forward(self, x):
-        return self.linear(x)
-
-    def apply_activation(self, x):
-        return torch.sin(self.omega_0 * x)
-
     def forward(self, x):
-        return self.apply_activation(self.linear_forward(x))
+        return torch.sin(self.omega_0 * self.linear(x))
 
 class WIRELayer(nn.Module):
     def __init__(self, in_features, out_features, s0, w0):
@@ -124,14 +100,9 @@ class WIRELayer(nn.Module):
         self.register_buffer("w0", torch.tensor(w0))
         self.register_buffer("s0", torch.tensor(s0))
 
-    def linear_forward(self, x):
-        return self.linear(x)
-
-    def apply_activation(self, x):
-        return torch.exp(-(self.s0 * x) ** 2) * torch.sin(self.w0 * x)
-
     def forward(self, x):
-        return self.apply_activation(self.linear_forward(x))
+        x = self.linear(x)
+        return torch.exp(-(self.s0 * x) ** 2) * torch.sin(self.w0 * x)
     
 
 class MLPExpert(nn.Module):
@@ -202,13 +173,8 @@ class MLPExpert(nn.Module):
     def forward(self, x):
         for idx, layer in enumerate(self.hidden_layers):
             residual = x
-            x = layer.linear_forward(x)
-
-            norm_layer = self.norm_layers[idx]
-
-            x = layer.apply_activation(x)
-
-            x = norm_layer(x)
+            x = layer(x)
+            x = self.norm_layers[idx](x)
 
             if self.skip_connections and idx > 0:
                 x = (x + residual) * (1 / math.sqrt(2.0))

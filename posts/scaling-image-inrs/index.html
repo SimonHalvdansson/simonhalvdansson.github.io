@@ -238,14 +238,47 @@ class GaborFeatures(nn.Module):
 			Skip connections are handled inside the MLPs and only applied to the states of length <code>hidden_dim</code> with $\frac{1}{\sqrt{2}}$ weighing, i.e., <code>x = (x + x_skip)/torch.sqrt(2)</code>. For LayerNorm preliminary investigations showed that post vs pre-norm (norm before or after activation function) had a minimal effect on performance and same same was true for <code>LayerNorm</code> versus <code>RMSNorm</code> so we keep it simple and only consider post-LayerNorm. 
 		</p>
 
-		<ul>
-			<li>Layer type</li>
-			<li>Number of layers</li>
-			<li>Hidden dimension</li>
-			<li>Number of experts</li>
-			<li>Skip connections</li>
-			<li>LayerNorm</li>
-		</ul>
+		<p>
+			Lastly we also look at alternative MLP activation functions, including <a  href="https://arxiv.org/abs/2006.09661" target="_blank">SIREN</a> and <a href="https://arxiv.org/abs/2301.05187" target="_blank">WIRE</a>. 
+		</p>
+
+						<pre><code class="language-py">class SIRENLayer(nn.Module):
+    def __init__(self, in_features, out_features, is_first=False, omega_0=60):
+        super().__init__()
+        self.omega_0 = omega_0
+        self.is_first = is_first
+        self.linear = nn.Linear(in_features, out_features)
+
+        self.init_weights()
+
+    def init_weights(self):
+        with torch.no_grad():
+            if self.is_first:
+                self.linear.weight.uniform_(-1 / self.linear.in_features,
+                                             1 / self.linear.in_features)
+            else:
+                self.linear.weight.uniform_(-torch.sqrt(torch.tensor(6) / self.linear.in_features) / self.omega_0,
+                                             torch.sqrt(torch.tensor(6) / self.linear.in_features) / self.omega_0)
+
+    def forward(self, x):
+        x = self.linear(x)
+        return torch.sin(self.omega_0 * x)
+
+class WIRELayer(nn.Module):
+    def __init__(self, in_features, out_features, s0, w0):
+        super().__init__()
+        self.linear = nn.Linear(in_features, out_features)
+        self.register_buffer("w0", torch.tensor(w0))
+        self.register_buffer("s0", torch.tensor(s0))
+
+    def forward(self, x):
+        x = self.linear(x)
+        return torch.exp(-(self.s0 * x) ** 2) * torch.sin(self.w0 * x)
+</code></pre>
+
+		<p>
+			Obviously we will not want to use position encodings at the same time as these alternative MLP layers since they are made to replace them.
+		</p>
 
 		<h4>Training hyperparameters</h4>
 
@@ -253,10 +286,11 @@ class GaborFeatures(nn.Module):
 			We will also look at tweaking the learning rate <code>lr</code> and batch size <code>batch_size</code> for the training.
 		</p>
 
-		<ul>
-			<li>Learning rate</li>
-			<li>Batch size</li>
-		</ul>
+		<hr class="squiggly-line"/>
+
+		<h2>Parameter sweeping</h2>
+
+		<p>TODO write</p>
 
 	</section>
 	
