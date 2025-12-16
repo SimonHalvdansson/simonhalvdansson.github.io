@@ -16,12 +16,12 @@ from utils import (
 )
 
 DEFAULT_BATCH_SIZE = 4096
-IMAGE_SIZE = 512
+IMAGE_SIZE = 768
 DEFAULT_LR = 1e-4
 PLOT_INTERVAL = 5
 
-DEFAULT_MAX_EPOCHS = 160
-MAX_SECONDS = 60
+DEFAULT_MAX_EPOCHS = 200
+MAX_SECONDS = 180
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -64,6 +64,7 @@ def train_model(
     eval_batch_size = batch_size
 
     train_losses = []
+    val_psnrs = []
     best_val_loss = float("inf")
     start_time = time.time()
 
@@ -114,6 +115,9 @@ def train_model(
                 full_samples += current_batch
 
         avg_full_loss = full_loss / max(full_samples, 1)
+        # Compute PSNR on the full image (pixels are in [0,1])
+        psnr_full = 10.0 * math.log10(1.0 / max(avg_full_loss, 1e-12))
+        val_psnrs.append(psnr_full)
         best_val_loss = min(best_val_loss, avg_full_loss)
         if report_progress:
             epoch_iterable.set_postfix(loss=f"{avg_full_loss:.2e}")
@@ -150,7 +154,7 @@ def train_model(
             if elapsed >= MAX_SECONDS:
                 break
 
-    final_val_loss = evaluate_and_save_output(
+    final_val_loss, _ = evaluate_and_save_output(
         model,
         criterion,
         eval_batch_size,
@@ -179,7 +183,11 @@ def train_model(
     if report_progress:
         save_loss_curve(train_losses, media_path)
 
-    return {"best_val_loss": best_val_loss, "train_losses": train_losses}
+    return {
+        "best_val_loss": best_val_loss,
+        "train_losses": train_losses,
+        "val_psnrs": val_psnrs,
+    }
 
 def sweep_model(
     image_name,
@@ -187,13 +195,26 @@ def sweep_model(
     sweep_param,
     sweep_values,
     n_train=5,
-    lr=DEFAULT_LR,
-    batch_size=DEFAULT_BATCH_SIZE,
-    max_epochs=DEFAULT_MAX_EPOCHS,
+    default_lr=DEFAULT_LR,
+    default_batch_size=DEFAULT_BATCH_SIZE,
+    default_max_epochs=DEFAULT_MAX_EPOCHS,
 ):
     base_path = Path(__file__).resolve().parent
     media_path = base_path / "media"
     media_path.mkdir(exist_ok=True)
+
+    def _normalize_component(value):
+        text = str(value).strip().lower().replace(" ", "_")
+        safe = "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in text)
+        return safe or "sweep"
+
+    def _sweep_folder_name(param):
+        if isinstance(param, (list, tuple)):
+            return "_vs_".join(_normalize_component(p) for p in param)
+        return _normalize_component(param)
+
+    sweep_media_path = media_path / _sweep_folder_name(sweep_param)
+    sweep_media_path.mkdir(parents=True, exist_ok=True)
 
     def apply_param(
         model_args,
@@ -223,85 +244,156 @@ def sweep_model(
         except (TypeError, ValueError):
             return str(val)
 
+    def safe_image_tag(name):
+        return Path(name).stem.replace(" ", "_")
+
+    def mean_and_stderr(values):
+        if not values:
+            return float("nan"), float("nan")
+        mean_val = sum(values) / len(values)
+        if len(values) > 1:
+            variance = sum((val - mean_val) ** 2 for val in values) / (len(values) - 1)
+            stderr = math.sqrt(variance) / math.sqrt(len(values))
+        else:
+            stderr = 0.0
+        return mean_val, stderr
+
+    def finite_mean_and_stderr(values):
+        finite = [val for val in values if math.isfinite(val)]
+        return mean_and_stderr(finite)
+
     is_grid_sweep = isinstance(sweep_param, (list, tuple))
 
-    if is_grid_sweep:
-        if not isinstance(sweep_values, (list, tuple)):
-            raise ValueError("Grid sweep expects sweep_values to be a sequence.")
-        if len(sweep_param) not in {2, 3}:
-            raise ValueError("Grid sweep expects two or three parameters.")
-        if len(sweep_values) != len(sweep_param):
-            raise ValueError("Grid sweep expects sweep_values to match sweep_param length.")
+    def build_lookup(single_result):
+        lookup = {}
+        params = single_result.get("params")
+        if not params:
+            for res in single_result.get("results", []):
+                lookup[(res["value"],)] = res
+            return lookup
+        if len(params) == 2:
+            for row in single_result.get("results", []):
+                for res in row:
+                    lookup[tuple(res["values"])] = res
+            return lookup
+        for panel in single_result.get("results", []):
+            for row in panel["results"]:
+                for res in row:
+                    lookup[tuple(res["values"])] = res
+        return lookup
+
+    def combine_image_results(per_image_results):
+        if not per_image_results:
+            return None
+        lookups = [build_lookup(res) for res in per_image_results]
+        n_images = len(per_image_results)
+
+        if not is_grid_sweep:
+            mean_losses = []
+            std_errors = []
+            mean_psnrs = []
+            std_error_psnrs = []
+            combined_results = []
+            for val in sweep_values:
+                key = (val,)
+                losses = [lookup[key]["mean_loss"] for lookup in lookups if key in lookup]
+                psnrs = [
+                    lookup[key].get("mean_psnr")
+                    for lookup in lookups
+                    if key in lookup and math.isfinite(lookup[key].get("mean_psnr", float("nan")))
+                ]
+                mean_loss, std_error = mean_and_stderr(losses)
+                mean_psnr_val, std_err_psnr = finite_mean_and_stderr(psnrs)
+                combined_results.append(
+                    {
+                        "value": val,
+                        "mean_loss": mean_loss,
+                        "std_error": std_error,
+                        "mean_psnr": mean_psnr_val,
+                        "std_error_psnr": std_err_psnr,
+                    }
+                )
+                mean_losses.append(mean_loss)
+                std_errors.append(std_error)
+                mean_psnrs.append(mean_psnr_val)
+                std_error_psnrs.append(std_err_psnr)
+
+            fig, ax = plt.subplots(figsize=(7, 4.5))
+            x_pos = list(range(len(sweep_values)))
+            ax.bar(x_pos, mean_losses, yerr=std_errors, capsize=5, color="#4C72B0")
+            ax.set_xticks(x_pos)
+            ax.set_xticklabels([str(v) for v in sweep_values])
+            ax.set_xlabel(sweep_param)
+            ax.set_ylabel("Mean best validation loss (MSE)")
+            ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+            ax.set_title(f"Sweep over {sweep_param} averaged across {n_images} images")
+            ax.grid(True, axis="y", linestyle="--", alpha=0.3)
+            fig.tight_layout()
+            bar_plot_path = sweep_media_path / f"sweep_{sweep_param}_combined.png"
+            fig.savefig(bar_plot_path, dpi=200)
+            plt.close(fig)
+
+            fig, ax = plt.subplots(figsize=(7, 4.5))
+            psnr_heights = [val if math.isfinite(val) else float("nan") for val in mean_psnrs]
+            psnr_err = [err if math.isfinite(err) else 0.0 for err in std_error_psnrs]
+            ax.bar(x_pos, psnr_heights, yerr=psnr_err, capsize=5, color="#D55E00")
+            ax.set_xticks(x_pos)
+            ax.set_xticklabels([str(v) for v in sweep_values])
+            ax.set_xlabel(sweep_param)
+            ax.set_ylabel("Mean PSNR across images (dB)")
+            ax.set_title(f"PSNR over {sweep_param} averaged across {n_images} images")
+            ax.grid(True, axis="y", linestyle="--", alpha=0.3)
+            fig.tight_layout()
+            psnr_bar_plot_path = sweep_media_path / f"sweep_{sweep_param}_psnr_combined.png"
+            fig.savefig(psnr_bar_plot_path, dpi=200)
+            plt.close(fig)
+
+            return {
+                "param": sweep_param,
+                "values": list(sweep_values),
+                "results": combined_results,
+                "bar_plot_path": bar_plot_path,
+                "psnr_bar_plot_path": psnr_bar_plot_path,
+                "loss_curve_plot_path": None,
+                "psnr_curve_plot_path": None,
+                "image_name": "combined",
+            }
 
         if len(sweep_param) == 2:
             param_x, param_y = sweep_param
             values_x, values_y = sweep_values
-
             mean_grid = []
+            psnr_grid = []
             result_grid = []
+            for val_x in values_x:
+                row_means = []
+                row_psnrs = []
+                row_results = []
+                for val_y in values_y:
+                    key = (val_x, val_y)
+                    losses = [lookup[key]["mean_loss"] for lookup in lookups if key in lookup]
+                    psnrs = [
+                        lookup[key].get("mean_psnr")
+                        for lookup in lookups
+                        if key in lookup and math.isfinite(lookup[key].get("mean_psnr", float("nan")))
+                    ]
+                    mean_loss, std_error = mean_and_stderr(losses)
+                    mean_psnr_val, std_err_psnr = finite_mean_and_stderr(psnrs)
+                    row_means.append(mean_loss)
+                    row_psnrs.append(mean_psnr_val)
+                    row_results.append(
+                        {
+                            "values": (val_x, val_y),
+                            "mean_loss": mean_loss,
+                            "std_error": std_error,
+                            "mean_psnr": mean_psnr_val,
+                            "std_error_psnr": std_err_psnr,
+                        }
+                    )
+                mean_grid.append(row_means)
+                psnr_grid.append(row_psnrs)
+                result_grid.append(row_results)
 
-            total_runs = len(values_x) * len(values_y) * n_train
-            desc = f"Sweeping {param_x} vs {param_y}"
-            with tqdm(total=total_runs, desc=desc) as progress:
-                for val_x in values_x:
-                    row_means = []
-                    row_results = []
-                    for val_y in values_y:
-                        losses = []
-                        for run_idx in range(n_train):
-                            torch.manual_seed(run_idx)
-                            if torch.cuda.is_available():
-                                torch.cuda.manual_seed_all(run_idx)
-
-                            run_model_args = dict(base_model_args)
-                            run_lr, run_bs, run_epochs = lr, batch_size, max_epochs
-
-                            run_model_args, run_lr, run_bs, run_epochs = apply_param(
-                                run_model_args, run_lr, run_bs, run_epochs, param_x, val_x
-                            )
-                            run_model_args, run_lr, run_bs, run_epochs = apply_param(
-                                run_model_args, run_lr, run_bs, run_epochs, param_y, val_y
-                            )
-
-                            run_result = train_model(
-                                image_name,
-                                run_model_args,
-                                lr=run_lr,
-                                batch_size=run_bs,
-                                max_epochs=run_epochs,
-                                report_progress=False,
-                            )
-                            losses.append(run_result["best_val_loss"])
-                            progress.set_postfix(
-                                {
-                                    str(param_x): format_tick(val_x),
-                                    str(param_y): format_tick(val_y),
-                                    "run": f"{run_idx + 1}/{n_train}",
-                                }
-                            )
-                            progress.update(1)
-
-                        mean_loss = sum(losses) / len(losses)
-                        if len(losses) > 1:
-                            variance = sum((loss - mean_loss) ** 2 for loss in losses) / (len(losses) - 1)
-                            std_error = math.sqrt(variance) / math.sqrt(len(losses))
-                        else:
-                            std_error = 0.0
-
-                        row_means.append(mean_loss)
-                        row_results.append(
-                            {
-                                "values": (val_x, val_y),
-                                "losses": losses,
-                                "mean_loss": mean_loss,
-                                "std_error": std_error,
-                            }
-                        )
-
-                    mean_grid.append(row_means)
-                    result_grid.append(row_results)
-
-            # Let the layout and size adapt to the grid so labels/colorbar fit
             width = max(6.0, 0.9 * len(values_y) + 3.0)
             height = max(4.5, 0.9 * len(values_x) + 2.5)
             fig, ax = plt.subplots(figsize=(width, height), layout="constrained")
@@ -312,103 +404,112 @@ def sweep_model(
             ax.set_yticklabels([format_tick(v) for v in values_x])
             ax.set_xlabel(param_y)
             ax.set_ylabel(param_x)
-            ax.set_title(f"Grid sweep: {param_x} vs {param_y} (n={n_train})")
+            ax.set_title(
+                f"Grid sweep: {param_x} vs {param_y} (mean across {n_images} images, n={n_train})"
+            )
             cbar = fig.colorbar(im, ax=ax)
             cbar.set_label("Mean best validation loss (MSE)")
             cbar.formatter = ticker.FormatStrFormatter("%.1e")
             cbar.update_ticks()
-            plot_path = media_path / f"sweep_{param_x}_vs_{param_y}.png"
-            fig.savefig(plot_path, dpi=200)
+            bar_plot_path = sweep_media_path / f"sweep_{param_x}_vs_{param_y}_combined.png"
+            fig.savefig(bar_plot_path, dpi=200)
             plt.close(fig)
+
+            psnr_bar_plot_path = None
+            psnr_values = [val for row in psnr_grid for val in row if math.isfinite(val)]
+            if psnr_values:
+                fig, ax = plt.subplots(figsize=(width, height), layout="constrained")
+                im = ax.imshow(
+                    psnr_grid,
+                    origin="lower",
+                    cmap="magma",
+                    aspect="auto",
+                    vmin=min(psnr_values),
+                    vmax=max(psnr_values),
+                )
+                ax.set_xticks(range(len(values_y)))
+                ax.set_xticklabels([format_tick(v) for v in values_y], rotation=45, ha="right")
+                ax.set_yticks(range(len(values_x)))
+                ax.set_yticklabels([format_tick(v) for v in values_x])
+                ax.set_xlabel(param_y)
+                ax.set_ylabel(param_x)
+                ax.set_title(
+                    f"Grid sweep PSNR: {param_x} vs {param_y} (mean across {n_images} images)"
+                )
+                cbar_psnr = fig.colorbar(im, ax=ax)
+                cbar_psnr.set_label("Mean PSNR (dB)")
+                psnr_bar_plot_path = sweep_media_path / f"sweep_{param_x}_vs_{param_y}_psnr_combined.png"
+                fig.savefig(psnr_bar_plot_path, dpi=200)
+                plt.close(fig)
 
             return {
                 "param": sweep_param,
                 "params": [param_x, param_y],
                 "values": [list(values_x), list(values_y)],
                 "results": result_grid,
-                "plot_path": plot_path,
-                "bar_plot_path": plot_path,
+                "plot_path": bar_plot_path,
+                "bar_plot_path": bar_plot_path,
+                "psnr_bar_plot_path": psnr_bar_plot_path,
                 "loss_curve_plot_path": None,
+                "psnr_curve_plot_path": None,
+                "image_name": "combined",
             }
 
         param_a, param_b, param_c = sweep_param
         values_a, values_b, values_c = sweep_values
-
         panel_results = []
         all_mean_losses = []
-
-        total_runs = len(values_a) * len(values_b) * len(values_c) * n_train
-        progress = tqdm(total=total_runs, desc=f"Sweeping {param_a} vs {param_b} vs {param_c}")
-
+        all_mean_psnrs = []
         for val_a in values_a:
             mean_grid = []
+            psnr_grid = []
             result_grid = []
             for val_b in values_b:
                 row_means = []
+                row_psnrs = []
                 row_results = []
                 for val_c in values_c:
-                    losses = []
-                    for run_idx in range(n_train):
-                        torch.manual_seed(run_idx)
-                        if torch.cuda.is_available():
-                            torch.cuda.manual_seed_all(run_idx)
-
-                        run_model_args = dict(base_model_args)
-                        run_lr, run_bs, run_epochs = lr, batch_size, max_epochs
-
-                        run_model_args, run_lr, run_bs, run_epochs = apply_param(
-                            run_model_args, run_lr, run_bs, run_epochs, param_a, val_a
-                        )
-                        run_model_args, run_lr, run_bs, run_epochs = apply_param(
-                            run_model_args, run_lr, run_bs, run_epochs, param_b, val_b
-                        )
-                        run_model_args, run_lr, run_bs, run_epochs = apply_param(
-                            run_model_args, run_lr, run_bs, run_epochs, param_c, val_c
-                        )
-
-                        run_result = train_model(
-                            image_name,
-                            run_model_args,
-                            lr=run_lr,
-                            batch_size=run_bs,
-                            max_epochs=run_epochs,
-                            report_progress=False,
-                        )
-                        losses.append(run_result["best_val_loss"])
-                        progress.update(1)
-
-                    mean_loss = sum(losses) / len(losses)
-                    if len(losses) > 1:
-                        variance = sum((loss - mean_loss) ** 2 for loss in losses) / (len(losses) - 1)
-                        std_error = math.sqrt(variance) / math.sqrt(len(losses))
-                    else:
-                        std_error = 0.0
-
+                    key = (val_a, val_b, val_c)
+                    losses = [lookup[key]["mean_loss"] for lookup in lookups if key in lookup]
+                    psnrs = [
+                        lookup[key].get("mean_psnr")
+                        for lookup in lookups
+                        if key in lookup and math.isfinite(lookup[key].get("mean_psnr", float("nan")))
+                    ]
+                    mean_loss, std_error = mean_and_stderr(losses)
+                    mean_psnr_val, std_err_psnr = finite_mean_and_stderr(psnrs)
+                    if math.isfinite(mean_loss):
+                        all_mean_losses.append(mean_loss)
+                    if math.isfinite(mean_psnr_val):
+                        all_mean_psnrs.append(mean_psnr_val)
                     row_means.append(mean_loss)
-                    all_mean_losses.append(mean_loss)
+                    row_psnrs.append(mean_psnr_val)
                     row_results.append(
                         {
                             "values": (val_a, val_b, val_c),
-                            "losses": losses,
                             "mean_loss": mean_loss,
                             "std_error": std_error,
+                            "mean_psnr": mean_psnr_val,
+                            "std_error_psnr": std_err_psnr,
                         }
                     )
                 mean_grid.append(row_means)
+                psnr_grid.append(row_psnrs)
                 result_grid.append(row_results)
 
             panel_results.append(
                 {
                     "param_value": val_a,
                     "mean_grid": mean_grid,
+                    "psnr_grid": psnr_grid,
                     "results": result_grid,
                 }
             )
 
-        progress.close()
-
         vmin = min(all_mean_losses) if all_mean_losses else None
         vmax = max(all_mean_losses) if all_mean_losses else None
+        psnr_vmin = min(all_mean_psnrs) if all_mean_psnrs else None
+        psnr_vmax = max(all_mean_psnrs) if all_mean_psnrs else None
         cmap = "viridis"
 
         n_panels = len(values_a)
@@ -440,7 +541,419 @@ def sweep_model(
         for ax in axes_list[len(values_a) :]:
             ax.axis("off")
 
-        suptitle = f"Grid sweep: {param_a} vs {param_b} vs {param_c} (n={n_train})"
+        fig.suptitle(
+            f"Grid sweep: {param_a} vs {param_b} vs {param_c} (mean across {n_images} images)"
+        )
+        used_axes = axes_list[: len(values_a)]
+        cbar = fig.colorbar(
+            plt.cm.ScalarMappable(norm=norm, cmap=cmap),
+            ax=used_axes,
+            fraction=0.035,
+            pad=0.02,
+        )
+        cbar.set_label("Mean best validation loss (MSE)")
+        cbar.formatter = ticker.FormatStrFormatter("%.1e")
+        cbar.update_ticks()
+        bar_plot_path = sweep_media_path / f"sweep_{param_a}_vs_{param_b}_vs_{param_c}_combined.png"
+        fig.savefig(bar_plot_path, dpi=200)
+        plt.close(fig)
+
+        psnr_bar_plot_path = None
+        if psnr_vmin is not None and psnr_vmax is not None:
+            fig, axes = plt.subplots(
+                n_rows,
+                n_cols,
+                figsize=(width, height),
+                squeeze=False,
+                layout="constrained",
+            )
+            axes_list = [ax for ax in axes.flatten()]
+            norm_psnr = colors.Normalize(vmin=psnr_vmin, vmax=psnr_vmax)
+            for idx, (val_a, panel) in enumerate(zip(values_a, panel_results)):
+                ax = axes_list[idx]
+                im = ax.imshow(
+                    panel["psnr_grid"],
+                    origin="lower",
+                    cmap="magma",
+                    norm=norm_psnr,
+                    aspect="auto",
+                )
+                ax.set_xticks(range(len(values_c)))
+                ax.set_xticklabels([format_tick(v) for v in values_c], rotation=45, ha="right")
+                ax.set_yticks(range(len(values_b)))
+                ax.set_yticklabels([format_tick(v) for v in values_b])
+                ax.set_xlabel(param_c)
+                ax.set_ylabel(param_b)
+                ax.set_title(f"{param_a} = {format_tick(val_a)}")
+
+            for ax in axes_list[len(values_a) :]:
+                ax.axis("off")
+
+            fig.suptitle(
+                f"Grid PSNR: {param_a} vs {param_b} vs {param_c} (mean across {n_images} images)"
+            )
+            used_axes = axes_list[: len(values_a)]
+            cbar = fig.colorbar(
+                plt.cm.ScalarMappable(norm=norm_psnr, cmap="magma"),
+                ax=used_axes,
+                fraction=0.035,
+                pad=0.02,
+            )
+            cbar.set_label("Mean PSNR (dB)")
+            psnr_bar_plot_path = sweep_media_path / f"sweep_{param_a}_vs_{param_b}_vs_{param_c}_psnr_combined.png"
+            fig.savefig(psnr_bar_plot_path, dpi=200)
+            plt.close(fig)
+
+        return {
+            "param": sweep_param,
+            "params": [param_a, param_b, param_c],
+            "values": [list(values_a), list(values_b), list(values_c)],
+            "results": panel_results,
+            "plot_path": bar_plot_path,
+            "bar_plot_path": bar_plot_path,
+            "psnr_bar_plot_path": psnr_bar_plot_path,
+            "loss_curve_plot_path": None,
+            "psnr_curve_plot_path": None,
+            "image_name": "combined",
+        }
+
+    if isinstance(image_name, (list, tuple)):
+        image_list = list(image_name)
+        if not image_list:
+            raise ValueError("At least one image_name must be provided.")
+        per_image_results = [
+            sweep_model(
+                image_name=img_name,
+                base_model_args=base_model_args,
+                sweep_param=sweep_param,
+                sweep_values=sweep_values,
+                n_train=n_train,
+                default_lr=default_lr,
+                default_batch_size=default_batch_size,
+                default_max_epochs=default_max_epochs,
+            )
+            for img_name in image_list
+        ]
+        combined_result = combine_image_results(per_image_results)
+        return {
+            "param": sweep_param,
+            "values": combined_result.get("values") if combined_result else list(sweep_values),
+            "results": combined_result.get("results") if combined_result else [],
+            "bar_plot_path": combined_result.get("bar_plot_path") if combined_result else None,
+            "psnr_bar_plot_path": combined_result.get("psnr_bar_plot_path") if combined_result else None,
+            "loss_curve_plot_path": combined_result.get("loss_curve_plot_path") if combined_result else None,
+            "psnr_curve_plot_path": combined_result.get("psnr_curve_plot_path") if combined_result else None,
+            "per_image_results": per_image_results,
+            "combined_result": combined_result,
+        }
+
+    image_tag = safe_image_tag(image_name)
+
+    if is_grid_sweep:
+        if not isinstance(sweep_values, (list, tuple)):
+            raise ValueError("Grid sweep expects sweep_values to be a sequence.")
+        if len(sweep_param) not in {2, 3}:
+            raise ValueError("Grid sweep expects two or three parameters.")
+        if len(sweep_values) != len(sweep_param):
+            raise ValueError("Grid sweep expects sweep_values to match sweep_param length.")
+
+        if len(sweep_param) == 2:
+            param_x, param_y = sweep_param
+            values_x, values_y = sweep_values
+
+            mean_grid = []
+            psnr_grid = []
+            result_grid = []
+
+            total_runs = len(values_x) * len(values_y) * n_train
+            desc = f"Sweeping {param_x} vs {param_y} ({image_tag})"
+            with tqdm(total=total_runs, desc=desc) as progress:
+                for val_x in values_x:
+                    row_means = []
+                    row_psnrs = []
+                    row_results = []
+                    for val_y in values_y:
+                        losses = []
+                        psnrs = []
+                        for run_idx in range(n_train):
+                            torch.manual_seed(run_idx)
+                            if torch.cuda.is_available():
+                                torch.cuda.manual_seed_all(run_idx)
+
+                            run_model_args = dict(base_model_args)
+                            run_lr, run_bs, run_epochs = (
+                                default_lr,
+                                default_batch_size,
+                                default_max_epochs,
+                            )
+
+                            run_model_args, run_lr, run_bs, run_epochs = apply_param(
+                                run_model_args, run_lr, run_bs, run_epochs, param_x, val_x
+                            )
+                            run_model_args, run_lr, run_bs, run_epochs = apply_param(
+                                run_model_args, run_lr, run_bs, run_epochs, param_y, val_y
+                            )
+
+                            run_result = train_model(
+                                image_name,
+                                run_model_args,
+                                lr=run_lr,
+                                batch_size=run_bs,
+                                max_epochs=run_epochs,
+                                report_progress=False,
+                            )
+                            losses.append(run_result["best_val_loss"])
+                            psnr_list = run_result.get("val_psnrs", [])
+                            if psnr_list:
+                                psnrs.append(psnr_list[-1])
+                            progress.set_postfix(
+                                {
+                                    str(param_x): format_tick(val_x),
+                                    str(param_y): format_tick(val_y),
+                                    "run": f"{run_idx + 1}/{n_train}",
+                                    "img": image_tag,
+                                }
+                            )
+                            progress.update(1)
+
+                        mean_loss = sum(losses) / len(losses)
+                        if len(losses) > 1:
+                            variance = sum((loss - mean_loss) ** 2 for loss in losses) / (len(losses) - 1)
+                            std_error = math.sqrt(variance) / math.sqrt(len(losses))
+                        else:
+                            std_error = 0.0
+
+                        if psnrs:
+                            mean_psnr_val = sum(psnrs) / len(psnrs)
+                            if len(psnrs) > 1:
+                                var_psnr = sum((p - mean_psnr_val) ** 2 for p in psnrs) / (len(psnrs) - 1)
+                                std_err_psnr = math.sqrt(var_psnr) / math.sqrt(len(psnrs))
+                            else:
+                                std_err_psnr = 0.0
+                        else:
+                            mean_psnr_val = float("nan")
+                            std_err_psnr = float("nan")
+
+                        row_means.append(mean_loss)
+                        row_psnrs.append(mean_psnr_val)
+                        row_results.append(
+                            {
+                                "values": (val_x, val_y),
+                                "losses": losses,
+                                "mean_loss": mean_loss,
+                                "std_error": std_error,
+                                "psnrs": psnrs,
+                                "mean_psnr": mean_psnr_val,
+                                "std_error_psnr": std_err_psnr,
+                            }
+                        )
+
+                    mean_grid.append(row_means)
+                    psnr_grid.append(row_psnrs)
+                    result_grid.append(row_results)
+
+            # Let the layout and size adapt to the grid so labels/colorbar fit
+            width = max(6.0, 0.9 * len(values_y) + 3.0)
+            height = max(4.5, 0.9 * len(values_x) + 2.5)
+            fig, ax = plt.subplots(figsize=(width, height), layout="constrained")
+            im = ax.imshow(mean_grid, origin="lower", cmap="viridis", aspect="auto")
+            ax.set_xticks(range(len(values_y)))
+            ax.set_xticklabels([format_tick(v) for v in values_y], rotation=45, ha="right")
+            ax.set_yticks(range(len(values_x)))
+            ax.set_yticklabels([format_tick(v) for v in values_x])
+            ax.set_xlabel(param_y)
+            ax.set_ylabel(param_x)
+            ax.set_title(f"Grid sweep: {param_x} vs {param_y} (n={n_train}, img={image_tag})")
+            cbar = fig.colorbar(im, ax=ax)
+            cbar.set_label("Mean best validation loss (MSE)")
+            cbar.formatter = ticker.FormatStrFormatter("%.1e")
+            cbar.update_ticks()
+            plot_path = sweep_media_path / f"sweep_{param_x}_vs_{param_y}_{image_tag}.png"
+            fig.savefig(plot_path, dpi=200)
+            plt.close(fig)
+
+            psnr_plot_path = None
+            psnr_values = [val for row in psnr_grid for val in row if math.isfinite(val)]
+            if psnr_values:
+                fig, ax = plt.subplots(figsize=(width, height), layout="constrained")
+                im = ax.imshow(
+                    psnr_grid,
+                    origin="lower",
+                    cmap="magma",
+                    aspect="auto",
+                    vmin=min(psnr_values),
+                    vmax=max(psnr_values),
+                )
+                ax.set_xticks(range(len(values_y)))
+                ax.set_xticklabels([format_tick(v) for v in values_y], rotation=45, ha="right")
+                ax.set_yticks(range(len(values_x)))
+                ax.set_yticklabels([format_tick(v) for v in values_x])
+                ax.set_xlabel(param_y)
+                ax.set_ylabel(param_x)
+                ax.set_title(f"Grid sweep PSNR: {param_x} vs {param_y} (img={image_tag})")
+                cbar_psnr = fig.colorbar(im, ax=ax)
+                cbar_psnr.set_label("Mean PSNR (dB)")
+                psnr_plot_path = sweep_media_path / f"sweep_{param_x}_vs_{param_y}_psnr_{image_tag}.png"
+                fig.savefig(psnr_plot_path, dpi=200)
+                plt.close(fig)
+
+            return {
+                "param": sweep_param,
+                "params": [param_x, param_y],
+                "values": [list(values_x), list(values_y)],
+                "results": result_grid,
+                "plot_path": plot_path,
+                "bar_plot_path": plot_path,
+                "psnr_bar_plot_path": psnr_plot_path,
+                "loss_curve_plot_path": None,
+                "image_name": image_name,
+            }
+
+        param_a, param_b, param_c = sweep_param
+        values_a, values_b, values_c = sweep_values
+
+        panel_results = []
+        all_mean_losses = []
+        all_mean_psnrs = []
+
+        total_runs = len(values_a) * len(values_b) * len(values_c) * n_train
+        progress = tqdm(
+            total=total_runs,
+            desc=f"Sweeping {param_a} vs {param_b} vs {param_c} ({image_tag})",
+        )
+
+        for val_a in values_a:
+            mean_grid = []
+            psnr_grid = []
+            result_grid = []
+            for val_b in values_b:
+                row_means = []
+                row_psnrs = []
+                row_results = []
+                for val_c in values_c:
+                    losses = []
+                    psnrs = []
+                    for run_idx in range(n_train):
+                        torch.manual_seed(run_idx)
+                        if torch.cuda.is_available():
+                            torch.cuda.manual_seed_all(run_idx)
+
+                        run_model_args = dict(base_model_args)
+                        run_lr, run_bs, run_epochs = (
+                            default_lr,
+                            default_batch_size,
+                            default_max_epochs,
+                        )
+
+                        run_model_args, run_lr, run_bs, run_epochs = apply_param(
+                            run_model_args, run_lr, run_bs, run_epochs, param_a, val_a
+                        )
+                        run_model_args, run_lr, run_bs, run_epochs = apply_param(
+                            run_model_args, run_lr, run_bs, run_epochs, param_b, val_b
+                        )
+                        run_model_args, run_lr, run_bs, run_epochs = apply_param(
+                            run_model_args, run_lr, run_bs, run_epochs, param_c, val_c
+                        )
+
+                        run_result = train_model(
+                            image_name,
+                            run_model_args,
+                            lr=run_lr,
+                            batch_size=run_bs,
+                            max_epochs=run_epochs,
+                            report_progress=False,
+                        )
+                        losses.append(run_result["best_val_loss"])
+                        psnr_list = run_result.get("val_psnrs", [])
+                        if psnr_list:
+                            psnrs.append(psnr_list[-1])
+                        progress.update(1)
+
+                    mean_loss = sum(losses) / len(losses)
+                    if len(losses) > 1:
+                        variance = sum((loss - mean_loss) ** 2 for loss in losses) / (len(losses) - 1)
+                        std_error = math.sqrt(variance) / math.sqrt(len(losses))
+                    else:
+                        std_error = 0.0
+
+                    if psnrs:
+                        mean_psnr_val = sum(psnrs) / len(psnrs)
+                        if len(psnrs) > 1:
+                            var_psnr = sum((p - mean_psnr_val) ** 2 for p in psnrs) / (len(psnrs) - 1)
+                            std_err_psnr = math.sqrt(var_psnr) / math.sqrt(len(psnrs))
+                        else:
+                            std_err_psnr = 0.0
+                    else:
+                        mean_psnr_val = float("nan")
+                        std_err_psnr = float("nan")
+
+                    row_means.append(mean_loss)
+                    row_psnrs.append(mean_psnr_val)
+                    all_mean_losses.append(mean_loss)
+                    if math.isfinite(mean_psnr_val):
+                        all_mean_psnrs.append(mean_psnr_val)
+                    row_results.append(
+                        {
+                            "values": (val_a, val_b, val_c),
+                            "losses": losses,
+                            "mean_loss": mean_loss,
+                            "std_error": std_error,
+                            "psnrs": psnrs,
+                            "mean_psnr": mean_psnr_val,
+                            "std_error_psnr": std_err_psnr,
+                        }
+                    )
+                mean_grid.append(row_means)
+                psnr_grid.append(row_psnrs)
+                result_grid.append(row_results)
+
+            panel_results.append(
+                {
+                    "param_value": val_a,
+                    "mean_grid": mean_grid,
+                    "psnr_grid": psnr_grid,
+                    "results": result_grid,
+                }
+            )
+
+        progress.close()
+
+        vmin = min(all_mean_losses) if all_mean_losses else None
+        vmax = max(all_mean_losses) if all_mean_losses else None
+        psnr_vmin = min(all_mean_psnrs) if all_mean_psnrs else None
+        psnr_vmax = max(all_mean_psnrs) if all_mean_psnrs else None
+        cmap = "viridis"
+
+        n_panels = len(values_a)
+        n_cols = max(1, math.ceil(math.sqrt(n_panels)))
+        n_rows = math.ceil(n_panels / n_cols)
+        width = max(6.0, 3.4 * n_cols)
+        height = max(5.0, 3.2 * n_rows + 0.6)
+        fig, axes = plt.subplots(
+            n_rows,
+            n_cols,
+            figsize=(width, height),
+            squeeze=False,
+            layout="constrained",
+        )
+        axes_list = [ax for ax in axes.flatten()]
+
+        norm = colors.Normalize(vmin=vmin, vmax=vmax)
+        for idx, (val_a, panel) in enumerate(zip(values_a, panel_results)):
+            ax = axes_list[idx]
+            im = ax.imshow(panel["mean_grid"], origin="lower", cmap=cmap, norm=norm, aspect="auto")
+            ax.set_xticks(range(len(values_c)))
+            ax.set_xticklabels([format_tick(v) for v in values_c], rotation=45, ha="right")
+            ax.set_yticks(range(len(values_b)))
+            ax.set_yticklabels([format_tick(v) for v in values_b])
+            ax.set_xlabel(param_c)
+            ax.set_ylabel(param_b)
+            ax.set_title(f"{param_a} = {format_tick(val_a)}")
+
+        for ax in axes_list[len(values_a) :]:
+            ax.axis("off")
+
+        suptitle = f"Grid sweep: {param_a} vs {param_b} vs {param_c} (n={n_train}, img={image_tag})"
         fig.suptitle(suptitle)
         used_axes = axes_list[: len(values_a)]
         cbar = fig.colorbar(
@@ -452,9 +965,53 @@ def sweep_model(
         cbar.set_label("Mean best validation loss (MSE)")
         cbar.formatter = ticker.FormatStrFormatter("%.1e")
         cbar.update_ticks()
-        plot_path = media_path / f"sweep_{param_a}_vs_{param_b}_vs_{param_c}.png"
+        plot_path = sweep_media_path / f"sweep_{param_a}_vs_{param_b}_vs_{param_c}_{image_tag}.png"
         fig.savefig(plot_path, dpi=200)
         plt.close(fig)
+
+        psnr_plot_path = None
+        if psnr_vmin is not None and psnr_vmax is not None:
+            fig, axes = plt.subplots(
+                n_rows,
+                n_cols,
+                figsize=(width, height),
+                squeeze=False,
+                layout="constrained",
+            )
+            axes_list = [ax for ax in axes.flatten()]
+            norm_psnr = colors.Normalize(vmin=psnr_vmin, vmax=psnr_vmax)
+            for idx, (val_a, panel) in enumerate(zip(values_a, panel_results)):
+                ax = axes_list[idx]
+                im = ax.imshow(
+                    panel["psnr_grid"],
+                    origin="lower",
+                    cmap="magma",
+                    norm=norm_psnr,
+                    aspect="auto",
+                )
+                ax.set_xticks(range(len(values_c)))
+                ax.set_xticklabels([format_tick(v) for v in values_c], rotation=45, ha="right")
+                ax.set_yticks(range(len(values_b)))
+                ax.set_yticklabels([format_tick(v) for v in values_b])
+                ax.set_xlabel(param_c)
+                ax.set_ylabel(param_b)
+                ax.set_title(f"{param_a} = {format_tick(val_a)}")
+
+            for ax in axes_list[len(values_a) :]:
+                ax.axis("off")
+
+            fig.suptitle(f"Grid PSNR: {param_a} vs {param_b} vs {param_c} (img={image_tag})")
+            used_axes = axes_list[: len(values_a)]
+            cbar = fig.colorbar(
+                plt.cm.ScalarMappable(norm=norm_psnr, cmap="magma"),
+                ax=used_axes,
+                fraction=0.035,
+                pad=0.02,
+            )
+            cbar.set_label("Mean PSNR (dB)")
+            psnr_plot_path = sweep_media_path / f"sweep_{param_a}_vs_{param_b}_vs_{param_c}_psnr_{image_tag}.png"
+            fig.savefig(psnr_plot_path, dpi=200)
+            plt.close(fig)
 
         return {
             "param": sweep_param,
@@ -463,26 +1020,37 @@ def sweep_model(
             "results": panel_results,
             "plot_path": plot_path,
             "bar_plot_path": plot_path,
+            "psnr_bar_plot_path": psnr_plot_path,
             "loss_curve_plot_path": None,
+            "image_name": image_name,
         }
 
     results = []
     mean_losses = []
     std_errors = []
+    mean_psnrs = []
+    std_error_psnrs = []
     loss_curves_by_value = {}
+    psnr_curves_by_value = {}
 
     total_runs = len(sweep_values) * n_train
-    with tqdm(total=total_runs, desc=f"Sweeping {sweep_param}") as progress:
+    with tqdm(total=total_runs, desc=f"Sweeping {sweep_param} ({image_tag})") as progress:
         for val in sweep_values:
             losses = []
+            psnrs = []
             loss_curves = []
+            psnr_curves = []
             for run_idx in range(n_train):
                 torch.manual_seed(run_idx)
                 if torch.cuda.is_available():
                     torch.cuda.manual_seed_all(run_idx)
 
                 model_args = dict(base_model_args)
-                run_lr, run_bs, run_epochs = lr, batch_size, max_epochs
+                run_lr, run_bs, run_epochs = (
+                    default_lr,
+                    default_batch_size,
+                    default_max_epochs,
+                )
                 model_args, run_lr, run_bs, run_epochs = apply_param(
                     model_args, run_lr, run_bs, run_epochs, sweep_param, val
                 )
@@ -497,10 +1065,15 @@ def sweep_model(
                 )
                 losses.append(run_result["best_val_loss"])
                 loss_curves.append(run_result["train_losses"])
+                psnr_list = run_result.get("val_psnrs", [])
+                psnr_curves.append(psnr_list)
+                if psnr_list:
+                    psnrs.append(psnr_list[-1])
                 progress.set_postfix(
                     {
                         str(sweep_param): format_tick(val),
                         "run": f"{run_idx + 1}/{n_train}",
+                        "img": image_tag,
                     }
                 )
                 progress.update(1)
@@ -512,17 +1085,35 @@ def sweep_model(
             else:
                 std_error = 0.0
 
+            finite_psnrs = [p for p in psnrs if math.isfinite(p)]
+            if finite_psnrs:
+                mean_psnr_val = sum(finite_psnrs) / len(finite_psnrs)
+                if len(finite_psnrs) > 1:
+                    var_psnr = sum((p - mean_psnr_val) ** 2 for p in finite_psnrs) / (len(finite_psnrs) - 1)
+                    std_err_psnr = math.sqrt(var_psnr) / math.sqrt(len(finite_psnrs))
+                else:
+                    std_err_psnr = 0.0
+            else:
+                mean_psnr_val = float("nan")
+                std_err_psnr = float("nan")
+
             results.append(
                 {
                     "value": val,
                     "losses": losses,
                     "mean_loss": mean_loss,
                     "std_error": std_error,
+                    "psnrs": psnrs,
+                    "mean_psnr": mean_psnr_val,
+                    "std_error_psnr": std_err_psnr,
                 }
             )
             mean_losses.append(mean_loss)
             std_errors.append(std_error)
+            mean_psnrs.append(mean_psnr_val)
+            std_error_psnrs.append(std_err_psnr)
             loss_curves_by_value[val] = loss_curves
+            psnr_curves_by_value[val] = psnr_curves
 
     fig, ax = plt.subplots(figsize=(7, 4.5))
     x_pos = list(range(len(sweep_values)))
@@ -532,11 +1123,26 @@ def sweep_model(
     ax.set_xlabel(sweep_param)
     ax.set_ylabel("Best validation loss (MSE)")
     ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
-    ax.set_title(f"Sweep over {sweep_param} (n={n_train})")
+    ax.set_title(f"Sweep over {sweep_param} (n={n_train}, img={image_tag})")
     ax.grid(True, axis="y", linestyle="--", alpha=0.3)
     fig.tight_layout()
-    bar_plot_path = media_path / f"sweep_{sweep_param}.png"
+    bar_plot_path = sweep_media_path / f"sweep_{sweep_param}_{image_tag}.png"
     fig.savefig(bar_plot_path, dpi=200)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    psnr_heights = [val if math.isfinite(val) else float("nan") for val in mean_psnrs]
+    psnr_err = [err if math.isfinite(err) else 0.0 for err in std_error_psnrs]
+    ax.bar(x_pos, psnr_heights, yerr=psnr_err, capsize=5, color="#D55E00")
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels([str(v) for v in sweep_values])
+    ax.set_xlabel(sweep_param)
+    ax.set_ylabel("Mean PSNR (dB)")
+    ax.set_title(f"PSNR over {sweep_param} (n={n_train}, img={image_tag})")
+    ax.grid(True, axis="y", linestyle="--", alpha=0.3)
+    fig.tight_layout()
+    psnr_bar_plot_path = sweep_media_path / f"sweep_{sweep_param}_psnr_{image_tag}.png"
+    fig.savefig(psnr_bar_plot_path, dpi=200)
     plt.close(fig)
 
     # Plot aggregated loss curves with continuous color mapping
@@ -556,6 +1162,9 @@ def sweep_model(
             val: palette[i % len(palette)]
             for i, val in enumerate(sweep_values)
         }
+
+    y_min = float("inf")
+    y_max = 0.0
 
     for val in sweep_values:
         curves = loss_curves_by_value[val]
@@ -588,7 +1197,9 @@ def sweep_model(
             linewidth=2,
         )
         upper = [m + s for m, s in zip(mean_curve, std_err_curve)]
-        lower = [m - s for m, s in zip(mean_curve, std_err_curve)]
+        lower = [max(m - s, 1e-12) for m, s in zip(mean_curve, std_err_curve)]
+        y_min = min(y_min, min(lower))
+        y_max = max(y_max, max(upper))
         ax.fill_between(
             epochs,
             lower,
@@ -599,14 +1210,79 @@ def sweep_model(
         )
 
     ax.set_yscale("log")
+    if y_min < float("inf") and y_max > 0:
+        log_span = math.log10(y_max) - math.log10(y_min)
+        # Use denser major ticks when the range is narrow, otherwise stick to decades
+        if log_span <= 2.0:
+            ax.yaxis.set_major_locator(ticker.LogLocator(base=10, subs=[1.0, 2.0, 5.0]))
+        else:
+            ax.yaxis.set_major_locator(ticker.LogLocator(base=10))
+        ax.yaxis.set_minor_locator(ticker.LogLocator(base=10, subs="auto"))
+        ax.yaxis.set_minor_formatter(ticker.NullFormatter())
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Training loss (MSE)")
-    ax.set_title(f"Loss for different {sweep_param}")
+    ax.set_title(f"Loss for different {sweep_param} (img={image_tag})")
     ax.grid(True, linestyle="--", alpha=0.3)
     ax.legend(title=str(sweep_param))
     fig.tight_layout()
-    loss_curve_plot_path = media_path / f"sweep_{sweep_param}_loss_curves.png"
+    loss_curve_plot_path = sweep_media_path / f"sweep_{sweep_param}_loss_curves_{image_tag}.png"
     fig.savefig(loss_curve_plot_path, dpi=200)
+    plt.close(fig)
+
+    # Plot aggregated PSNR curves
+    fig, ax = plt.subplots(figsize=(8, 5))
+    for val in sweep_values:
+        curves = psnr_curves_by_value.get(val, [])
+        if not curves:
+            continue
+        non_empty = [c for c in curves if c]
+        if not non_empty:
+            continue
+        min_len = min(len(c) for c in non_empty)
+        if min_len == 0:
+            continue
+        trimmed = [c[:min_len] for c in non_empty]
+
+        mean_curve = []
+        std_err_curve = []
+        for epoch_psnrs in zip(*trimmed):
+            n = len(epoch_psnrs)
+            mean_epoch = sum(epoch_psnrs) / n
+            if n > 1:
+                variance = sum((p - mean_epoch) ** 2 for p in epoch_psnrs) / (n - 1)
+                std_err_epoch = math.sqrt(variance) / math.sqrt(n)
+            else:
+                std_err_epoch = 0.0
+            mean_curve.append(mean_epoch)
+            std_err_curve.append(std_err_epoch)
+
+        epochs = list(range(1, min_len + 1))
+        ax.plot(
+            epochs,
+            mean_curve,
+            label=str(val),
+            color=color_map.get(val, None),
+            linewidth=2,
+        )
+        upper = [m + s for m, s in zip(mean_curve, std_err_curve)]
+        lower = [m - s for m, s in zip(mean_curve, std_err_curve)]
+        ax.fill_between(
+            epochs,
+            lower,
+            upper,
+            color=color_map.get(val, None),
+            alpha=0.15,
+            linewidth=0,
+        )
+
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("PSNR (dB)")
+    ax.set_title(f"PSNR for different {sweep_param} (img={image_tag})")
+    ax.grid(True, linestyle="--", alpha=0.3)
+    ax.legend(title=str(sweep_param))
+    fig.tight_layout()
+    psnr_curve_plot_path = sweep_media_path / f"sweep_{sweep_param}_psnr_curves_{image_tag}.png"
+    fig.savefig(psnr_curve_plot_path, dpi=200)
     plt.close(fig)
 
     return {
@@ -614,7 +1290,10 @@ def sweep_model(
         "values": list(sweep_values),
         "results": results,
         "bar_plot_path": bar_plot_path,
+        "psnr_bar_plot_path": psnr_bar_plot_path,
         "loss_curve_plot_path": loss_curve_plot_path,
+        "psnr_curve_plot_path": psnr_curve_plot_path,
+        "image_name": image_name,
     }
 
 if __name__ == "__main__":
@@ -626,14 +1305,15 @@ if __name__ == "__main__":
     
     base_model_args = dict(
         position_encoding=None,
-        trainable_embeddings=True,
+        trainable_encodings=True,
         freq_scale=50,
         encoding_dim=256,
         n_layers=6,
         n_experts=2,
         hidden_dim=512,
-        layernorm="layernorm_post",
-        layer_type="siren",
+        skip_connections=False,
+        layernorm=None,
+        layer_type="relu",
     )
 
     #sweep_param = ("hidden_dim", "lr")
@@ -645,8 +1325,11 @@ if __name__ == "__main__":
     #sweep_param="lr"
     #sweep_values=[1e-4, 2e-4, 3e-4, 4e-4, 5e-4]
 
-    sweep_param="layernorm"
-    sweep_values=["layernorm_post", "layernorm_pre", None]
+    #sweep_param="layernorm"
+    #sweep_values=["layernorm_post", "layernorm_pre", None]
+
+    sweep_param="skip_connections" #when layernorm is used, skip connections do nothing
+    sweep_values=[True, False]
 
     #sweep_param="layer_type"
     #sweep_values=["relu", "swish", "gelu"]
@@ -663,25 +1346,27 @@ if __name__ == "__main__":
     #sweep_param="freq_scale"
     #sweep_values=[50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]
 
-    #train_model(
-    #    image_name="image1.jpg",
-    #    model_args=base_model_args,
-    #    lr=DEFAULT_LR,
-    #    batch_size=DEFAULT_BATCH_SIZE,
-    #    max_epochs=DEFAULT_MAX_EPOCHS,
-    #    report_progress=True,
-    #)
-
-    
-    sweep_result = sweep_model(
-        image_name="image4.jpg",
-        base_model_args=base_model_args,
-        sweep_param=sweep_param,
-        sweep_values=sweep_values,
-        n_train=2,
+    """
+    train_model(
+        image_name="image1.jpg",
+        model_args=base_model_args,
         lr=DEFAULT_LR,
         batch_size=DEFAULT_BATCH_SIZE,
         max_epochs=DEFAULT_MAX_EPOCHS,
+        report_progress=True,
+    )
+    """
+
+    
+    sweep_result = sweep_model(
+        image_name="station.jpg",
+        base_model_args=base_model_args,
+        sweep_param=sweep_param,
+        sweep_values=sweep_values,
+        n_train=1,
+        default_lr=DEFAULT_LR,
+        default_batch_size=DEFAULT_BATCH_SIZE,
+        default_max_epochs=DEFAULT_MAX_EPOCHS,
     )
 
     print_sweep_summary(sweep_result)

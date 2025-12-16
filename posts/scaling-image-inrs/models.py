@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -138,12 +139,14 @@ class MLPExpert(nn.Module):
         output_dim,
         n_layers,
         layernorm,
+        skip_connections=False,
         layer_type="relu",
         omega_0=30,
         wire_s0=15.0,
         wire_w0=30.0,
     ):
         super().__init__()
+        self.skip_connections = bool(skip_connections)
 
         if n_layers < 2:
             raise ValueError("n_layers must be at least 2 to include a hidden and output layer")
@@ -209,6 +212,7 @@ class MLPExpert(nn.Module):
 
     def forward(self, x):
         for idx, layer in enumerate(self.hidden_layers):
+            residual = x
             x = layer.linear_forward(x)
 
             norm_layer = self.norm_layers[idx] if self.norm_layers is not None else None
@@ -220,6 +224,9 @@ class MLPExpert(nn.Module):
 
             if norm_layer is not None and self.norm_position == "post":
                 x = norm_layer(x)
+
+            if self.skip_connections and idx > 0:
+                x = (x + residual) * (1 / math.sqrt(2.0))
 
         x = self.output_layer(x)
         return x
@@ -233,13 +240,14 @@ class GeneralModel(nn.Module):
     def __init__(self, input_dim=2,
                  output_dim=3,
                  position_encoding="fourier",
-                 trainable_embeddings = True,
+                 trainable_encodings=True,
                  freq_scale=None,
                  encoding_dim=256,
                  n_layers=5,
                  n_experts=4,
                  hidden_dim=512,
                  layernorm="layernorm_post",
+                 skip_connections=False,
                  layer_type="relu"):
         super(GeneralModel, self).__init__()
 
@@ -254,13 +262,13 @@ class GeneralModel(nn.Module):
         elif position_encoding == "fourier":
             self.pos_enc = FourierFeatures(input_dim=input_dim,
                                            dim_per_input=encoding_dim//input_dim,
-                                           trainable=trainable_embeddings,
+                                           trainable=trainable_encodings,
                                            freq_scale=freq_scale)
             self.encoding_dim = encoding_dim
         elif position_encoding == "gabor":
             self.pos_enc = GaborFeatures(input_dim=input_dim,
                                          dim_per_input=encoding_dim//input_dim,
-                                         trainable=trainable_embeddings,
+                                         trainable=trainable_encodings,
                                          freq_scale=freq_scale)
             self.encoding_dim = encoding_dim
 
@@ -277,6 +285,7 @@ class GeneralModel(nn.Module):
                 layer_type=layer_type,
                 omega_0=freq_scale,
                 wire_w0=freq_scale,
+                skip_connections=skip_connections,
             )
             for _ in range(n_experts)
         ])
@@ -318,4 +327,3 @@ class GeneralModel(nn.Module):
     def compute_gate_weights(self, x):
         gate_logits = self.gate(x)
         return F.softmax(gate_logits, dim=-1)
-

@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torchvision.io import read_image
 import matplotlib.pyplot as plt
 from matplotlib.ticker import LogLocator
+import math
 
 
 def load_target_image(image_path, image_size):
@@ -30,6 +31,11 @@ def save_loss_curve(losses, media_path):
     fig.tight_layout()
     fig.savefig(media_path / "loss_curve.png", dpi=200)
     plt.close(fig)
+
+def _mse_to_psnr(mse):
+    if mse <= 0:
+        return float("inf")
+    return 10.0 * math.log10(1.0 / mse)
 
 def evaluate_and_save_output(model, criterion, batch_size, epoch_idx, num_samples, indices, coords, pixels, media_path, target_cpu, plot=False):
     model.eval()
@@ -59,6 +65,7 @@ def evaluate_and_save_output(model, criterion, batch_size, epoch_idx, num_sample
     )
 
     avg_val_loss = val_loss / max(val_samples, 1)
+    psnr = _mse_to_psnr(avg_val_loss)
 
     if plot:
         fig, axes = plt.subplots(1, 2, figsize=(10, 5))
@@ -72,7 +79,7 @@ def evaluate_and_save_output(model, criterion, batch_size, epoch_idx, num_sample
         axes[1].text(
             0.98,
             0.97,
-            f"Epoch {epoch_idx} | MSE={avg_val_loss:.2e}",
+            f"Epoch {epoch_idx} | MSE={avg_val_loss:.2e} | PSNR={psnr:.2f} dB",
             ha="right",
             va="top",
             transform=axes[1].transAxes,
@@ -83,7 +90,7 @@ def evaluate_and_save_output(model, criterion, batch_size, epoch_idx, num_sample
         plt.tight_layout()
         plt.savefig(media_path / "last_output.png", dpi=200)
         plt.close(fig)
-    return avg_val_loss
+    return avg_val_loss, psnr
 
 def plot_moe_activations(model, coords, indices, height, width, batch_size, media_path):
     if not hasattr(model, "n_experts") or getattr(model, "n_experts", 1) <= 1:
@@ -132,35 +139,71 @@ def plot_moe_activations(model, coords, indices, height, width, batch_size, medi
 
 
 def print_sweep_summary(sweep_result):
-    print(f"Sweep finished. Bar plot: {sweep_result['bar_plot_path']}")
-    if sweep_result.get("loss_curve_plot_path"):
-        print(f"Loss curves plot: {sweep_result['loss_curve_plot_path']}")
+    def fmt_psnr(res):
+        mean_psnr = res.get("mean_psnr")
+        stderr_psnr = res.get("std_error_psnr")
+        if mean_psnr is None or not math.isfinite(mean_psnr):
+            return "psnr=n/a"
+        if stderr_psnr is None or not math.isfinite(stderr_psnr):
+            return f"psnr_mean={mean_psnr:.2f}"
+        return f"psnr_mean={mean_psnr:.2f} psnr_stderr={stderr_psnr:.2f}"
 
-    params = sweep_result.get("params")
-    if params:
-        if len(params) == 2:
-            p_x, p_y = params
-            flat_results = [item for row in sweep_result["results"] for item in row]
-            for res in flat_results:
-                vx, vy = res["values"]
-                print(
-                    f"{p_x}={vx}, {p_y}={vy} "
-                    f"mean={res['mean_loss']:.3e} stderr={res['std_error']:.3e}"
-                )
-        elif len(params) == 3:
-            p_a, p_b, p_c = params
-            for panel in sweep_result["results"]:
-                for row in panel["results"]:
-                    for res in row:
-                        va, vb, vc = res["values"]
-                        print(
-                            f"{p_a}={va}, {p_b}={vb}, {p_c}={vc} "
-                            f"mean={res['mean_loss']:.3e} stderr={res['std_error']:.3e}"
-                        )
+    def print_paths(res, prefix=""):
+        if not res:
+            return
+        if res.get("bar_plot_path"):
+            print(f"{prefix}Bar plot: {res['bar_plot_path']}")
+        if res.get("psnr_bar_plot_path"):
+            print(f"{prefix}PSNR plot: {res['psnr_bar_plot_path']}")
+        if res.get("loss_curve_plot_path"):
+            print(f"{prefix}Loss curves plot: {res['loss_curve_plot_path']}")
+        if res.get("psnr_curve_plot_path"):
+            print(f"{prefix}PSNR curves plot: {res['psnr_curve_plot_path']}")
+
+    def print_results(res, prefix=""):
+        if not res:
+            return
+        print_paths(res, prefix)
+        params = res.get("params")
+        if params:
+            if len(params) == 2:
+                p_x, p_y = params
+                flat_results = [item for row in res["results"] for item in row]
+                for item in flat_results:
+                    vx, vy = item["values"]
+                    print(
+                        f"{prefix}{p_x}={vx}, {p_y}={vy} "
+                        f"mean={item['mean_loss']:.3e} stderr={item['std_error']:.3e} "
+                        f"{fmt_psnr(item)}"
+                    )
+            elif len(params) == 3:
+                p_a, p_b, p_c = params
+                for panel in res["results"]:
+                    for row in panel["results"]:
+                        for item in row:
+                            va, vb, vc = item["values"]
+                            print(
+                                f"{prefix}{p_a}={va}, {p_b}={vb}, {p_c}={vc} "
+                                f"mean={item['mean_loss']:.3e} stderr={item['std_error']:.3e} "
+                                f"{fmt_psnr(item)}"
+                            )
+            return
+
+        for item in res.get("results", []):
+            print(
+                f"{prefix}{res['param']}={item['value']} "
+                f"mean={item['mean_loss']:.3e} stderr={item['std_error']:.3e} "
+                f"{fmt_psnr(item)}"
+            )
+
+    per_image = sweep_result.get("per_image_results")
+    if per_image:
+        for res in per_image:
+            prefix = f"[{res.get('image_name')}] " if res.get("image_name") else ""
+            print_results(res, prefix=prefix)
+        combined = sweep_result.get("combined_result")
+        if combined:
+            print_results(combined, prefix="[combined] ")
         return
 
-    for res in sweep_result["results"]:
-        print(
-            f"{sweep_result['param']}={res['value']} "
-            f"mean={res['mean_loss']:.3e} stderr={res['std_error']:.3e}"
-        )
+    print_results(sweep_result)

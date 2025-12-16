@@ -47,7 +47,7 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			Implicit neural representations (INRs) aim to encode functions between low dimensional spaces such as audio signals, images, 3D models or videos by means of a neural network. The field is evolving rapidly but is still relatively nascent with some variability in the architectures used. While there has been some <a href="https://arxiv.org/pdf/2411.03688?" target="_blank">survey work</a>, in this post we aim to provide a more comprehensive comparisons between some methods, talk about possible improvements (mixture-of-experts, LayerNorm and skip connections) and provide insights into performance scaling.
+			Implicit neural representations (INRs) aim to encode functions between low dimensional spaces such as audio signals, images, 3D models or videos by means of a neural network. The field is evolving rapidly but is still relatively nascent with some variability in the architectures used. While there has been some <a href="https://arxiv.org/abs/2411.03688?" target="_blank">survey work</a> which is good for an overview, in this post we aim to provide a more comprehensive comparisons between some methods, talk about possible improvements (mixture-of-experts, LayerNorm and skip connections) and provide insights into performance scaling.
 		</p>
 
 		<div class="figure_container">
@@ -60,23 +60,26 @@
 		</div>
 
 		<p>
-			Our findings may be summarized as follows;   , MoE, while expensive, 
+			Our findings may be summarized as follows:
 		</p>
 		<ul>
 			<li>
-				more intricate activation functions are harder to tweak but can achieve better performance for smal networks
+				More intricate activation functions are harder more hyperparameter sensitive but can achieve better performance for small networks. For larger parameter counts, standard MLPs seem to perform better.
 			</li>
 			<li>
-				the ReLU activation function appears to be optimal when using feature mappings
+				The standard ReLU activation function appears to be optimal when using feature mappings.
 			</li>
 			<li>
-				MoE, while expensive parameter-wise, can indeed improve performance
+				MoE, while expensive parameter-wise, can indeed improve performance both at fixed compute budgets and for longer training
 			</li>
 			<li>
-				LayerNorm is very strong for improving convergence speed and training stability 
+				LayerNorm is very strong for improving convergence speed and training stability when used with a standard MLP 
 			</li>
 			<li>
-				some scaling begavior here
+				Skip connections do not seem to help either convergence 
+			</li>
+			<li>
+				TODO: Some scaling behavior here
 			</li>
 		</ul>
 
@@ -89,28 +92,94 @@
 		</p>
 		<div class="equation">
 			$
-			\displaystyle\frac{1}{W\cdot H}\displaystyle\sum_{0 \leq x \leq W} \displaystyle\sum_{0 \leq y \leq H} \big| I(x/W, y/H) - \mathcal{N}(x/W, y/H)\big|^2.
+			\displaystyle\frac{1}{W\cdot H}\displaystyle\sum_x^W \displaystyle\sum_y^H \big| I(x/W, y/H) - \mathcal{N}(x/W, y/H)\big|^2.
 			$
 		</div>
 		<p>
 			To get a comparision which has hopes of generalizing, we choose a collection of 5 images, each of resolution <code>768×768</code> pixels. Our error metric will be the standard <a target="_blank" href="https://en.wikipedia.org/wiki/Peak_signal-to-noise_ratio">peak signal-to-noise ratio</a> (PSNR) since this is often used in papers when comparing models. To keep the comparison fair, we initially train the models for 3 minutes per image. This seems to be in line with or less than the typical training time used in papers.
 		</p>
 
+		<div class="figure_container_small" style="padding:0">
+			<a data-fancybox="gallery2" href="images/image3.jpg">
+				<img class="figure" src="images/image3.jpg"></img>
+			</a>
+			<a style="display:none" data-fancybox="gallery2" href="images/image2.jpg">
+				<img class="figure" src="images/image2.jpg"></img>
+			</a>
+			<a style="display:none" data-fancybox="gallery2" href="images/image1.jpg">
+				<img class="figure" src="images/image1.jpg"></img>
+			</a>
+			<a style="display:none" data-fancybox="gallery2" href="images/image4.jpg">
+				<img class="figure" src="images/image4.jpg"></img>
+			</a>
+			<a style="display:none" data-fancybox="gallery2" href="images/image5.jpg">
+				<img class="figure" src="images/image5.jpg"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> The five example images used for the evaluation (click for gallery). Credit: 
+			<a target="_blank" href="https://unsplash.com/photos/empty-train-station-platform-at-night-with-rain-8BTrldpHRMY">1</a>
+			<a target="_blank" href="https://unsplash.com/photos/abstract-swirling-lines-with-chromatic-aberration-on-black-background-X06-xNC1Md0">2</a>
+			<a target="_blank" href="https://unsplash.com/photos/a-set-of-stairs-leading-up-to-a-building-t2lJCJDGRwE">3</a>
+			<a target="_blank" href="https://unsplash.com/photos/waves-crash-against-rocky-sea-stacks-under-cloudy-sky-d33ernjpaHk">4</a>
+			<a target="_blank" href="https://unsplash.com/photos/tractor-harvesting-crops-in-a-field-DdcWKBbJeEI">5</a>.
+		</div>
+
+		<p>
+			Before going into the results, we briefly go over what our models look like.
+		</p>
 
 		<hr class="squiggly-line"/>
 
 		<h2>INR models</h2>
 
 		<p>
-			There are some more advanced but we will focus on MLP-based algos + MoE.
+			We will limit ourselves to a more classical set of architectures for our INRs. Specifically, we will only deal with an optional position encoding step followed by an MLP which we allow for some freedom over. In the language of the <a href="https://arxiv.org/abs/2411.03688" target="_blank">INR survey</a> mentioned earlier, this includes classes (a), (b) and (c) from the figure below.
 		</p>
-		
+
+		<div class="figure_container">
+			<a data-fancybox="gallery1" href="media/inr_types.png">
+				<img class="figure" src="media/inr_types.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> A grouping of INR architectures from <a href="https://arxiv.org/abs/2411.03688" target="_blank">Where Do We Stand with Implicit Neural Representations? A Technical and Performance Survey</a> by Essakine et al.
+		</div>
+
+		<p>
+			Feature encodings:
+		</p>
+		<ul>
+			<li>Positional encodings (None, Fourier, Gabor)</li>
+			<li>Trainable encodings (boolean)</li>
+			<li>Frequency scale</li>
+			<li>Encoding dimension</li>
+		</ul>
+
+		<p>
+			MLP
+		</p>
+		<ul>
+			<li>Layer type</li>
+			<li>Number of layers</li>
+			<li>Hidden dimension</li>
+			<li>Number of expers</li>
+			<li>Skip connections</li>
+			<li>LayerNorm</li>
+		</ul>
+
+		<p>
+			General
+		</p>
+		<ul>
+			<li>Learning rate</li>
+			<li>Batch size</li>
+		</ul>
 
 	</section>
 	
 	<link rel="stylesheet" href="../fancybox.css" />
 	<script src="../fancybox.umd.js"></script>
-
 
 	<script>
 		Fancybox.bind("[data-fancybox]", {
