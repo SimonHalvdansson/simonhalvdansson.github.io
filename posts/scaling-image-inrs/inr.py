@@ -1312,7 +1312,7 @@ if __name__ == "__main__":
         n_experts=2,
         hidden_dim=512,
         skip_connections=False,
-        layernorm=None,
+        layernorm=False,
         layer_type="relu",
     )
 
@@ -1326,7 +1326,7 @@ if __name__ == "__main__":
     #sweep_values=[1e-4, 2e-4, 3e-4, 4e-4, 5e-4]
 
     #sweep_param="layernorm"
-    #sweep_values=["layernorm_post", "layernorm_pre", None]
+    #sweep_values=[True, False]
 
     sweep_param="skip_connections" #when layernorm is used, skip connections do nothing
     sweep_values=[True, False]
@@ -1372,4 +1372,3 @@ if __name__ == "__main__":
     print_sweep_summary(sweep_result)
 
 # gabor 7e-5
-# pre norm layernorm is better for long training sessions

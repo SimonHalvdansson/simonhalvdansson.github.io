@@ -11,28 +11,31 @@ class GaborFeatures(nn.Module):
             freq_scale = 0.5*dim_per_input/torch.sqrt(torch.tensor(2 * torch.pi))
 
         centers = torch.rand(dim_per_input, input_dim)
-        frequencies = torch.randn(dim_per_input, input_dim) * freq_scale
+        freqs = torch.randn(dim_per_input, input_dim) * freq_scale
         sigmas = torch.full((dim_per_input, input_dim), 0.1*torch.sqrt(torch.tensor(256/input_dim)))
 
         if trainable:
             self.centers = nn.Parameter(centers)
-            self.frequencies = nn.Parameter(frequencies)
+            self.freqs = nn.Parameter(freqs)
             self.sigma = nn.Parameter(sigmas)
         else:
             self.register_buffer('centers', centers)
-            self.register_buffer('frequencies', frequencies)
+            self.register_buffer('frequencies', freqs)
             self.register_buffer('sigma', sigmas)
 
     def forward(self, x):
         diff = x.unsqueeze(1) - self.centers.unsqueeze(0)
         envelope = torch.exp(- (diff ** 2 / (self.sigma.unsqueeze(0) ** 2)).sum(dim=2) / 2)
-        phase = 2 * torch.pi * (diff * self.frequencies.unsqueeze(0)).sum(dim=2)
+        phase = 2 * torch.pi * (diff * self.freqs.unsqueeze(0)).sum(dim=2)
 
         return torch.cat([envelope * torch.cos(phase), envelope * torch.sin(phase)], dim=-1)
 
 class FourierFeatures(nn.Module):
-    def __init__(self, input_dim, dim_per_input=20, freq_scale=40, trainable=False):
+    def __init__(self, input_dim, dim_per_input=20, freq_scale=None, trainable=False):
         super().__init__()
+
+        if freq_scale is None:
+            freq_scale = 0.5*dim_per_input/torch.sqrt(torch.tensor(2 * torch.pi))
         
         freqs = torch.randn(input_dim, dim_per_input) * freq_scale
 
@@ -138,7 +141,7 @@ class MLPExpert(nn.Module):
         hidden_dim,
         output_dim,
         n_layers,
-        layernorm,
+        layernorm=False,
         skip_connections=False,
         layer_type="relu",
         omega_0=30,
@@ -146,7 +149,9 @@ class MLPExpert(nn.Module):
         wire_w0=30.0,
     ):
         super().__init__()
-        self.skip_connections = bool(skip_connections)
+        self.skip_connections = skip_connections
+        if not isinstance(layernorm, bool):
+            raise ValueError("layernorm must be a boolean flag")
 
         if n_layers < 2:
             raise ValueError("n_layers must be at least 2 to include a hidden and output layer")
@@ -187,43 +192,23 @@ class MLPExpert(nn.Module):
         self.hidden_layers = nn.ModuleList(hidden_layers)
         self.output_layer = nn.Linear(hidden_dim, output_dim)
 
-        if layernorm is None:
-            self.norm_layers = None
-            self.norm_position = "post"
-        else:
-            valid_norms = {
-                "layernorm_pre",
-                "layernorm_post",
-                "rmsnorm_pre",
-                "rmsnorm_post",
-            }
-
-            norm_name = str(layernorm).lower()
-            if norm_name not in valid_norms:
-                raise ValueError(f"layernorm must be one of {valid_norms}, got {layernorm}")
-
-            self.norm_position = "pre" if norm_name.endswith("_pre") else "post"
-            norm_base = norm_name.replace("_pre", "").replace("_post", "")
-
-            norm_factory = nn.LayerNorm if norm_base == "layernorm" else nn.RMSNorm
-            self.norm_layers = nn.ModuleList(
-                [norm_factory(hidden_dim) for _ in range(len(self.hidden_layers))]
-            )
+        self.norm_layers = nn.ModuleList(
+            [
+                nn.LayerNorm(hidden_dim) if layernorm else nn.Identity()
+                for _ in range(len(self.hidden_layers))
+            ]
+        )
 
     def forward(self, x):
         for idx, layer in enumerate(self.hidden_layers):
             residual = x
             x = layer.linear_forward(x)
 
-            norm_layer = self.norm_layers[idx] if self.norm_layers is not None else None
-
-            if norm_layer is not None and self.norm_position == "pre":
-                x = norm_layer(x)
+            norm_layer = self.norm_layers[idx]
 
             x = layer.apply_activation(x)
 
-            if norm_layer is not None and self.norm_position == "post":
-                x = norm_layer(x)
+            x = norm_layer(x)
 
             if self.skip_connections and idx > 0:
                 x = (x + residual) * (1 / math.sqrt(2.0))
@@ -246,10 +231,13 @@ class GeneralModel(nn.Module):
                  n_layers=5,
                  n_experts=4,
                  hidden_dim=512,
-                 layernorm="layernorm_post",
+                 layernorm=False,
                  skip_connections=False,
                  layer_type="relu"):
         super(GeneralModel, self).__init__()
+
+        if not isinstance(layernorm, bool):
+            raise ValueError("layernorm must be a boolean flag")
 
         layer_type = layer_type.lower()
         disable_positional_encoding = layer_type in {"wire", "siren"}
@@ -291,38 +279,34 @@ class GeneralModel(nn.Module):
         ])
 
         self.gate = nn.Sequential(
+            nn.LayerNorm(input_dim),
             nn.Linear(input_dim, 128),
+            nn.GELU(),
             nn.Linear(128, n_experts)
         )
-        #self.gate = nn.Linear(input_dim, n_experts)
         self.sigmoid = nn.Sigmoid()
 
 
     def forward(self, x):
-        gate_logits = self.gate(x)       # (B, n_experts)
+        gate_logits = self.gate(x)
 
         x = self.pos_enc(x)
 
-        gate_weights = F.softmax(gate_logits, dim=-1)  # mixture weights
+        gate_weights = F.softmax(gate_logits, dim=-1)
 
-        # experts
         expert_outputs = []
         for expert in self.experts:
-            y = expert(x)                # (B, output_dim)
-            expert_outputs.append(y.unsqueeze(-2))  # (B, 1, output_dim)
+            y = expert(x)
+            expert_outputs.append(y.unsqueeze(-2))
 
-        # stack experts: (B, n_experts, output_dim)
         expert_outputs = torch.cat(expert_outputs, dim=-2)
 
-        # mixture: sum_k w_k * y_k
-        # gate_weights: (B, n_experts) -> (B, n_experts, 1)
         mixed = torch.sum(
             gate_weights.unsqueeze(-1) * expert_outputs,
             dim=-2
-        )  # (B, output_dim)
+        )
 
-        out = self.sigmoid(mixed)
-        return out
+        return self.sigmoid(mixed)
 
     def compute_gate_weights(self, x):
         gate_logits = self.gate(x)

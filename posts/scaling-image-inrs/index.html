@@ -100,20 +100,20 @@
 		</p>
 
 		<div class="figure_container_small" style="padding:0">
-			<a data-fancybox="gallery2" href="images/image3.jpg">
-				<img class="figure" src="images/image3.jpg"></img>
+			<a data-fancybox="gallery2" href="images/station.jpg">
+				<img class="figure" src="images/station.jpg"></img>
 			</a>
-			<a style="display:none" data-fancybox="gallery2" href="images/image2.jpg">
-				<img class="figure" src="images/image2.jpg"></img>
+			<a style="display:none" data-fancybox="gallery2" href="images/farming.jpg">
+				<img class="figure" src="images/farming.jpg"></img>
 			</a>
-			<a style="display:none" data-fancybox="gallery2" href="images/image1.jpg">
-				<img class="figure" src="images/image1.jpg"></img>
+			<a style="display:none" data-fancybox="gallery2" href="images/stairs.jpg">
+				<img class="figure" src="images/stairs.jpg"></img>
 			</a>
-			<a style="display:none" data-fancybox="gallery2" href="images/image4.jpg">
-				<img class="figure" src="images/image4.jpg"></img>
+			<a style="display:none" data-fancybox="gallery2" href="images/thing.jpg">
+				<img class="figure" src="images/thing.jpg"></img>
 			</a>
-			<a style="display:none" data-fancybox="gallery2" href="images/image5.jpg">
-				<img class="figure" src="images/image5.jpg"></img>
+			<a style="display:none" data-fancybox="gallery2" href="images/waves.jpg">
+				<img class="figure" src="images/waves.jpg"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
@@ -146,31 +146,113 @@
 			<span class="caption_title">Figure: </span> A grouping of INR architectures from <a href="https://arxiv.org/abs/2411.03688" target="_blank">Where Do We Stand with Implicit Neural Representations? A Technical and Performance Survey</a> by Essakine et al.
 		</div>
 
+		<h4>Position encoding</h4>
+		
 		<p>
-			Feature encodings:
+			Formally, our neural network then has the form $\mathcal{N}(x) = \operatorname{MLP}(\gamma(x))$. For the feature encoding $\gamma$ we will consider Fourier features and Gabor features, discussed in an <a href="../gabor-feature-experiments/index.html">ealier post</a>. In PyTorch we write these as follows:
 		</p>
-		<ul>
-			<li>Positional encodings (None, Fourier, Gabor)</li>
-			<li>Trainable encodings (boolean)</li>
-			<li>Frequency scale</li>
-			<li>Encoding dimension</li>
-		</ul>
+
+		<pre><code class="language-py">class FourierFeatures(nn.Module):
+    def __init__(self, input_dim, dim_per_input=20, freq_scale=None, trainable=False):
+        super().__init__()
+
+        if freq_scale is None:
+            freq_scale = 0.5*dim_per_input/torch.sqrt(torch.tensor(2 * torch.pi))
+        
+        freqs = torch.randn(input_dim, dim_per_input) * freq_scale
+
+        if trainable:
+            self.freqs = nn.Parameter(freqs)
+        else:
+            self.register_buffer('freqs', freqs)
+
+    def forward(self, x):
+        phase = 2 * torch.pi * (x @ self.freqs)
+        return torch.cat([torch.cos(phase), torch.sin(phase)], dim=-1)
+			
+class GaborFeatures(nn.Module):
+    def __init__(self, input_dim, dim_per_input=20, freq_scale=None, trainable=False):
+        super().__init__()
+        
+        if freq_scale is None:
+            freq_scale = 0.5*dim_per_input/torch.sqrt(torch.tensor(2 * torch.pi))
+
+        centers = torch.rand(dim_per_input, input_dim)
+        freqs = torch.randn(dim_per_input, input_dim) * freq_scale
+        sigmas = torch.full((dim_per_input, input_dim), 0.1*torch.sqrt(torch.tensor(256/input_dim)))
+
+        if trainable:
+            self.centers = nn.Parameter(centers)
+            self.freqs = nn.Parameter(freqs)
+            self.sigma = nn.Parameter(sigmas)
+        else:
+            self.register_buffer('centers', centers)
+            self.register_buffer('frequencies', freqs)
+            self.register_buffer('sigma', sigmas)
+
+    def forward(self, x):
+        diff = x.unsqueeze(1) - self.centers.unsqueeze(0)
+        envelope = torch.exp(- (diff ** 2 / (self.sigma.unsqueeze(0) ** 2)).sum(dim=2) / 2)
+        phase = 2 * torch.pi * (diff * self.freqs.unsqueeze(0)).sum(dim=2)
+
+        return torch.cat([envelope * torch.cos(phase), envelope * torch.sin(phase)], dim=-1)
+</code></pre>
 
 		<p>
-			MLP
+			Note that when using position encodings, we have here exposed the parameters <code>trainable</code> for if the frequencies, centers and widths should be viewed as parameters or fixed but random parameters, <code>freq_scale</code> for how we sample the frequencies and <code>dim_per_input</code> which yields the output dimension <code>input_dim × dim_per_input</code>. This opens up a lot of room for optimization.
 		</p>
+
+		<h4>MLP</h4>
+	
+		<p>
+			For the MLP backbone, we expose standard hyperparameters like activation function, number of layers and hidden dimension (which we take to be fixed across each layer for simplicity). However we also allow for the three less standard extensions mentioned in the introduction, namely mixture-of-experts (MoE), skip connections and LayerNorm.
+		</p>
+
+		<p>
+			For the MoE, we pass the raw coordinates through a small gating network with an output of length <code>n_experts</code> which is softmaxed. Then <code>n_experts</code> MLPs treat the positional encoding output to produce pixel values and the results are weighted by the gating outputs before being sigmoided:
+		</p>
+
+				<pre><code class="language-py">def forward(self, x):
+	gate_logits = self.gate(x)
+
+	x = self.pos_enc(x)
+
+	gate_weights = F.softmax(gate_logits, dim=-1)
+
+	expert_outputs = []
+	for expert in self.experts:
+		y = expert(x)
+		expert_outputs.append(y.unsqueeze(-2))
+
+	expert_outputs = torch.cat(expert_outputs, dim=-2)
+
+	mixed = torch.sum(
+		gate_weights.unsqueeze(-1) * expert_outputs,
+		dim=-2
+	)
+
+	return self.sigmoid(mixed)
+</code></pre>
+
+		<p>
+			Skip connections are handled inside the MLPs and only applied to the states of length <code>hidden_dim</code> with $\frac{1}{\sqrt{2}}$ weighing, i.e., <code>x = (x + x_skip)/torch.sqrt(2)</code>. For LayerNorm preliminary investigations showed that post vs pre-norm (norm before or after activation function) had a minimal effect on performance and same same was true for <code>LayerNorm</code> versus <code>RMSNorm</code> so we keep it simple and only consider post-LayerNorm. 
+		</p>
+
 		<ul>
 			<li>Layer type</li>
 			<li>Number of layers</li>
 			<li>Hidden dimension</li>
-			<li>Number of expers</li>
+			<li>Number of experts</li>
 			<li>Skip connections</li>
 			<li>LayerNorm</li>
 		</ul>
 
+		<h4>Training hyperparameters</h4>
+
 		<p>
-			General
+			We will also look at tweaking the learning rate <code>lr</code> and batch size <code>batch_size</code> for the training.
 		</p>
+
 		<ul>
 			<li>Learning rate</li>
 			<li>Batch size</li>
