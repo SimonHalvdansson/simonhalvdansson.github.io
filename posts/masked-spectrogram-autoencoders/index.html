@@ -38,7 +38,7 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			Vision transformers (ViTs) have since their introduction in 2020 become the de facto standard tool for computer vision tasks. While they are both highly performant in general and scale well with increased parameters, just as just as their NLP counterparts, they require large amounts of data to train. To tackle this problem, the team at FAIR released the paper <a target="_blank" href="https://arxiv.org/abs/2111.06377">Masked Autoencoders Are Scalable Vision Learners</a> which proposed pretraining vision transforms with the self-supervised task of masked autoencoding - essentially infilling images. This was used to achieve state-of-the-art performance on ImageNet-1K without external data. We will discuss the main ideas in this paper as well as how the ideas have been adapted for audio tasks using spectrograms by building a simple implementation step-by-step.
+			Vision transformers (ViTs) have since their introduction in 2020 become the de facto standard tool for computer vision tasks. While they are both highly performant in general and scale well with increased parameters, just as their NLP counterparts, they require large amounts of data to train. To tackle this problem, the team at FAIR released the paper <a target="_blank" href="https://arxiv.org/abs/2111.06377">Masked Autoencoders Are Scalable Vision Learners</a> which proposed pretraining vision transformers with the self-supervised task of masked autoencoding - essentially infilling images. This was used to achieve state-of-the-art performance on ImageNet-1K without external data. We will discuss the main ideas in this paper as well as how the ideas have been adapted for audio tasks using spectrograms by building a simple implementation step-by-step.
 		</p>
 
 		<div class="figure_container_small">
@@ -447,7 +447,7 @@ class MAE(nn.Module):
 	<h2 id="spec">Application to spectrograms</h2>
 
 	<p>
-		The paradigm of applying computer vision methods to spectrogram or similar data for signal processing tasks such as classification, automatic speech recognition (ASR) and music information retrieval (MIR) has a long history and versions of it is used in state of the art systems. While earlier models relied on convolutional neural networks (CNNs), newer methods such as the Audio Spectrogram Transformer (AST) use a ViT backbone. Contemporary state of the art ASR methods such as Whisper and Conformer tokenize along the time dimension instead of evenly spaced patches in time and frequency but the underlying architecture is still similar.
+		The paradigm of applying computer vision methods to spectrogram or similar data for signal processing tasks such as classification, automatic speech recognition (ASR) and music information retrieval (MIR) has a long history and versions of it are used in state of the art systems. While earlier models relied on convolutional neural networks (CNNs), newer methods such as the Audio Spectrogram Transformer (AST) use a ViT backbone. Contemporary state of the art ASR methods such as Whisper and Conformer tokenize along the time dimension instead of evenly spaced patches in time and frequency but the underlying architecture is still similar.
 	</p>
 
 	<p>

@@ -64,7 +64,7 @@
 		</p>
 		<ul>
 			<li>
-				More intricate activation functions are harder more hyperparameter sensitive but can achieve better performance for small networks. For larger parameter counts, standard MLPs seem to perform better.
+				More intricate activation functions are more hyperparameter sensitive but can achieve better performance for small networks. For larger parameter counts, standard MLPs seem to perform better.
 			</li>
 			<li>
 				The standard ReLU activation function appears to be optimal when using feature mappings.
@@ -149,7 +149,7 @@
 		<h4>Position encoding</h4>
 		
 		<p>
-			Formally, our neural network then has the form $\mathcal{N}(x) = \operatorname{MLP}(\gamma(x))$. For the feature encoding $\gamma$ we will consider Fourier features and Gabor features, discussed in an <a href="../gabor-feature-experiments/index.html">ealier post</a>. In PyTorch we write these as follows:
+			Formally, our neural network then has the form $\mathcal{N}(x) = \operatorname{MLP}(\gamma(x))$. For the feature encoding $\gamma$ we will consider Fourier features and Gabor features, discussed in an <a href="../gabor-feature-experiments/index.html">earlier post</a>. In PyTorch we write these as follows:
 		</p>
 
 		<pre><code class="language-py">class FourierFeatures(nn.Module):
@@ -235,7 +235,7 @@ class GaborFeatures(nn.Module):
 </code></pre>
 
 		<p>
-			Skip connections are handled inside the MLPs and only applied to the states of length <code>hidden_dim</code> with $\frac{1}{\sqrt{2}}$ weighing, i.e., <code>x = (x + x_skip)/torch.sqrt(2)</code>. For LayerNorm preliminary investigations showed that post vs pre-norm (norm before or after activation function) had a minimal effect on performance and same same was true for <code>LayerNorm</code> versus <code>RMSNorm</code> so we keep it simple and only consider post-LayerNorm. 
+			Skip connections are handled inside the MLPs and only applied to the states of length <code>hidden_dim</code> with $\frac{1}{\sqrt{2}}$ weighing, i.e., <code>x = (x + x_skip)/torch.sqrt(2)</code>. For LayerNorm preliminary investigations showed that post vs pre-norm (norm before or after activation function) had a minimal effect on performance and the same was true for <code>LayerNorm</code> versus <code>RMSNorm</code> so we keep it simple and only consider post-LayerNorm. 
 		</p>
 
 		<p>
