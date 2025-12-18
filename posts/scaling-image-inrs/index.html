@@ -364,17 +364,76 @@ class WIRELayer(nn.Module):
 		</div>
 
 		<p>
-			Here we get a large jump in average PSNR from <code>26 dB</code> to <code>35 dB</code>. Setting <code>encoding_dim = 256</code> and <code>freq_scale = 80</code>, we now move to tuning the learning rate.
+			Here we get a large jump in average PSNR from <code>26 dB</code> to <code>35 dB</code>. Setting <code>encoding_dim = 256</code> and <code>freq_scale = 80</code>, we now move to tuning the learning rate. In this case, just looking at the average MSE or PSNR does not tell the whole story since there is a large discrepency between the images.
 		</p>
 
-		<div class="figure_container_small">
-			<a style="float: left; width: 50%;" data-fancybox="gallery0" href="media/for_post/">
-				<img class="figure" src="media/for_post/"></img>
+		<div class="figure_container">
+			<a style="float: left; width: 50%;" data-fancybox="gallery0" href="media/for_post/sweep_lr_loss_curves_stairs.png">
+				<img class="figure" src="media/for_post/sweep_lr_loss_curves_stairs.png"></img>
 			</a>
-			<a style="float: left; width: 50%;" data-fancybox="gallery0" href="media/for_post/">
-				<img class="figure" src="media/for_post/"></img>
+			<a style="float: left; width: 50%;" data-fancybox="gallery0" href="media/for_post/sweep_lr_loss_curves_thing.png">
+				<img class="figure" src="media/for_post/sweep_lr_loss_curves_thing.png"></img>
+			</a>
+			<a style="float: left; width: 33.33%;" data-fancybox="gallery0" href="media/for_post/sweep_lr_loss_curves_farming.png">
+				<img class="figure" src="media/for_post/sweep_lr_loss_curves_farming.png"></img>
+			</a>
+			<a style="float: left; width: 33.33%;" data-fancybox="gallery0" href="media/for_post/sweep_lr_loss_curves_station.png">
+				<img class="figure" src="media/for_post/sweep_lr_loss_curves_station.png"></img>
+			</a>
+			<a style="float: left; width: 33.33%;" data-fancybox="gallery0" href="media/for_post/sweep_lr_loss_curves_waves.png">
+				<img class="figure" src="media/for_post/sweep_lr_loss_curves_waves.png"></img>
 			</a>
 		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Loss curves for the five images with the AdamW optimizer.
+		</div>
+
+		<p>
+			We see that stairs and thing are particularly unstable at higher learning rates. Meanwhile the arguable optimal learning rate <code>1e-4</code> for those performs poorly for the other three images. An interpretation is that learning rate can greatly benefit from being tuned for the data set (image). Since we are looking for one training recipie that is strong throughout, we instead try the <a target="_blank" href="https://github.com/facebookresearch/schedule_free">ScheduleFree version of AdamW</a>. This is an optimizer which is supposed to be more adaptive than vanilla AdamW which is what we also see in our results.
+		</p>
+
+		<div class="figure_container">
+			<a style="float: left; width: 50%;" data-fancybox="gallerysf" href="media/for_post/sfsweep_lr_loss_curves_stairs.png">
+				<img class="figure" src="media/for_post/sfsweep_lr_loss_curves_stairs.png"></img>
+			</a>
+			<a style="float: left; width: 50%;" data-fancybox="gallerysf" href="media/for_post/sfsweep_lr_loss_curves_thing.png">
+				<img class="figure" src="media/for_post/sfsweep_lr_loss_curves_thing.png"></img>
+			</a>
+			<a style="float: left; width: 33.33%;" data-fancybox="gallerysf" href="media/for_post/sfsweep_lr_loss_curves_farming.png">
+				<img class="figure" src="media/for_post/sfsweep_lr_loss_curves_farming.png"></img>
+			</a>
+			<a style="float: left; width: 33.33%;" data-fancybox="gallerysf" href="media/for_post/sfsweep_lr_loss_curves_station.png">
+				<img class="figure" src="media/for_post/sfsweep_lr_loss_curves_station.png"></img>
+			</a>
+			<a style="float: left; width: 33.33%;" data-fancybox="gallerysf" href="media/for_post/sfsweep_lr_loss_curves_waves.png">
+				<img class="figure" src="media/for_post/sfsweep_lr_loss_curves_waves.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Loss curves for the five images with the ScheduleFree AdamW optimizer.
+		</div>
+
+		<p>
+			It is now easier to compare the five learning rates and we find that <code>5e-4</code> is optimal in this case.
+		</p>
+
+		<div class="figure_container">
+			<a style="float: left; width: 50%;" data-fancybox="gallerysfc" href="media/for_post/sfsweep_lr_mse_combined.png">
+				<img class="figure" src="media/for_post/sfsweep_lr_mse_combined.png"></img>
+			</a>
+			<a style="float: left; width: 50%;" data-fancybox="gallerysfc" href="media/for_post/sfsweep_lr_psnr_combined.png">
+				<img class="figure" src="media/for_post/sfsweep_lr_psnr_combined.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> TODO.
+		</div>
+
+		<p>
+			Still, we choose to set <code>lr = 4e-4</code> just for the additional stability.
+		</p>
+
+
 
 	</section>
 	

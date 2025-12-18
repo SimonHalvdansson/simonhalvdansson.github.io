@@ -7,6 +7,7 @@ from tqdm import tqdm
 from matplotlib import colors, ticker
 from pathlib import Path
 import hashlib
+import schedulefree
 from models import GeneralModel
 from utils import (
     load_target_image,
@@ -23,7 +24,7 @@ from utils import (
 
 DEFAULT_BATCH_SIZE = 4096
 IMAGE_SIZE = 768
-DEFAULT_LR = 1e-4
+DEFAULT_LR = 4e-4
 PLOT_INTERVAL = 5
 
 DEFAULT_MAX_EPOCHS = 200
@@ -208,7 +209,8 @@ def train_model(
         total_params = sum(p.numel() for p in model.parameters())
         print(f"Model parameters: {total_params:,}")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+    #optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+    optimizer = schedulefree.AdamWScheduleFree(model.parameters(), lr=lr)
     criterion = nn.MSELoss()
     train_batch_size = batch_size
     eval_batch_size = batch_size
@@ -228,6 +230,7 @@ def train_model(
 
     for epoch in epoch_iterable:
         model.train()
+        optimizer.train()
         running_loss = 0.0
         seen_samples = 0
         last_epoch = epoch
@@ -255,6 +258,7 @@ def train_model(
 
         # Compute full-image loss for progress reporting
         model.eval()
+        optimizer.eval()
         full_loss = 0.0
         full_samples = 0
         with torch.no_grad():
@@ -1587,8 +1591,8 @@ if __name__ == "__main__":
     #sweep_param="batch_size"
     #sweep_values=[512, 1024, 2048, 4096, 8192]
 
-    sweep_param="lr"
-    sweep_values=[1e-4, 2e-4, 3e-4, 4e-4, 5e-4]
+    #sweep_param="lr"
+    #sweep_values=[1e-4, 2e-4, 3e-4, 4e-4, 5e-4]
 
     #sweep_param="layernorm"
     #sweep_values=[True, False]
@@ -1620,7 +1624,7 @@ if __name__ == "__main__":
     #sweep_values=([512, 768, 1024], [3, 4, 5, 6])
 
     # 0: train only, 1: sweep only
-    mode = 1
+    mode = 0
 
     if mode == 0:
         train_model(
