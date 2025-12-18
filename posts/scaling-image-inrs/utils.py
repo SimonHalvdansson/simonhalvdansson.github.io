@@ -5,6 +5,9 @@ from torchvision.io import read_image
 import matplotlib.pyplot as plt
 from matplotlib.ticker import LogLocator
 import math
+from pathlib import Path
+import shutil
+import subprocess
 
 
 def load_target_image(image_path, image_size):
@@ -18,7 +21,16 @@ def load_target_image(image_path, image_size):
 
     return image.squeeze(0).permute(1, 2, 0)
 
-def save_loss_curve(losses, media_path):
+def save_rgb_image(image, output_path):
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.imsave(str(output_path), image)
+    return output_path
+
+def save_target_image(target_cpu, output_path):
+    return save_rgb_image(target_cpu, output_path)
+
+def save_loss_curve(losses, media_path, filename="loss_curve.png", title="Training Loss Curve"):
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.plot(range(1, len(losses) + 1), losses, linewidth=2)
     ax.set_yscale("log")
@@ -27,22 +39,45 @@ def save_loss_curve(losses, media_path):
     ax.grid(True, which="both", linestyle="--", alpha=0.3)
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Training Loss (MSE)")
-    ax.set_title("Training Loss Curve")
+    ax.set_title(title)
     fig.tight_layout()
-    fig.savefig(media_path / "loss_curve.png", dpi=200)
+    fig.savefig(Path(media_path) / filename, dpi=200)
     plt.close(fig)
+
+def save_loss_curves_combined(losses_by_label, output_path, title="Training Loss Curves"):
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    for label, losses in losses_by_label.items():
+        if not losses:
+            continue
+        ax.plot(range(1, len(losses) + 1), losses, linewidth=2, label=str(label))
+
+    ax.set_yscale("log")
+    ax.yaxis.set_major_locator(LogLocator(base=10.0, numticks=12))
+    ax.yaxis.set_minor_locator(LogLocator(base=10.0, subs=range(1, 10), numticks=100))
+    ax.grid(True, which="both", linestyle="--", alpha=0.3)
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Training Loss (MSE)")
+    ax.set_title(title)
+    ax.legend(title="Image", fontsize=8)
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=200)
+    plt.close(fig)
+    return output_path
 
 def _mse_to_psnr(mse):
     if mse <= 0:
         return float("inf")
     return 10.0 * math.log10(1.0 / mse)
 
-def evaluate_and_save_output(model, criterion, batch_size, epoch_idx, num_samples, indices, coords, pixels, media_path, target_cpu, plot=False):
+def evaluate_model(model, criterion, batch_size, num_samples, indices, coords, pixels, target_shape):
     model.eval()
     predictions = []
     val_loss = 0.0
     val_samples = 0
-    height, width = target_cpu.shape[:2]
+    height, width = target_shape[:2]
 
     with torch.no_grad():
         for start in range(0, num_samples, batch_size):
@@ -55,9 +90,9 @@ def evaluate_and_save_output(model, criterion, batch_size, epoch_idx, num_sample
             preds = model(batch_coords)
             predictions.append(preds)
 
-            batch_size = batch_coords.size(0)
-            val_loss += criterion(preds, batch_pixels).item() * batch_size
-            val_samples += batch_size
+            current_batch = batch_coords.size(0)
+            val_loss += criterion(preds, batch_pixels).item() * current_batch
+            val_samples += current_batch
 
     predictions_cat = torch.cat(predictions, dim=0)
     predicted_image = (
@@ -66,6 +101,55 @@ def evaluate_and_save_output(model, criterion, batch_size, epoch_idx, num_sample
 
     avg_val_loss = val_loss / max(val_samples, 1)
     psnr = _mse_to_psnr(avg_val_loss)
+    return predicted_image, avg_val_loss, psnr
+
+def save_prediction_with_overlay(predicted_image, epoch_idx, mse, psnr, output_path):
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+    ax.imshow(predicted_image)
+    ax.axis("off")
+    ax.text(
+        0.98,
+        0.97,
+        f"Epoch {epoch_idx} | MSE={mse:.2e} | PSNR={psnr:.2f} dB",
+        ha="right",
+        va="top",
+        transform=ax.transAxes,
+        bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.6, edgecolor="none"),
+        fontsize=9,
+    )
+    fig.tight_layout(pad=0)
+    fig.savefig(output_path, dpi=200)
+    plt.close(fig)
+    return output_path
+
+def evaluate_and_save_output(
+    model,
+    criterion,
+    batch_size,
+    epoch_idx,
+    num_samples,
+    indices,
+    coords,
+    pixels,
+    media_path,
+    target_cpu,
+    plot=False,
+    output_path=None,
+):
+    height, width = target_cpu.shape[:2]
+    predicted_image, avg_val_loss, psnr = evaluate_model(
+        model,
+        criterion,
+        batch_size,
+        num_samples,
+        indices,
+        coords,
+        pixels,
+        target_cpu.shape,
+    )
 
     if plot:
         fig, axes = plt.subplots(1, 2, figsize=(10, 5))
@@ -88,11 +172,16 @@ def evaluate_and_save_output(model, criterion, batch_size, epoch_idx, num_sample
         )
 
         plt.tight_layout()
-        plt.savefig(media_path / "last_output.png", dpi=200)
+        if output_path is None:
+            output_path = Path(media_path) / "last_output.png"
+        else:
+            output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(output_path, dpi=200)
         plt.close(fig)
     return avg_val_loss, psnr
 
-def plot_moe_activations(model, coords, indices, height, width, batch_size, media_path):
+def plot_moe_activations(model, coords, indices, height, width, batch_size, media_path, filename="moe_activations.png"):
     if not hasattr(model, "n_experts") or getattr(model, "n_experts", 1) <= 1:
         return
     if not hasattr(model, "compute_gate_weights"):
@@ -134,9 +223,48 @@ def plot_moe_activations(model, coords, indices, height, width, batch_size, medi
 
     fig.suptitle("Mixture of Experts Activations", fontsize=12)
     fig.tight_layout(rect=[0, 0, 1, 0.96])
-    fig.savefig(media_path / "moe_activations.png", dpi=200)
+    fig.savefig(Path(media_path) / filename, dpi=200)
     plt.close(fig)
 
+
+def create_mp4_from_frames(frames_dir, output_path, fps=10, pattern="frame_%06d.png"):
+    frames_dir = Path(frames_dir)
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg:
+        cmd = [
+            ffmpeg,
+            "-y",
+            "-framerate",
+            str(int(fps)),
+            "-i",
+            pattern,
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            str(output_path),
+        ]
+        subprocess.run(cmd, cwd=str(frames_dir), check=True)
+        return output_path
+
+    try:
+        import imageio.v2 as imageio  # type: ignore
+    except Exception as exc:  # pragma: no cover
+        raise RuntimeError(
+            "Could not find ffmpeg on PATH and failed to import imageio; "
+            "install ffmpeg or imageio to enable save_video."
+        ) from exc
+
+    frame_paths = sorted(frames_dir.glob(pattern.replace("%06d", "*")))
+    if not frame_paths:
+        raise RuntimeError(f"No frames found in {frames_dir}")
+
+    frames = [imageio.imread(path) for path in frame_paths]
+    imageio.mimsave(str(output_path), frames, fps=fps)
+    return output_path
 
 def print_sweep_summary(sweep_result):
     def fmt_psnr(res):

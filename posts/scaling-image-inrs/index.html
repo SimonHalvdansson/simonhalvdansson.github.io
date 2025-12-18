@@ -138,8 +138,8 @@
 		</p>
 
 		<div class="figure_container">
-			<a data-fancybox="gallery1" href="media/inr_types.png">
-				<img class="figure" src="media/inr_types.png"></img>
+			<a data-fancybox="gallery1" href="media/for_post/inr_types.png">
+				<img class="figure" src="media/for_post/inr_types.png"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
@@ -288,9 +288,93 @@ class WIRELayer(nn.Module):
 
 		<hr class="squiggly-line"/>
 
-		<h2>Parameter sweeping</h2>
+		<h2>Baseline</h2>
 
-		<p>TODO write</p>
+		<p>
+			First up we train a bog standard INR with Fourier features, an embedding dimension of <code>64</code> and <code>4</code> hidden layers of dimension <code>256</code> for a <code>150k</code> parameter model. Below are snapshots from training that network for 3 minutes per image with a learning rate of <code>1e-4</code>.
+		</p>
+
+		<div class="figure_container">
+			<a data-fancybox="gallery0" href="media/for_post/training_combined_station__farming__stairs__thing__waves.mp4">
+				<video class="figure" src="media/for_post/training_combined_station__farming__stairs__thing__waves.mp4" autoplay muted playsinline loop preload="metadata"></video>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Training snapshots for five different INRs, one for each image, during training with highlighted MSE and PSNR at each frame.
+		</div>
+
+		<p>
+			In this example the loss is extremely rapidly decreasing in the start and plateus at rather high level. However the level at which the loss curves plateu differ greatly for the different images. We see for example that the farming image is hard to learn, most likely due to its significant high frequency components.
+		</p>
+
+		<div class="figure_container_small">
+			<a data-fancybox="gallery0" href="media/for_post/loss_curve_combined.png">
+				<img class="figure" src="media/for_post/loss_curve_combined.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Loss curve for the stairs image in log scale.
+		</div>
+
+		<p>
+			We now move to improving this performance by using the average PSNR across these five images as our objective function.
+		</p>
+		
+		<hr class="squiggly-line"/>
+
+		<h2>Scaling up standard MLPs</h2>
+
+		<p>
+			Our first step will be to try out a larger MLP since performance seems to saturate rather quickly.
+		</p>
+
+		<div class="figure_container">
+			<a style="float: left; width: 31%;" data-fancybox="gallery0" href="media/for_post/sweep_hidden_dim_vs_n_layers_mse_combined.png">
+				<img class="figure" src="media/for_post/sweep_hidden_dim_vs_n_layers_mse_combined.png"></img>
+			</a>
+			<a style="float: left; width: 31%;" data-fancybox="gallery0" href="media/for_post/sweep_hidden_dim_vs_n_layers_psnr_combined.png">
+				<img class="figure" src="media/for_post/sweep_hidden_dim_vs_n_layers_psnr_combined.png"></img>
+			</a>
+			<a style="float: left; width: 38%;" data-fancybox="gallery0" href="media/for_post/loss_curve_combined_v2.png">
+				<img class="figure" src="media/for_post/loss_curve_combined_v2.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> MSE and PSNR results for MLPs with different <code>hidden_dim</code> (x-axis) and <code>n_layers</code> (y-axis). The loss curves are with the optimal choice.
+		</div>
+
+		<p>
+			Based on this information we set <code>n_layers = 6</code> and <code>hidden_dim = 1024</code> but leave a note about trying out larger values for these later. The model now has <code>4.3M</code> parameters but we remark that we have chosen to only use training time as our restriction. Obviously this is not the correct restriction if one is attempting to, e.g., compress images using an INR, in which case we would probably have a fixed parameter budget as well.  
+		</p>
+
+		<p>
+			We could definitively have pushed MLP size further at this point but remark that when we have no positional encodings, we get stuck in this sort of plateu where we can get performance gains from increasing the parameter count but we are fundamentally unable to express the details of the image with and are only digging deeper into a local minima. For this reason we next up look at encoding dimension and frequency scale. Recall that the encoding dimension is the output dimension of $\gamma$ and the frequency scale is the standard deviation of the Gaussian which the frequencies are taken from.
+		</p>
+
+		<div class="figure_container_small">
+			<a style="float: left; width: 50%;" data-fancybox="gallery0" href="media/for_post/sweep_freq_scale_vs_encoding_dim_mse_combined.png">
+				<img class="figure" src="media/for_post/sweep_freq_scale_vs_encoding_dim_mse_combined.png"></img>
+			</a>
+			<a style="float: left; width: 50%;" data-fancybox="gallery0" href="media/for_post/sweep_freq_scale_vs_encoding_dim_psnr_combined.png">
+				<img class="figure" src="media/for_post/sweep_freq_scale_vs_encoding_dim_psnr_combined.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> MSE and PSNR results for INRs with different <code>encoding_dim</code> (x-axis) and <code>freq_scale</code> (y-axis).
+		</div>
+
+		<p>
+			Here we get a large jump in average PSNR from <code>26 dB</code> to <code>35 dB</code>. Setting <code>encoding_dim = 256</code> and <code>freq_scale = 80</code>, we now move to tuning the learning rate.
+		</p>
+
+		<div class="figure_container_small">
+			<a style="float: left; width: 50%;" data-fancybox="gallery0" href="media/for_post/">
+				<img class="figure" src="media/for_post/"></img>
+			</a>
+			<a style="float: left; width: 50%;" data-fancybox="gallery0" href="media/for_post/">
+				<img class="figure" src="media/for_post/"></img>
+			</a>
+		</div>
 
 	</section>
 	
@@ -302,7 +386,6 @@ class WIRELayer(nn.Module):
 			closeButton: false,
 		});
 	  </script>
-
 
 </body>
 </html>

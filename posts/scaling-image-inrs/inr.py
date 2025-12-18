@@ -6,12 +6,18 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from matplotlib import colors, ticker
 from pathlib import Path
+import hashlib
 from models import GeneralModel
 from utils import (
     load_target_image,
+    save_rgb_image,
+    save_target_image,
     save_loss_curve,
-    evaluate_and_save_output,
+    save_loss_curves_combined,
+    evaluate_model,
+    save_prediction_with_overlay,
     plot_moe_activations,
+    create_mp4_from_frames,
     print_sweep_summary,
 )
 
@@ -25,6 +31,45 @@ MAX_SECONDS = 180
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+def _safe_image_tag(name):
+    stem = Path(str(name)).stem.strip().lower().replace(" ", "_")
+    safe = "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in stem)
+    return safe or "image"
+
+def _combined_tag(image_names, max_len=80):
+    tags = [_safe_image_tag(name) for name in image_names]
+    combined = "__".join(tags)
+    if len(combined) <= max_len:
+        return combined
+    digest = hashlib.sha1(combined.encode("utf-8")).hexdigest()[:8]
+    return combined[: max_len - 11] + "__" + digest
+
+def _save_combined_video_frame(target_paths, predicted_paths, titles, output_path):
+    n_images = len(target_paths)
+    fig, axes = plt.subplots(2, n_images, figsize=(4 * n_images, 8), squeeze=False)
+
+    for col in range(n_images):
+        target_img = plt.imread(str(target_paths[col]))
+        pred_img = plt.imread(str(predicted_paths[col]))
+
+        ax_top = axes[0][col]
+        ax_bottom = axes[1][col]
+
+        ax_top.imshow(target_img)
+        ax_top.axis("off")
+        if titles is not None:
+            ax_top.set_title(str(titles[col]))
+
+        ax_bottom.imshow(pred_img)
+        ax_bottom.axis("off")
+
+    fig.tight_layout(pad=0.2)
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, dpi=200)
+    plt.close(fig)
+    return output_path
+
 def train_model(
     image_name,
     model_args,
@@ -32,16 +77,121 @@ def train_model(
     batch_size,
     max_epochs,
     report_progress=False,
+    save_video=False,
+    video_fps=10,
 ):
+    if isinstance(image_name, (list, tuple)):
+        base_path = Path(__file__).resolve().parent
+        media_path = base_path / "media"
+        media_path.mkdir(exist_ok=True)
+
+        per_image_results = []
+        for name in image_name:
+            result = train_model(
+                image_name=name,
+                model_args=model_args,
+                lr=lr,
+                batch_size=batch_size,
+                max_epochs=max_epochs,
+                report_progress=report_progress,
+                save_video=save_video,
+                video_fps=video_fps,
+            )
+            result["image_name"] = name
+            per_image_results.append(result)
+
+        combined_loss_curve_path = None
+        if len(per_image_results) > 1:
+            losses_by_label = {}
+            for res in per_image_results:
+                label = _safe_image_tag(res.get("image_name", "image"))
+                losses_by_label[label] = res.get("train_losses", [])
+            combined_loss_curve_path = media_path / "loss_curve_combined.png"
+            save_loss_curves_combined(
+                losses_by_label,
+                combined_loss_curve_path,
+                title="Training Loss Curves (Combined)",
+            )
+
+        combined_frames_dir = None
+        combined_video_path = None
+        if save_video:
+            combined_frames_dir = media_path / f"snapshots_combined_{_combined_tag(image_name)}"
+            combined_frames_dir.mkdir(parents=True, exist_ok=True)
+            for existing in combined_frames_dir.glob("frame_*.png"):
+                existing.unlink(missing_ok=True)
+
+            targets = []
+            per_image_frames = []
+            titles = []
+            for res in per_image_results:
+                frames_dir = res.get("frames_dir")
+                if not frames_dir:
+                    continue
+                frames_dir = Path(frames_dir)
+                target_path = frames_dir / "target.png"
+                frame_paths = sorted(frames_dir.glob("frame_*.png"))
+                if not target_path.exists() or not frame_paths:
+                    continue
+                targets.append(target_path)
+                per_image_frames.append(frame_paths)
+                titles.append(_safe_image_tag(res.get("image_name", "image")))
+
+            if targets and per_image_frames and len(targets) == len(per_image_frames):
+                max_len = max(len(paths) for paths in per_image_frames)
+                for idx in range(max_len):
+                    predicted = []
+                    for paths in per_image_frames:
+                        if idx < len(paths):
+                            predicted.append(paths[idx])
+                        else:
+                            predicted.append(paths[-1])
+                    _save_combined_video_frame(
+                        targets,
+                        predicted,
+                        titles,
+                        combined_frames_dir / f"frame_{idx:06d}.png",
+                    )
+
+                combined_video_path = media_path / f"training_combined_{_combined_tag(image_name)}.mp4"
+                try:
+                    create_mp4_from_frames(combined_frames_dir, combined_video_path, fps=video_fps)
+                except Exception as exc:
+                    print(f"[save_video] Failed to create combined mp4: {exc}")
+                    combined_video_path = None
+
+        return {
+            "per_image_results": per_image_results,
+            "combined_loss_curve_path": combined_loss_curve_path,
+            "combined_frames_dir": combined_frames_dir,
+            "combined_video_path": combined_video_path,
+        }
 
     base_path = Path(__file__).resolve().parent
     image_path = base_path / "images" / image_name
     media_path = base_path / "media"
     media_path.mkdir(exist_ok=True)
 
+    image_tag = _safe_image_tag(image_name)
+    final_output_path = media_path / f"final_output_{image_tag}.png"
+    loss_curve_path = media_path / f"loss_curve_{image_tag}.png"
+    moe_activations_path = media_path / f"moe_activations_{image_tag}.png"
+
+    frames_dir = None
+    video_path = None
+    if save_video:
+        frames_dir = media_path / f"snapshots_{image_tag}"
+        frames_dir.mkdir(parents=True, exist_ok=True)
+        for existing in frames_dir.glob("frame_*.png"):
+            existing.unlink(missing_ok=True)
+        video_path = media_path / f"training_{image_tag}.mp4"
+
     target = load_target_image(image_path, IMAGE_SIZE).to(device) 
     height, width, _ = target.shape
     target_cpu = target.detach().cpu().numpy()
+
+    if frames_dir is not None:
+        save_target_image(target_cpu, frames_dir / "target.png")
 
     y_coords = torch.linspace(0.0, 1.0, steps=height, device=device)
     x_coords = torch.linspace(0.0, 1.0, steps=width, device=device)
@@ -67,6 +217,8 @@ def train_model(
     val_psnrs = []
     best_val_loss = float("inf")
     start_time = time.time()
+    last_epoch = 0
+    frame_idx = 0
 
     epoch_iterable = (
         tqdm(range(1, max_epochs + 1), desc="Epochs", leave=False)
@@ -78,6 +230,7 @@ def train_model(
         model.train()
         running_loss = 0.0
         seen_samples = 0
+        last_epoch = epoch
 
         perm = indices[torch.randperm(num_samples, device=device)]
 
@@ -122,31 +275,45 @@ def train_model(
         if report_progress:
             epoch_iterable.set_postfix(loss=f"{avg_full_loss:.2e}")
 
-        if report_progress and epoch % PLOT_INTERVAL == 0:
-            save_loss_curve(train_losses, media_path)
-            evaluate_and_save_output(
-                model,
-                criterion,
-                eval_batch_size,
-                epoch,
-                num_samples,
-                indices,
-                coords,
-                pixels,
-                media_path,
-                target_cpu,
-                report_progress,
-            )
-            if getattr(model, "n_experts", 1) > 1:
-                plot_moe_activations(
-                    model,
-                    coords,
-                    indices,
-                    height,
-                    width,
-                    eval_batch_size,
+        if epoch % PLOT_INTERVAL == 0:
+            if report_progress:
+                save_loss_curve(
+                    train_losses,
                     media_path,
+                    filename=loss_curve_path.name,
+                    title=f"Training Loss Curve ({image_tag})",
                 )
+
+            snapshot_path = None
+            if frames_dir is not None:
+                snapshot_path = frames_dir / f"frame_{frame_idx:06d}.png"
+                frame_idx += 1
+            elif report_progress:
+                snapshot_path = media_path / f"last_output_{image_tag}.png"
+
+            if snapshot_path is not None:
+                predicted_image, mse, psnr = evaluate_model(
+                    model,
+                    criterion,
+                    eval_batch_size,
+                    num_samples,
+                    indices,
+                    coords,
+                    pixels,
+                    target_cpu.shape,
+                )
+                save_prediction_with_overlay(predicted_image, epoch, mse, psnr, snapshot_path)
+                if report_progress and getattr(model, "n_experts", 1) > 1:
+                    plot_moe_activations(
+                        model,
+                        coords,
+                        indices,
+                        height,
+                        width,
+                        eval_batch_size,
+                        media_path,
+                        filename=moe_activations_path.name,
+                    )
 
         # Stop early if we exceed the wall-clock budget
         if MAX_SECONDS is not None:
@@ -154,19 +321,17 @@ def train_model(
             if elapsed >= MAX_SECONDS:
                 break
 
-    final_val_loss, _ = evaluate_and_save_output(
+    predicted_final, final_val_loss, final_psnr = evaluate_model(
         model,
         criterion,
         eval_batch_size,
-        max_epochs,
         num_samples,
         indices,
         coords,
         pixels,
-        media_path,
-        target_cpu,
-        report_progress,
+        target_cpu.shape,
     )
+    save_rgb_image(predicted_final, final_output_path)
     best_val_loss = min(best_val_loss, final_val_loss)
     
     if report_progress and getattr(model, "n_experts", 1) > 1:
@@ -178,15 +343,39 @@ def train_model(
             width,
             eval_batch_size,
             media_path,
+            filename=moe_activations_path.name,
         )
     
     if report_progress:
-        save_loss_curve(train_losses, media_path)
+        save_loss_curve(
+            train_losses,
+            media_path,
+            filename=loss_curve_path.name,
+            title=f"Training Loss Curve ({image_tag})",
+        )
+
+    if frames_dir is not None:
+        final_frame_path = frames_dir / f"frame_{frame_idx:06d}.png"
+        save_prediction_with_overlay(
+            predicted_final,
+            max(last_epoch, 1),
+            final_val_loss,
+            final_psnr,
+            final_frame_path,
+        )
+        try:
+            create_mp4_from_frames(frames_dir, video_path, fps=video_fps)
+        except Exception as exc:
+            print(f"[save_video] Failed to create mp4 for {image_name}: {exc}")
+            video_path = None
 
     return {
         "best_val_loss": best_val_loss,
         "train_losses": train_losses,
         "val_psnrs": val_psnrs,
+        "final_output_path": final_output_path,
+        "video_path": video_path,
+        "frames_dir": frames_dir,
     }
 
 def sweep_model(
@@ -198,6 +387,7 @@ def sweep_model(
     default_lr=DEFAULT_LR,
     default_batch_size=DEFAULT_BATCH_SIZE,
     default_max_epochs=DEFAULT_MAX_EPOCHS,
+    print_estimate=True,
 ):
     base_path = Path(__file__).resolve().parent
     media_path = base_path / "media"
@@ -262,7 +452,57 @@ def sweep_model(
         finite = [val for val in values if math.isfinite(val)]
         return mean_and_stderr(finite)
 
+    def run_means(per_image_series, n_runs):
+        means = []
+        for run_idx in range(n_runs):
+            run_vals = []
+            for series in per_image_series:
+                if series is None or run_idx >= len(series):
+                    continue
+                val = series[run_idx]
+                if math.isfinite(val):
+                    run_vals.append(val)
+            if run_vals:
+                means.append(sum(run_vals) / len(run_vals))
+        return means
+
     is_grid_sweep = isinstance(sweep_param, (list, tuple))
+
+    def estimate_sweep_time():
+        if not print_estimate:
+            return
+
+        try:
+            if is_grid_sweep:
+                if not isinstance(sweep_values, (list, tuple)):
+                    return
+                if len(sweep_param) == 2 and len(sweep_values) == 2:
+                    combinations = len(sweep_values[0]) * len(sweep_values[1])
+                elif len(sweep_param) == 3 and len(sweep_values) == 3:
+                    combinations = len(sweep_values[0]) * len(sweep_values[1]) * len(sweep_values[2])
+                else:
+                    return
+            else:
+                combinations = len(sweep_values)
+        except Exception:
+            return
+
+        if combinations <= 0:
+            return
+
+        images_count = len(image_name) if isinstance(image_name, (list, tuple)) else 1
+        seconds_per_run = MAX_SECONDS if MAX_SECONDS is not None else 0
+        if seconds_per_run <= 0:
+            return
+
+        total_seconds = seconds_per_run * n_train * combinations * images_count
+        hours = total_seconds / 3600.0
+        print(
+            f"Estimated sweep time: ~{hours:.3g} hours "
+            f"({images_count} image(s) × {combinations} combo(s) × n_train={n_train}, ~{seconds_per_run:.3g}s/run)"
+        )
+
+    estimate_sweep_time()
 
     def build_lookup(single_result):
         lookup = {}
@@ -296,14 +536,22 @@ def sweep_model(
             combined_results = []
             for val in sweep_values:
                 key = (val,)
-                losses = [lookup[key]["mean_loss"] for lookup in lookups if key in lookup]
-                psnrs = [
-                    lookup[key].get("mean_psnr")
+                per_image_losses = [
+                    lookup[key].get("losses", [])
                     for lookup in lookups
-                    if key in lookup and math.isfinite(lookup[key].get("mean_psnr", float("nan")))
+                    if key in lookup
                 ]
-                mean_loss, std_error = mean_and_stderr(losses)
-                mean_psnr_val, std_err_psnr = finite_mean_and_stderr(psnrs)
+                per_image_psnrs = [
+                    lookup[key].get("psnrs", [])
+                    for lookup in lookups
+                    if key in lookup
+                ]
+
+                run_avg_losses = run_means(per_image_losses, n_train)
+                run_avg_psnrs = run_means(per_image_psnrs, n_train)
+
+                mean_loss, std_error = mean_and_stderr(run_avg_losses)
+                mean_psnr_val, std_err_psnr = finite_mean_and_stderr(run_avg_psnrs)
                 combined_results.append(
                     {
                         "value": val,
@@ -326,10 +574,12 @@ def sweep_model(
             ax.set_xlabel(sweep_param)
             ax.set_ylabel("Mean best validation loss (MSE)")
             ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
-            ax.set_title(f"Sweep over {sweep_param} averaged across {n_images} images")
+            ax.set_title(
+                f"Sweep over {sweep_param} (mean across {n_images} images, stderr over n={n_train})"
+            )
             ax.grid(True, axis="y", linestyle="--", alpha=0.3)
             fig.tight_layout()
-            bar_plot_path = sweep_media_path / f"sweep_{sweep_param}_combined.png"
+            bar_plot_path = sweep_media_path / f"sweep_{sweep_param}_mse_combined.png"
             fig.savefig(bar_plot_path, dpi=200)
             plt.close(fig)
 
@@ -341,7 +591,9 @@ def sweep_model(
             ax.set_xticklabels([str(v) for v in sweep_values])
             ax.set_xlabel(sweep_param)
             ax.set_ylabel("Mean PSNR across images (dB)")
-            ax.set_title(f"PSNR over {sweep_param} averaged across {n_images} images")
+            ax.set_title(
+                f"PSNR over {sweep_param} (mean across {n_images} images, stderr over n={n_train})"
+            )
             ax.grid(True, axis="y", linestyle="--", alpha=0.3)
             fig.tight_layout()
             psnr_bar_plot_path = sweep_media_path / f"sweep_{sweep_param}_psnr_combined.png"
@@ -371,14 +623,20 @@ def sweep_model(
                 row_results = []
                 for val_y in values_y:
                     key = (val_x, val_y)
-                    losses = [lookup[key]["mean_loss"] for lookup in lookups if key in lookup]
-                    psnrs = [
-                        lookup[key].get("mean_psnr")
+                    per_image_losses = [
+                        lookup[key].get("losses", [])
                         for lookup in lookups
-                        if key in lookup and math.isfinite(lookup[key].get("mean_psnr", float("nan")))
+                        if key in lookup
                     ]
-                    mean_loss, std_error = mean_and_stderr(losses)
-                    mean_psnr_val, std_err_psnr = finite_mean_and_stderr(psnrs)
+                    per_image_psnrs = [
+                        lookup[key].get("psnrs", [])
+                        for lookup in lookups
+                        if key in lookup
+                    ]
+                    run_avg_losses = run_means(per_image_losses, n_train)
+                    run_avg_psnrs = run_means(per_image_psnrs, n_train)
+                    mean_loss, std_error = mean_and_stderr(run_avg_losses)
+                    mean_psnr_val, std_err_psnr = finite_mean_and_stderr(run_avg_psnrs)
                     row_means.append(mean_loss)
                     row_psnrs.append(mean_psnr_val)
                     row_results.append(
@@ -411,7 +669,7 @@ def sweep_model(
             cbar.set_label("Mean best validation loss (MSE)")
             cbar.formatter = ticker.FormatStrFormatter("%.1e")
             cbar.update_ticks()
-            bar_plot_path = sweep_media_path / f"sweep_{param_x}_vs_{param_y}_combined.png"
+            bar_plot_path = sweep_media_path / f"sweep_{param_x}_vs_{param_y}_mse_combined.png"
             fig.savefig(bar_plot_path, dpi=200)
             plt.close(fig)
 
@@ -470,14 +728,20 @@ def sweep_model(
                 row_results = []
                 for val_c in values_c:
                     key = (val_a, val_b, val_c)
-                    losses = [lookup[key]["mean_loss"] for lookup in lookups if key in lookup]
-                    psnrs = [
-                        lookup[key].get("mean_psnr")
+                    per_image_losses = [
+                        lookup[key].get("losses", [])
                         for lookup in lookups
-                        if key in lookup and math.isfinite(lookup[key].get("mean_psnr", float("nan")))
+                        if key in lookup
                     ]
-                    mean_loss, std_error = mean_and_stderr(losses)
-                    mean_psnr_val, std_err_psnr = finite_mean_and_stderr(psnrs)
+                    per_image_psnrs = [
+                        lookup[key].get("psnrs", [])
+                        for lookup in lookups
+                        if key in lookup
+                    ]
+                    run_avg_losses = run_means(per_image_losses, n_train)
+                    run_avg_psnrs = run_means(per_image_psnrs, n_train)
+                    mean_loss, std_error = mean_and_stderr(run_avg_losses)
+                    mean_psnr_val, std_err_psnr = finite_mean_and_stderr(run_avg_psnrs)
                     if math.isfinite(mean_loss):
                         all_mean_losses.append(mean_loss)
                     if math.isfinite(mean_psnr_val):
@@ -554,7 +818,7 @@ def sweep_model(
         cbar.set_label("Mean best validation loss (MSE)")
         cbar.formatter = ticker.FormatStrFormatter("%.1e")
         cbar.update_ticks()
-        bar_plot_path = sweep_media_path / f"sweep_{param_a}_vs_{param_b}_vs_{param_c}_combined.png"
+        bar_plot_path = sweep_media_path / f"sweep_{param_a}_vs_{param_b}_vs_{param_c}_mse_combined.png"
         fig.savefig(bar_plot_path, dpi=200)
         plt.close(fig)
 
@@ -631,6 +895,7 @@ def sweep_model(
                 default_lr=default_lr,
                 default_batch_size=default_batch_size,
                 default_max_epochs=default_max_epochs,
+                print_estimate=False,
             )
             for img_name in image_list
         ]
@@ -768,7 +1033,7 @@ def sweep_model(
             cbar.set_label("Mean best validation loss (MSE)")
             cbar.formatter = ticker.FormatStrFormatter("%.1e")
             cbar.update_ticks()
-            plot_path = sweep_media_path / f"sweep_{param_x}_vs_{param_y}_{image_tag}.png"
+            plot_path = sweep_media_path / f"sweep_{param_x}_vs_{param_y}_mse_{image_tag}.png"
             fig.savefig(plot_path, dpi=200)
             plt.close(fig)
 
@@ -965,7 +1230,7 @@ def sweep_model(
         cbar.set_label("Mean best validation loss (MSE)")
         cbar.formatter = ticker.FormatStrFormatter("%.1e")
         cbar.update_ticks()
-        plot_path = sweep_media_path / f"sweep_{param_a}_vs_{param_b}_vs_{param_c}_{image_tag}.png"
+        plot_path = sweep_media_path / f"sweep_{param_a}_vs_{param_b}_vs_{param_c}_mse_{image_tag}.png"
         fig.savefig(plot_path, dpi=200)
         plt.close(fig)
 
@@ -1126,7 +1391,7 @@ def sweep_model(
     ax.set_title(f"Sweep over {sweep_param} (n={n_train}, img={image_tag})")
     ax.grid(True, axis="y", linestyle="--", alpha=0.3)
     fig.tight_layout()
-    bar_plot_path = sweep_media_path / f"sweep_{sweep_param}_{image_tag}.png"
+    bar_plot_path = sweep_media_path / f"sweep_{sweep_param}_mse_{image_tag}.png"
     fig.savefig(bar_plot_path, dpi=200)
     plt.close(fig)
 
@@ -1304,13 +1569,13 @@ if __name__ == "__main__":
     """
     
     base_model_args = dict(
-        position_encoding=None,
-        trainable_encodings=True,
-        freq_scale=50,
+        position_encoding="fourier",
+        trainable_encodings=False,
+        freq_scale=80,
         encoding_dim=256,
         n_layers=6,
-        n_experts=2,
-        hidden_dim=512,
+        n_experts=1,
+        hidden_dim=1024,
         skip_connections=False,
         layernorm=False,
         layer_type="relu",
@@ -1322,14 +1587,14 @@ if __name__ == "__main__":
     #sweep_param="batch_size"
     #sweep_values=[512, 1024, 2048, 4096, 8192]
 
-    #sweep_param="lr"
-    #sweep_values=[1e-4, 2e-4, 3e-4, 4e-4, 5e-4]
+    sweep_param="lr"
+    sweep_values=[1e-4, 2e-4, 3e-4, 4e-4, 5e-4]
 
     #sweep_param="layernorm"
     #sweep_values=[True, False]
 
-    sweep_param="skip_connections" #when layernorm is used, skip connections do nothing
-    sweep_values=[True, False]
+    #sweep_param="skip_connections"
+    #sweep_values=[True, False]
 
     #sweep_param="layer_type"
     #sweep_values=["relu", "swish", "gelu"]
@@ -1346,29 +1611,40 @@ if __name__ == "__main__":
     #sweep_param="freq_scale"
     #sweep_values=[50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]
 
-    """
-    train_model(
-        image_name="image1.jpg",
-        model_args=base_model_args,
-        lr=DEFAULT_LR,
-        batch_size=DEFAULT_BATCH_SIZE,
-        max_epochs=DEFAULT_MAX_EPOCHS,
-        report_progress=True,
-    )
-    """
+    #sweep_param=("freq_scale", "encoding_dim")
+    #sweep_values=([50, 80, 110, 140, 170], [64, 128, 256])
 
+    #----------------------------
     
-    sweep_result = sweep_model(
-        image_name="station.jpg",
-        base_model_args=base_model_args,
-        sweep_param=sweep_param,
-        sweep_values=sweep_values,
-        n_train=1,
-        default_lr=DEFAULT_LR,
-        default_batch_size=DEFAULT_BATCH_SIZE,
-        default_max_epochs=DEFAULT_MAX_EPOCHS,
-    )
+    #sweep_param=("hidden_dim", "n_layers")
+    #sweep_values=([512, 768, 1024], [3, 4, 5, 6])
 
-    print_sweep_summary(sweep_result)
+    # 0: train only, 1: sweep only
+    mode = 1
+
+    if mode == 0:
+        train_model(
+            image_name=["station.jpg", "farming.jpg", "stairs.jpg", "thing.jpg", "waves.jpg"],
+            model_args=base_model_args,
+            lr=DEFAULT_LR,
+            batch_size=DEFAULT_BATCH_SIZE,
+            max_epochs=DEFAULT_MAX_EPOCHS,
+            report_progress=True,
+            save_video=True
+        )
+    
+    if mode == 1:
+        sweep_result = sweep_model(
+            image_name=["station.jpg", "farming.jpg", "stairs.jpg", "thing.jpg", "waves.jpg"],
+            base_model_args=base_model_args,
+            sweep_param=sweep_param,
+            sweep_values=sweep_values,
+            n_train=1,
+            default_lr=DEFAULT_LR,
+            default_batch_size=DEFAULT_BATCH_SIZE,
+            default_max_epochs=DEFAULT_MAX_EPOCHS,
+        )
+
+        print_sweep_summary(sweep_result)
 
 # gabor 7e-5
