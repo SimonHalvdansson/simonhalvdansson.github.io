@@ -20,7 +20,7 @@ class GaborFeatures(nn.Module):
             self.sigma = nn.Parameter(sigmas)
         else:
             self.register_buffer('centers', centers)
-            self.register_buffer('frequencies', freqs)
+            self.register_buffer('freqs', freqs)
             self.register_buffer('sigma', sigmas)
 
     def forward(self, x):

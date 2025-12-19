@@ -1416,19 +1416,33 @@ def sweep_model(
 
     # Plot aggregated loss curves with continuous color mapping
     fig, ax = plt.subplots(figsize=(8, 5))
-    # Use a blue-to-green palette with good contrast across values
+    # Use high-contrast discrete colors for small sweeps, fall back to continuous for large numeric sweeps.
+    distinct_palette = [
+        "#1b9e77",
+        "#d95f02",
+        "#7570b3",
+        "#e7298a",
+        "#66a61e",
+        "#e6ab02",
+        "#a6761d",
+        "#666666",
+    ]
     sweep_blue_green = colors.LinearSegmentedColormap.from_list(
         "sweep_blue_green", ["#6e1eb1", "#1311b1", "#128d2d", "#831212"]
     )
     try:
         numeric_values = [float(v) for v in sweep_values]
-        norm = colors.Normalize(vmin=min(numeric_values), vmax=max(numeric_values))
-        color_map = {val: sweep_blue_green(norm(float(val))) for val in sweep_values}
+        if len(sweep_values) <= len(distinct_palette):
+            color_map = {
+                val: distinct_palette[i]
+                for i, val in enumerate(sweep_values)
+            }
+        else:
+            norm = colors.Normalize(vmin=min(numeric_values), vmax=max(numeric_values))
+            color_map = {val: sweep_blue_green(norm(float(val))) for val in sweep_values}
     except Exception:
-        # Fall back to discrete blue-to-green tones for non-numeric sweeps
-        palette = ["#1f77b4", "#3a89b8", "#57a0bc", "#62b2a3", "#56b28f", "#2ca25f"]
         color_map = {
-            val: palette[i % len(palette)]
+            val: distinct_palette[i % len(distinct_palette)]
             for i, val in enumerate(sweep_values)
         }
 
@@ -1573,7 +1587,7 @@ if __name__ == "__main__":
     """
     
     base_model_args = dict(
-        position_encoding="fourier",
+        position_encoding="gabor",
         trainable_encodings=False,
         freq_scale=80,
         encoding_dim=256,
@@ -1600,6 +1614,9 @@ if __name__ == "__main__":
     #sweep_param="skip_connections"
     #sweep_values=[True, False]
 
+    #sweep_param="trainable_encodings"
+    #sweep_values=[True, False]
+
     #sweep_param="layer_type"
     #sweep_values=["relu", "swish", "gelu"]
 
@@ -1608,6 +1625,9 @@ if __name__ == "__main__":
 
     #sweep_param="position_encoding"
     #sweep_values=["fourier", "gabor"]
+
+    #sweep_param=("position_encoding", "encoding_dim")
+    #sweep_values=(["fourier", "gabor"], [192, 256, 320, 384, 512])
 
     #sweep_param=("position_encoding", "hidden_dim", "n_layers")
     #sweep_values=(["fourier", "gabor"], [768, 1024, 1280], [3, 4])

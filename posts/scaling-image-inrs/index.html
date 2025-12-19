@@ -138,7 +138,7 @@
 		</p>
 
 		<div class="figure_container">
-			<a data-fancybox="gallery1" href="media/for_post/inr_types.png">
+			<a data-fancybox="gallery_inr" href="media/for_post/inr_types.png">
 				<img class="figure" src="media/for_post/inr_types.png"></img>
 			</a>
 		</div>
@@ -187,7 +187,7 @@ class GaborFeatures(nn.Module):
             self.sigma = nn.Parameter(sigmas)
         else:
             self.register_buffer('centers', centers)
-            self.register_buffer('frequencies', freqs)
+            self.register_buffer('freqs', freqs)
             self.register_buffer('sigma', sigmas)
 
     def forward(self, x):
@@ -291,11 +291,11 @@ class WIRELayer(nn.Module):
 		<h2>Baseline</h2>
 
 		<p>
-			First up we train a bog standard INR with Fourier features, an embedding dimension of <code>64</code> and <code>4</code> hidden layers of dimension <code>256</code> for a <code>150k</code> parameter model. Below are snapshots from training that network for 3 minutes per image with a learning rate of <code>1e-4</code>.
+			First up we train a bog standard INR with Fourier features, an embedding dimension of <code>64</code>, <code>4</code> hidden layers of dimension <code>256</code> and ReLU activation for a <code>150k</code> parameter model. Below are snapshots from training that network for 3 minutes per image with a learning rate of <code>1e-4</code>.
 		</p>
 
 		<div class="figure_container">
-			<a data-fancybox="gallery0" href="media/for_post/training_combined_station__farming__stairs__thing__waves.mp4">
+			<a data-fancybox="gallery_baseline" href="media/for_post/training_combined_station__farming__stairs__thing__waves.mp4">
 				<video class="figure" src="media/for_post/training_combined_station__farming__stairs__thing__waves.mp4" autoplay muted playsinline loop preload="metadata"></video>
 			</a>
 		</div>
@@ -308,7 +308,7 @@ class WIRELayer(nn.Module):
 		</p>
 
 		<div class="figure_container_small">
-			<a data-fancybox="gallery0" href="media/for_post/loss_curve_combined.png">
+			<a data-fancybox="gallery_baseline" href="media/for_post/loss_curve_combined.png">
 				<img class="figure" src="media/for_post/loss_curve_combined.png"></img>
 			</a>
 		</div>
@@ -329,13 +329,13 @@ class WIRELayer(nn.Module):
 		</p>
 
 		<div class="figure_container">
-			<a style="float: left; width: 31%;" data-fancybox="gallery0" href="media/for_post/sweep_hidden_dim_vs_n_layers_mse_combined.png">
+			<a style="float: left; width: 31%;" data-fancybox="gallery1" href="media/for_post/sweep_hidden_dim_vs_n_layers_mse_combined.png">
 				<img class="figure" src="media/for_post/sweep_hidden_dim_vs_n_layers_mse_combined.png"></img>
 			</a>
-			<a style="float: left; width: 31%;" data-fancybox="gallery0" href="media/for_post/sweep_hidden_dim_vs_n_layers_psnr_combined.png">
+			<a style="float: left; width: 31%;" data-fancybox="gallery1" href="media/for_post/sweep_hidden_dim_vs_n_layers_psnr_combined.png">
 				<img class="figure" src="media/for_post/sweep_hidden_dim_vs_n_layers_psnr_combined.png"></img>
 			</a>
-			<a style="float: left; width: 38%;" data-fancybox="gallery0" href="media/for_post/loss_curve_combined_v2.png">
+			<a style="float: left; width: 38%;" data-fancybox="gallery1" href="media/for_post/loss_curve_combined_v2.png">
 				<img class="figure" src="media/for_post/loss_curve_combined_v2.png"></img>
 			</a>
 		</div>
@@ -352,10 +352,10 @@ class WIRELayer(nn.Module):
 		</p>
 
 		<div class="figure_container_small">
-			<a style="float: left; width: 50%;" data-fancybox="gallery0" href="media/for_post/sweep_freq_scale_vs_encoding_dim_mse_combined.png">
+			<a style="float: left; width: 50%;" data-fancybox="gallery2" href="media/for_post/sweep_freq_scale_vs_encoding_dim_mse_combined.png">
 				<img class="figure" src="media/for_post/sweep_freq_scale_vs_encoding_dim_mse_combined.png"></img>
 			</a>
-			<a style="float: left; width: 50%;" data-fancybox="gallery0" href="media/for_post/sweep_freq_scale_vs_encoding_dim_psnr_combined.png">
+			<a style="float: left; width: 50%;" data-fancybox="gallery2" href="media/for_post/sweep_freq_scale_vs_encoding_dim_psnr_combined.png">
 				<img class="figure" src="media/for_post/sweep_freq_scale_vs_encoding_dim_psnr_combined.png"></img>
 			</a>
 		</div>
@@ -364,23 +364,23 @@ class WIRELayer(nn.Module):
 		</div>
 
 		<p>
-			Here we get a large jump in average PSNR from <code>26 dB</code> to <code>35 dB</code>. Setting <code>encoding_dim = 256</code> and <code>freq_scale = 80</code>, we now move to tuning the learning rate. In this case, just looking at the average MSE or PSNR does not tell the whole story since there is a large discrepency between the images.
+			Here we get a large jump in average PSNR from <code>26 dB</code> to <code>35 dB</code>. Setting <code>encoding_dim = 256</code> and <code>freq_scale = 80</code> bumps the parameter count slightly to <code>4.5M</code>. We now move to tuning the learning rate. In this case, just looking at the average MSE or PSNR does not tell the whole story since there is a large discrepency between the images.
 		</p>
 
 		<div class="figure_container">
-			<a style="float: left; width: 50%;" data-fancybox="gallery0" href="media/for_post/sweep_lr_loss_curves_stairs.png">
+			<a style="float: left; width: 50%;" data-fancybox="gallery3" href="media/for_post/sweep_lr_loss_curves_stairs.png">
 				<img class="figure" src="media/for_post/sweep_lr_loss_curves_stairs.png"></img>
 			</a>
-			<a style="float: left; width: 50%;" data-fancybox="gallery0" href="media/for_post/sweep_lr_loss_curves_thing.png">
+			<a style="float: left; width: 50%;" data-fancybox="gallery3" href="media/for_post/sweep_lr_loss_curves_thing.png">
 				<img class="figure" src="media/for_post/sweep_lr_loss_curves_thing.png"></img>
 			</a>
-			<a style="float: left; width: 33.33%;" data-fancybox="gallery0" href="media/for_post/sweep_lr_loss_curves_farming.png">
+			<a style="float: left; width: 33.33%;" data-fancybox="gallery3" href="media/for_post/sweep_lr_loss_curves_farming.png">
 				<img class="figure" src="media/for_post/sweep_lr_loss_curves_farming.png"></img>
 			</a>
-			<a style="float: left; width: 33.33%;" data-fancybox="gallery0" href="media/for_post/sweep_lr_loss_curves_station.png">
+			<a style="float: left; width: 33.33%;" data-fancybox="gallery3" href="media/for_post/sweep_lr_loss_curves_station.png">
 				<img class="figure" src="media/for_post/sweep_lr_loss_curves_station.png"></img>
 			</a>
-			<a style="float: left; width: 33.33%;" data-fancybox="gallery0" href="media/for_post/sweep_lr_loss_curves_waves.png">
+			<a style="float: left; width: 33.33%;" data-fancybox="gallery3" href="media/for_post/sweep_lr_loss_curves_waves.png">
 				<img class="figure" src="media/for_post/sweep_lr_loss_curves_waves.png"></img>
 			</a>
 		</div>
@@ -426,13 +426,119 @@ class WIRELayer(nn.Module):
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure: </span> TODO.
+			<span class="caption_title">Figure: </span> Average MSE and PSNR for the learning rates from <code>1e-4</code> to <code>5e-4</code>.
 		</div>
 
 		<p>
-			Still, we choose to set <code>lr = 4e-4</code> just for the additional stability.
+			Still, we choose to set <code>lr = 4e-4</code> just for the additional stability since we see that higher learning rates lead to oscillations in the loss once it is low enough. 
 		</p>
 
+		<p>
+			At this point, the PSNR is high enough that the images are almost perfectly captured by the INR. Below is a version of the training video from earlier with this model.
+		</p>
+
+		<div class="figure_container">
+			<a data-fancybox="galleryvidv2" href="media/for_post/training_combined_station__farming__stairs__thing__waves_v2.mp4">
+				<video class="figure" src="media/for_post/training_combined_station__farming__stairs__thing__waves_v2.mp4" autoplay muted playsinline loop preload="metadata"></video>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Training snapshots for five different INRs, one for each image, during training with highlighted MSE and PSNR at each frame. Put video in fullscreen to see details better.
+		</div>
+
+		<p>
+			Next up we look at learnable frequencies. This means that we still initialize the frequencies in the positional encodings with standard deviation <code>80</code> but treat them as learnable model parameters. Here we see that trainable encodings do not improve performance.
+		</p>
+
+		<div class="figure_container">
+			<a style="float: left; width: 50%;" data-fancybox="gallery4" href="media/for_post/train_enc_sweep_trainable_encodings_mse_combined.png">
+				<img class="figure" src="media/for_post/train_enc_sweep_trainable_encodings_mse_combined.png"></img>
+			</a>
+			<a style="float: left; width: 50%;" data-fancybox="gallery4" href="media/for_post/train_enc_sweep_trainable_encodings_psnr_combined.png">
+				<img class="figure" src="media/for_post/train_enc_sweep_trainable_encodings_psnr_combined.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> MSE and PSNR for trainable and fixed frequencies.
+		</div>
+
+		<p>
+			The final choice we look at is the activation function. Since we are using positional encodings, we are only comparing some standard choices, specifically ReLU, GELU and Swish. So far all our sweeping has been done with ReLU so it perhaps should not be a surprise that it performs best. Still, its margin is at least slightly remarkable.
+		</p>
+
+		<div class="figure_container">
+			<a style="float: left; width: 50%;" data-fancybox="gallery5" href="media/for_post/lt_sweep_layer_type_mse_combined.png">
+				<img class="figure" src="media/for_post/lt_sweep_layer_type_mse_combined.png"></img>
+			</a>
+			<a style="float: left; width: 50%;" data-fancybox="gallery5" href="media/for_post/lt_sweep_layer_type_psnr_combined.png">
+				<img class="figure" src="media/for_post/lt_sweep_layer_type_psnr_combined.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> MSE and PSNR comparision between different activation functions.
+		</div>
+
+		<p>
+			The last property we look at is Gabor feature encodings. Just as for the activation function, we have so far made the (few) decisions about the architecture to optimize for Fourier features which puts Gabor features at an disadvantage. Since for Gabor features each dimension in <code>encoding_dim</code> has less energy since it is localized in position, we explore higher dimensional encoding dimensions at the same time.
+		</p>
+
+		<div class="figure_container">
+			<a style="float: left; width: 50%;" data-fancybox="gallery6" href="media/for_post/pe_sweep_position_encoding_vs_encoding_dim_mse_combined.png">
+				<img class="figure" src="media/for_post/pe_sweep_position_encoding_vs_encoding_dim_mse_combined.png"></img>
+			</a>
+			<a style="float: left; width: 50%;" data-fancybox="gallery6" href="media/for_post/pe_sweep_position_encoding_vs_encoding_dim_psnr_combined.png">
+				<img class="figure" src="media/for_post/pe_sweep_position_encoding_vs_encoding_dim_psnr_combined.png"></img>
+			</a>
+			<a style="float: left; width: 20%;" data-fancybox="gallery6" href="media/for_post/pe_sweep_position_encoding_vs_encoding_dim_psnr_farming.png">
+				<img class="figure" src="media/for_post/pe_sweep_position_encoding_vs_encoding_dim_psnr_farming.png"></img>
+			</a>
+			<a style="float: left; width: 20%;" data-fancybox="gallery6" href="media/for_post/pe_sweep_position_encoding_vs_encoding_dim_psnr_stairs.png">
+				<img class="figure" src="media/for_post/pe_sweep_position_encoding_vs_encoding_dim_psnr_stairs.png"></img>
+			</a>
+			<a style="float: left; width: 20%;" data-fancybox="gallery6" href="media/for_post/pe_sweep_position_encoding_vs_encoding_dim_psnr_station.png">
+				<img class="figure" src="media/for_post/pe_sweep_position_encoding_vs_encoding_dim_psnr_station.png"></img>
+			</a>
+			<a style="float: left; width: 20%;" data-fancybox="gallery6" href="media/for_post/pe_sweep_position_encoding_vs_encoding_dim_psnr_thing.png">
+				<img class="figure" src="media/for_post/pe_sweep_position_encoding_vs_encoding_dim_psnr_thing.png"></img>
+			</a>
+			<a style="float: left; width: 20%;" data-fancybox="gallery6" href="media/for_post/pe_sweep_position_encoding_vs_encoding_dim_psnr_waves.png">
+				<img class="figure" src="media/for_post/pe_sweep_position_encoding_vs_encoding_dim_psnr_waves.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Average MSE and PSNR when sweeping Fourier vs Gabor features at the same time as encoding dimension. In the bottom row we have the per-image PSNRs.
+		</div>
+
+		<p>
+			The result is very even with Gabor feature coming out on top for PSNR but not MSE but only at higher encoding dimension. Note meanwhile that the MSE and PSNR for Fourier features barely improve when going from <code>192</code> to <code>384</code> encoding dimensions. A conclusion that may be made is that Fourier features benefit less from larger encoding dimension but is preferable for a smaller model.
+		</p>
+
+		<p>
+			Gabor features have the additional effective hyperparameter deciding how to choose the widths of the Gabor atoms. In the code, we have set this to $0.1 \sqrt{\frac{d_{enc}}{256}}$ where $d_{enc}$ is the per-dimension encoding dimension so half of our actual encoding dimension in the 2D case. This choice was made to avoid an additional hyperparameter but would obviously benefit from tuning. Still, we stick with Gabor features for now.
+		</p>
+
+		<hr class="squiggly-line"/>
+
+		<h2>Improving MLPs</h2>
+
+		<p>
+			We now turn to the three techniques of improving MLPs mentioned earlier, mixture-of-experts, LayerNorm and skip connections. While LayerNorm slightly increases parameter count and skip connections do not, with an MoE MLP we duplicate the entire network. To make this as fair of a comparison as possible, we will simultaneously sweep the other parameters deciding network size.
+		</p>
+
+
+
+
+		<div class="figure_container">
+			<a style="float: left; width: 50%;" data-fancybox="gallery7" href="media/for_post/">
+				<img class="figure" src="media/for_post/"></img>
+			</a>
+			<a style="float: left; width: 50%;" data-fancybox="gallery7" href="media/for_post/">
+				<img class="figure" src="media/for_post/"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> TODO.
+		</div>
 
 
 	</section>
