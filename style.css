@@ -141,6 +141,10 @@ h1 {
 }
 
 /* Custom background colors for individual papers */
+#imitation {
+    background-color: #FFE4A3;
+}
+
 #quantization {
     background-color: #BAD3C9;
 }
