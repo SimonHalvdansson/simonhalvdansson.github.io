@@ -194,7 +194,13 @@ for name, m in methods.items():
 # --- Griffin-Lim ----------------------------------------------------------
 if include_griffin:
     mag_spec = spec_transform(y_t.squeeze(1)).abs().to(device)
-    griffin = torchaudio.transforms.GriffinLim(n_fft=SPECTROGRAM_CONFIG['n_fft']).to(device)
+    griffin = torchaudio.transforms.GriffinLim(
+        n_fft=SPECTROGRAM_CONFIG["n_fft"],
+        win_length=SPECTROGRAM_CONFIG["win_length"],
+        hop_length=SPECTROGRAM_CONFIG["hop_length"],
+        window_fn=SPECTROGRAM_CONFIG["window_fn"],
+        power=1,
+    ).to(device)
     with torch.no_grad():
         recon = griffin(mag_spec).cpu()
     recon = recon.unsqueeze(0)
