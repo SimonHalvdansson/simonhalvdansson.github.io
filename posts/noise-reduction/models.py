@@ -69,19 +69,12 @@ class SpectrogramMaskUNet(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.n_fft = N_FFT
-        self.unet = UNet2D(
-            in_channels=1,
-            base_channels=16,
-        )
+        self.unet = UNet2D(in_channels=1, base_channels=16)
         self.register_buffer("window", torch.hann_window(WINDOW_LENGTH))
 
     def forward(self, waveform):
-        if waveform.dim() == 2:
-            waveform = waveform.unsqueeze(1)
-
-        mono = waveform.mean(dim=1, keepdim=True)
         stft = torch.stft(
-            mono.squeeze(1),
+            waveform.squeeze(1),
             n_fft=N_FFT,
             hop_length=HOP_LENGTH,
             win_length=WINDOW_LENGTH,
@@ -91,9 +84,7 @@ class SpectrogramMaskUNet(torch.nn.Module):
         mag = stft.abs()
         mag_in = mag.unsqueeze(1)
         mask = self.unet(mag_in)
-        masked_mag = mag * mask.squeeze(1)
-        phase = torch.angle(stft)
-        masked_stft = torch.polar(masked_mag, phase)
+        masked_stft = stft * mask.squeeze(1)
 
         denoised = torch.istft(
             masked_stft,
@@ -101,7 +92,7 @@ class SpectrogramMaskUNet(torch.nn.Module):
             hop_length=HOP_LENGTH,
             win_length=WINDOW_LENGTH,
             window=self.window,
-            length=mono.shape[-1],
+            length=waveform.shape[-1],
         )
 
         return denoised.unsqueeze(1), mask
@@ -120,12 +111,8 @@ class SpectrogramUNet(torch.nn.Module):
         self.register_buffer("window", torch.hann_window(WINDOW_LENGTH))
 
     def forward(self, waveform):
-        if waveform.dim() == 2:
-            waveform = waveform.unsqueeze(1)
-
-        mono = waveform.mean(dim=1, keepdim=True)
         stft = torch.stft(
-            mono.squeeze(1),
+            waveform.squeeze(1),
             n_fft=N_FFT,
             hop_length=HOP_LENGTH,
             win_length=WINDOW_LENGTH,
@@ -142,7 +129,7 @@ class SpectrogramUNet(torch.nn.Module):
             hop_length=HOP_LENGTH,
             win_length=WINDOW_LENGTH,
             window=self.window,
-            length=mono.shape[-1],
+            length=waveform.shape[-1],
         )
 
         return denoised.unsqueeze(1), out_complex
@@ -156,15 +143,6 @@ class SpectrogramLoss(torch.nn.Module):
         self.win_length = int(win_length)
         self.register_buffer("window", torch.hann_window(self.win_length))
 
-    def _to_mono(self, waveform: torch.Tensor) -> torch.Tensor:
-        if waveform.dim() == 3:
-            return waveform.mean(dim=1)
-        if waveform.dim() == 2:
-            return waveform
-        if waveform.dim() == 1:
-            return waveform.unsqueeze(0)
-        raise ValueError(f"Expected waveform with 1-3 dims, got shape {tuple(waveform.shape)}")
-
     def _stft_mag(self, waveform: torch.Tensor) -> torch.Tensor:
         stft = torch.stft(
             waveform,
@@ -177,8 +155,8 @@ class SpectrogramLoss(torch.nn.Module):
         return stft.abs()
 
     def forward(self, clean: torch.Tensor, denoised: torch.Tensor) -> torch.Tensor:
-        clean_mono = self._to_mono(clean)
-        denoised_mono = self._to_mono(denoised)
+        clean_mono = clean.squeeze(1)
+        denoised_mono = denoised.squeeze(1)
         clean_mag = self._stft_mag(clean_mono)
         denoised_mag = self._stft_mag(denoised_mono)
         return F.l1_loss(denoised_mag, clean_mag)

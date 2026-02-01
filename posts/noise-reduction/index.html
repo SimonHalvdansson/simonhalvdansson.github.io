@@ -65,20 +65,91 @@
 		</div>
 
 		<p>
-			After covering some background and context, we will discuss three STFT U-Net based noise reduction methods which all utilize phase in different ways.
+			After covering some background and context, we will discuss three STFT U-Net based noise reduction methods which all utilize phase in different ways. The goal is not to determine which one is optimal, that is dependent on the specific task, but rather to show that all three work and discuss their respective strengths.
 		</p>
 
 		<hr class="squiggly-line">
 
-		<h2>Short background</h2>
+		<h2>Background</h2>
 
 		<p>
-			The short-time Fourier transform allows us to consider a signal in time and frequency jointly as a 2D matrix of complex numbers. While any vector can be viewed as samples of a signal, any complex matrix (of the correct shape) does not necessarily correspond to a signal. 
+			As to keep the post focused, we will assume the reader has a basic familiarity with the short-time Fourier transform (STFT) and spectrograms as 2D representations of signals which allows simultaneous inspection of the time and frequency contents. A key fact about the STFT is that any signal (vector) has a STFT (2D matrix) but not all 2D matrices (of the correct shape) correspond to a signal. This can be seen as a consequence of the <a target="_blank" href="https://en.wikipedia.org/wiki/Uncertainty_principle">uncertainty principle</a> which puts limits on the time-frequency localization of a signal. 
 		</p>
 
 		<h3>Phase in the STFT</h3>
 		<p>
-			Would like an image here of the phase gradient
+			Since the STFT is complex-valued, it is often visualized via its absolute values, the spectrogram. The role of the phase of the STFT was not clear in the <a href="https://www.sciencedirect.com/science/article/abs/pii/S0167639316300784" target="_blank">early days of time frequency analysis</a>. Indeed, energy is a much more familiar concept and that is determine only by the absolute value of the STFT. Moreover, as <a href="https://arxiv.org/pdf/2006.10579">phase retrieval</a> has shown, knowing spectrogram the phase can be recovered up to a global unimodular factor.
+		</p>
+
+		<p>
+			So what happens if we have a 2D matrix of the correct shape of complex numbers and want to synthesize a signal from it but the phase and/or magnitude are not chosen so that they correspond to an actual signal? Such a matrix is said to be <i>inconsistent</i> but if we still do synthesize a signal by means of the inverse STFT, we do get a signal. What happens is that we implicitly compute the orithogonal projection onto the subspace of consistent matrices, the <a>Gabor projection</a>. This is fine, after all orthogonal projections are the best kind, but the resulting audio signal may sound a little weird to human ears.
+		</p>
+
+		<p>
+			The best way to illustrate this is by an example. A pure sine tone has a sharp frequency concentration and a predictable STFT phase behavior, the phase changes evenly over time. 
+		</p>
+
+		<div class="figure_container">
+			<a data-fancybox="gallery0" href="media/sine.png">
+				<img class="figure" src="media/sine.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> STFT of pure sine tone at 440 Hz visualized as magnitude, phase, and phase gradients.
+		</div>
+		
+		<p>
+			If we take this STFT and randomize the phase and synthesize a signal back, we get a much less nicely structured STFT from the resulting waveform.
+		</p>
+
+		<div class="figure_container">
+			<a data-fancybox="gallery0" href="media/modified_sine.png">
+				<img class="figure" src="media/modified_sine.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> STFT of modified pure sine tone at 440 Hz visualized as magnitude, phase, and phase gradients.
+		</div>
+
+		<p>
+			Here we see that the Gabor projection has changed the magnitude of the STFT as well. The change can also be heard in the following comparison.
+		</p>
+
+		<div class="figure_container_small">
+			<audio style="width: 49%;" controls>
+				<source src="media/pure_sine.wav" type="audio/wav">
+				Your browser does not support the audio element.
+			</audio>
+			<audio style="width: 50%;" controls>
+				<source src="media/modified_sine.wav" type="audio/wav">
+				Your browser does not support the audio element.
+			</audio>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> Pure (left) and modified (right) 440 Hz sine tones.
+		</div>
+
+		<p>
+			Listening to these examples, we hear the same tone but with a weird form of non-pureness in the modified version. It is this type of phase-induced error which we are looking to avoid in this post.
+		</p>
+
+
+		<h3>U-Nets</h3>
+		<p>
+			We are looking to <i>modify</i> the STFT of our input signal. Forgetting about modern diffusion-based image-to-image models for a while, the standard way to do this is via a <a href="https://en.wikipedia.org/wiki/U-Net" target="_blank">U-Net</a>. 
+		</p>
+
+		<div class="figure_container_small">
+			<a data-fancybox="gallery0" href="media/unet.png">
+				<img class="figure" src="media/unet.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> Illustration of the general structure of U-Net, from  <a href="https://github.com/ted-17/unet" target="_blank">ted-17 / unet</a>.
+		</div>
+
+		<p>
+			This architecture is more than 10 years old and should be considered a commodity by now. We will not go into any details and instead consider it as an image-to-image black box.
 		</p>
 
 		<hr class="squiggly-line">
@@ -102,8 +173,101 @@
 		<h2>Take 1: Time-frequency multiplier</h2>
 
 		<p>
-			As mentioned in the introduction, the simplest version of this idea is to multiply 
+			If we want to attack noise reduction using machine learning using we need to identify the loss function we wish to train using. While mean squared error (MSE) is a tried and true method, it has a clear disadvantage when it comes to audio tasks: The human ear does not hear (waveform) phase. For example, we cannot distinguish between $f$ and $-f$, yet $\operatorname{MSE}(f, -f) > 0$. There is a classical <a href="https://www.soundsandwords.io/audio-loss-functions/" target="_blank">blog post</a> by Evan Radkoff on loss functions in Audio ML with many details and suggestions but we will settle with just looking at the spectrogram $L^1$ distance, defined as $\Vert \operatorname{SPEC}(f) - \operatorname{SPEC}(g) \Vert_{L^1}$. This loss function is phase invariant and easy to understand; we want to match the time-frequency distribution of the energy. 
 		</p>
+
+		<p>
+			Now in this simplest version of noise reduction, the U-Net will only act to modify the magntudes of the STFT and only take the magnitudes as input data to the U-Net. This means that, with $V_g f$ the STFT and $V_g f^*$ the inverse STFT, the pipeline can be written as
+		</p>
+			<div class="equation">
+				$
+				V_g^* \big(\operatorname{U-Net}( |V_gf|) \cdot V_g f\big) = A_g^{\operatorname{U-Net}( |V_gf| )} f
+				$
+			</div>
+		<p>
+			where $A_g^m$ is a so-called <i>Gabor multiplier</i> with mask $m$. While Gabor multipliers are nicely behaved linear maps, U-Nets very much are not, which is the whole point. 
+		</p>
+
+		<p>
+			Programmatically, we can write this model as follows:
+		</p>
+
+<pre><code class="language-py">class SpectrogramMaskUNet(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.n_fft = N_FFT
+        self.unet = UNet2D(in_channels=1, base_channels=16)
+        self.register_buffer("window", torch.hann_window(WINDOW_LENGTH))
+
+    def forward(self, waveform):
+        stft = torch.stft(
+            waveform.squeeze(1),
+            n_fft=N_FFT,
+            hop_length=HOP_LENGTH,
+            win_length=WINDOW_LENGTH,
+            window=self.window,
+            return_complex=True,
+        )
+        mag = stft.abs()
+        mag_in = mag.unsqueeze(1)
+        mask = self.unet(mag_in)
+        masked_stft = stft * mask.squeeze(1)
+
+        denoised = torch.istft(
+            masked_stft,
+            n_fft=N_FFT,
+            hop_length=HOP_LENGTH,
+            win_length=WINDOW_LENGTH,
+            window=self.window,
+            length=waveform.shape[-1],
+        )
+
+        return denoised.unsqueeze(1), mask
+</code></pre>
+
+		<p>
+			Training for a few epochs, we get acceptable performance such as in the following example.
+		</p>
+
+		<div class="figure_container">
+			<a data-fancybox="gallery0" href="media/mask_output/denoise_compare.png">
+				<img class="figure" src="media/mask_output/denoise_compare.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> text
+		</div>
+
+		<p>
+			The audio for this particular example can be played here.
+		</p>
+
+		<div class="figure_container_small">
+			<audio style="width: 32%;" controls>
+				<source src="media/mask_output/clean.wav" type="audio/wav">
+				Your browser does not support the audio element.
+			</audio>
+			<audio style="width: 33%;" controls>
+				<source src="media/mask_output/noisy.wav" type="audio/wav">
+				Your browser does not support the audio element.
+			</audio>
+			<audio style="width: 33%;" controls>
+				<source src="media/mask_output/denoised.wav" type="audio/wav">
+				Your browser does not support the audio element.
+			</audio>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> Clean (left), noisy (middle) denoised (right).
+		</div>
+
+		<div class="figure_container_small">
+			<a data-fancybox="gallery0" href="media/mask_output/loss_curve.png">
+				<img class="figure" src="media/mask_output/loss_curve.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> Loss curve (smoothened) during training of masked spectrogram U-Net.
+		</div>
 
 
 	</section>

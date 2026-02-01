@@ -69,6 +69,7 @@ class CommonVoiceRandomSegmentDataset(torch.utils.data.Dataset):
         if waveform is None:
             raise RuntimeError("Failed to load audio after multiple attempts") from last_error
 
+        waveform = waveform.mean(dim=0, keepdim=True)
         target_samples = int(self.segment_seconds * sample_rate)
 
         num_samples = waveform.shape[1]
@@ -97,7 +98,7 @@ class CommonVoiceRandomSegmentDataset(torch.utils.data.Dataset):
 
 
 if __name__ == "__main__":
-    use_complex_unet = True
+    use_complex_unet = False
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     output_dir = Path("media/complex_output" if use_complex_unet else "media/mask_output")
     LOSS_PLOT_PATH = output_dir / "loss_curve.png"
@@ -154,9 +155,9 @@ if __name__ == "__main__":
 
             if step % 300 == 0:
                 plot_loss_curve(loss_steps, loss_values, LOSS_PLOT_PATH)
-                sample_noisy = noisy.mean(dim=1, keepdim=True)[0, 0].detach().cpu()
-                sample_denoised = denoised.mean(dim=1, keepdim=True)[0, 0].detach().cpu()
-                sample_clean = clean.mean(dim=1, keepdim=True)[0, 0].detach().cpu()
+                sample_noisy = noisy[0, 0].detach().cpu()
+                sample_denoised = denoised[0, 0].detach().cpu()
+                sample_clean = clean[0, 0].detach().cpu()
                 if use_complex_unet:
                     sample_mag = model_out.abs()[0].detach().cpu()
                     mag_min = sample_mag.min()
@@ -196,9 +197,9 @@ if __name__ == "__main__":
         noisy = noisy.to(device)
         denoised, model_out = model(noisy)
 
-        clean_mono = clean.mean(dim=1, keepdim=True)[0, 0].detach().cpu()
-        noisy_mono = noisy.mean(dim=1, keepdim=True)[0, 0].detach().cpu()
-        denoised_mono = denoised.mean(dim=1, keepdim=True)[0, 0].detach().cpu()
+        clean_mono = clean[0, 0].detach().cpu()
+        noisy_mono = noisy[0, 0].detach().cpu()
+        denoised_mono = denoised[0, 0].detach().cpu()
         if use_complex_unet:
             mask_mono = model_out.abs()[0].detach().cpu()
             mag_min = mask_mono.min()

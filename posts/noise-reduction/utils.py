@@ -50,10 +50,7 @@ def save_spectrogram_image(waveform, spec_path: Path, sample_rate: int | None = 
     spec_path = Path(spec_path)
     spec_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if waveform.dim() == 2:
-        mono = waveform.mean(dim=0)
-    else:
-        mono = waveform
+    mono = waveform.squeeze(0)
 
     window = torch.hann_window(WINDOW_LENGTH)
     spec = torch.stft(
