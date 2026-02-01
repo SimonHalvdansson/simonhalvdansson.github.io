@@ -27,8 +27,8 @@ def save_audio(name, audio, sample_rate):
 
 # --- Configuration ---------------------------------------------------------
 # Audio file and method toggles
-audio_name =        "jazz"
-audio_filetype =    ".mp3"
+audio_name =        "beepboop"
+audio_filetype =    ".wav"
 audio_file =        audio_name + audio_filetype    # Path to input audio
 seconds_to_include = 1
 freq_bins_max_plot = 40

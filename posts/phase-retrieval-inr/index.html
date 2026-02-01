@@ -230,7 +230,7 @@ for ep in pbar:
 	</p>
 
 	<p>
-		First we look at a very simple audio clip with isolated pure tones of varying frequency. In this simple case the SIREN model significantly outperforms the two baselines.
+		First we look at a very simple audio clip with isolated pure tones of varying frequency. In this simple case the SIREN model performs similarly to Griffin-Lim.
 	</p>
 	
 	<div class="result_group">
@@ -296,7 +296,7 @@ for ep in pbar:
 	</div>
 
 	<p>
-		Here the defects are more clearly noticeable yet smaller in the case of the SIREN model. A larger model or a shorter audio clip would likely have improved the results further.
+		Here the SIREN model outperforms both baselines, at least by a small margin. Further hyperparameter tweaking likely would improve SIREN additionally, while Griffin-Lim has hit the limits of what it can do.
 	</p>
 
 	<hr class="squiggly-line">
@@ -304,7 +304,11 @@ for ep in pbar:
 	<h2>Discussion</h2>
 
 	<p>
-		We have seen that the SIREN-based network generally performs better than both pure complex gradient descent and the Griffin-Lim algorithm. It is also much faster to train and can better utilize hardware acceleration by virtue of doing more matrix multiplications and fewer fast Fourier transforms behind the scenes. For implementation details see the <a href="https://github.com/SimonHalvdansson/simonhalvdansson.github.io/tree/master/posts/phase-retrieval-inr">GitHub folder</a> for this post.
+		We have seen that the SIREN-based network can outperform both pure complex gradient descent and the Griffin-Lim algorithm. It is also much faster to train and can better utilize hardware acceleration by virtue of doing more matrix multiplications and fewer fast Fourier transforms behind the scenes. For implementation details see the <a href="https://github.com/SimonHalvdansson/simonhalvdansson.github.io/tree/master/posts/phase-retrieval-inr">GitHub folder</a> for this post.
+	</p>
+
+	<p>
+		Note: A previous version of this post contained a misconfigured Griffin-Lim implementation. In this updated version SIREN can still outperform it but the win is not as clear. The fact that the SIREN is largely untuned makes the win remarkable still. This will be investigated further in future work.
 	</p>
 
 	</section>
