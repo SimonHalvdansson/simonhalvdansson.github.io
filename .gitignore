@@ -3,3 +3,4 @@
 .vscode/settings.json
 *.pt
 *.pyc
+posts/noise-reduction/data/
