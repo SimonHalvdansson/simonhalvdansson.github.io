@@ -2,6 +2,7 @@ import wave
 from pathlib import Path
 
 import matplotlib
+import numpy as np
 import torch
 import torch.nn.functional as F
 
@@ -21,8 +22,9 @@ def load_audio(path: Path):
     return waveform, sample_rate
 
 
-def normalize_waveform(waveform):
-    return waveform / waveform.pow(2).mean(dim=1, keepdim=True).sqrt()
+def normalize_waveform(waveform, eps: float = 1e-8):
+    # Avoid division by zero on silent/padded segments.
+    return waveform / (waveform.pow(2).mean(dim=1, keepdim=True).sqrt() + eps)
 
 
 def save_wav(waveform, sample_rate, wav_path: Path):
@@ -178,6 +180,7 @@ def plot_denoise_comparison(
     sample_rate: int,
     path: Path,
     mask_title: str = "Mask (0-1)",
+    model_type: str = "mask",
 ):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -203,13 +206,21 @@ def plot_denoise_comparison(
     mask_np = mask.cpu().numpy()
     if mask_np.ndim == 3:
         mask_np = mask_np[0]
+    if model_type == "2channel":
+        vmin = None
+        vmax = None
+        cmap = "magma"
+    else:
+        vmin, vmax = 0.0, 1.0
+        cmap = "viridis"
+
     axes[1, 1].imshow(
         mask_np,
         origin="lower",
         aspect="auto",
-        cmap="viridis",
-        vmin=0.0,
-        vmax=1.0,
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
         extent=extent,
     )
     axes[1, 1].set_title(mask_title)

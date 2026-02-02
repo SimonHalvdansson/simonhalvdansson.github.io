@@ -6,7 +6,7 @@ import os
 import torch
 from tqdm import tqdm
 
-from models import SpectrogramLoss, SpectrogramMaskUNet, SpectrogramUNet
+from models import SpectrogramLoss, SpectrogramMaskUNet, Spectrogram2ChannelUNet
 from utils import (
     load_audio,
     normalize_waveform,
@@ -96,30 +96,33 @@ class CommonVoiceRandomSegmentDataset(torch.utils.data.Dataset):
         return clean, noisy, sample_rate
 
 
-
 if __name__ == "__main__":
-    use_complex_unet = False
+    model_type = "2channel"
+
+    max_epochs = 200
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    output_dir = Path("media/complex_output" if use_complex_unet else "media/mask_output")
+    if model_type in {"mask", "2channel"}:
+        output_dir = Path(f"media/{model_type}_output")
+    else:
+        raise ValueError(f"Unknown model_type '{model_type}'. Use 'mask' or '2channel'.")
     LOSS_PLOT_PATH = output_dir / "loss_curve.png"
     RESULT_PLOT_PATH = output_dir / "denoise_compare.png"
     CLEAN_WAV_PATH = output_dir / "clean.wav"
     NOISY_WAV_PATH = output_dir / "noisy.wav"
     DENOISED_WAV_PATH = output_dir / "denoised.wav"
     dataset = CommonVoiceRandomSegmentDataset(split="train")
-    num_workers = min(8, max(2, (os.cpu_count() or 4) // 2))
     loader = torch.utils.data.DataLoader(
         dataset,
         batch_size=16,
         shuffle=True,
-        num_workers=num_workers,
+        num_workers=min(8, max(2, (os.cpu_count() or 4) // 2)),
         prefetch_factor=2,
         persistent_workers=True,
         pin_memory=torch.cuda.is_available(),
         collate_fn=pad_collate,
     )
 
-    model = (SpectrogramUNet() if use_complex_unet else SpectrogramMaskUNet()).to(device)
+    model = (Spectrogram2ChannelUNet() if model_type == "2channel" else SpectrogramMaskUNet()).to(device)
     loss_fn = SpectrogramLoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
@@ -128,8 +131,8 @@ if __name__ == "__main__":
     loss_values = []
 
     model.train()
-    for epoch in range(200):
-        progress = tqdm(total=len(dataset), desc=f"Epoch ({epoch + 1}/20)", unit="clip")
+    for epoch in range(max_epochs):
+        progress = tqdm(total=len(dataset), desc=f"Epoch ({epoch + 1}/{max_epochs})", unit="clip")
         epoch_loss_total = 0.0
         epoch_loss_count = 0
         for clean, noisy, sample_rates in loader:
@@ -158,29 +161,25 @@ if __name__ == "__main__":
                 sample_noisy = noisy[0, 0].detach().cpu()
                 sample_denoised = denoised[0, 0].detach().cpu()
                 sample_clean = clean[0, 0].detach().cpu()
-                if use_complex_unet:
-                    sample_mag = model_out.abs()[0].detach().cpu()
-                    mag_min = sample_mag.min()
-                    mag_max = sample_mag.max()
-                    if (mag_max - mag_min) > 1e-8:
-                        sample_mag = (sample_mag - mag_min) / (mag_max - mag_min)
-                    else:
-                        sample_mag = torch.zeros_like(sample_mag)
-                    mask_panel = sample_mag
-                    mask_title = "Output magnitude (norm)"
+                if model_type == "2channel":
+                    output_mag = model_out.abs()[0].detach().cpu()
+                    output_mag_db = 20.0 * torch.log10(output_mag.clamp_min(1e-8))
+                    panel_data = output_mag_db
+                    mask_title = "Output magnitude (dB)"
                 else:
-                    mask_panel = model_out[0, 0].detach().cpu()
+                    panel_data = model_out[0, 0].detach().cpu()
                     mask_title = "Mask (0-1)"
                 sample_rate = int(sample_rates[0])
                 plot_denoise_comparison(
                     sample_noisy,
                     sample_denoised,
                     sample_clean,
-                    mask_panel,
+                    panel_data,
                     model.window.detach().cpu(),
                     sample_rate,
                     RESULT_PLOT_PATH,
                     mask_title=mask_title,
+                    model_type=model_type,
                 )
                 save_wav(sample_noisy, sample_rate, NOISY_WAV_PATH)
                 save_wav(sample_clean, sample_rate, CLEAN_WAV_PATH)
@@ -200,17 +199,12 @@ if __name__ == "__main__":
         clean_mono = clean[0, 0].detach().cpu()
         noisy_mono = noisy[0, 0].detach().cpu()
         denoised_mono = denoised[0, 0].detach().cpu()
-        if use_complex_unet:
-            mask_mono = model_out.abs()[0].detach().cpu()
-            mag_min = mask_mono.min()
-            mag_max = mask_mono.max()
-            if (mag_max - mag_min) > 1e-8:
-                mask_mono = (mask_mono - mag_min) / (mag_max - mag_min)
-            else:
-                mask_mono = torch.zeros_like(mask_mono)
-            mask_title = "Output magnitude (norm)"
+        if model_type == "2channel":
+            panel_data = model_out.abs()[0].detach().cpu()
+            panel_data = 20.0 * torch.log10(panel_data.clamp_min(1e-8))
+            mask_title = "Output magnitude (dB)"
         else:
-            mask_mono = model_out[0, 0].detach().cpu()
+            panel_data = model_out[0, 0].detach().cpu()
             mask_title = "Mask (0-1)"
         sample_rate = int(sample_rates[0])
 
@@ -218,11 +212,12 @@ if __name__ == "__main__":
         noisy_mono,
         denoised_mono,
         clean_mono,
-        mask_mono,
+        panel_data,
         model.window.detach().cpu(),
         sample_rate,
         RESULT_PLOT_PATH,
         mask_title=mask_title,
+        model_type=model_type,
     )
     save_wav(noisy_mono, sample_rate, NOISY_WAV_PATH)
     save_wav(clean_mono, sample_rate, CLEAN_WAV_PATH)

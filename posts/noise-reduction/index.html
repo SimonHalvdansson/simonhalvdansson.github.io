@@ -76,7 +76,7 @@
 			As to keep the post focused, we will assume the reader has a basic familiarity with the short-time Fourier transform (STFT) and spectrograms as 2D representations of signals which allows simultaneous inspection of the time and frequency contents. A key fact about the STFT is that any signal (vector) has a STFT (2D matrix) but not all 2D matrices (of the correct shape) correspond to a signal. This can be seen as a consequence of the <a target="_blank" href="https://en.wikipedia.org/wiki/Uncertainty_principle">uncertainty principle</a> which puts limits on the time-frequency localization of a signal. 
 		</p>
 
-		<h3>Phase in the STFT</h3>
+		<h3 id="phase_background">Phase in the STFT</h3>
 		<p>
 			Since the STFT is complex-valued, it is often visualized via its absolute values, the spectrogram. The role of the phase of the STFT was not clear in the <a href="https://www.sciencedirect.com/science/article/abs/pii/S0167639316300784" target="_blank">early days of time frequency analysis</a>. Indeed, energy is a much more familiar concept and that is determine only by the absolute value of the STFT. Moreover, as <a href="https://arxiv.org/pdf/2006.10579">phase retrieval</a> has shown, knowing spectrogram the phase can be recovered up to a global unimodular factor.
 		</p>
@@ -112,7 +112,7 @@
 		</div>
 
 		<p>
-			Here we see that the Gabor projection has changed the magnitude of the STFT as well. The change can also be heard in the following comparison.
+			Here we see that the Gabor projection has changed the magnitude of the STFT as well, even though it is only tha phases we changed. The phase gradients are a lot less even which is the main takeaway. The change can be heard in the following comparison.
 		</p>
 
 		<div class="figure_container_small">
@@ -149,8 +149,69 @@
 		</div>
 
 		<p>
-			This architecture is more than 10 years old and should be considered a commodity by now. We will not go into any details and instead consider it as an image-to-image black box.
+			This architecture is more than 10 years old and should be considered a commodity by now. We reproduce the version used here below for reference.
 		</p>
+
+		<pre><code class="language-py">class ConvBlock(torch.nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.net = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            torch.nn.ReLU(inplace=True),
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+
+class UNet2D(torch.nn.Module):
+    def __init__(self, in_channels=1, base_channels=16, out_channels=1, use_sigmoid=True):
+        super().__init__()
+        self.enc1 = ConvBlock(in_channels, base_channels)
+        self.enc2 = ConvBlock(base_channels, base_channels * 2)
+        self.enc3 = ConvBlock(base_channels * 2, base_channels * 4)
+        self.enc4 = ConvBlock(base_channels * 4, base_channels * 8)
+        self.bottleneck = ConvBlock(base_channels * 8, base_channels * 16)
+
+        self.pool = torch.nn.MaxPool2d(2)
+
+        self.dec4 = ConvBlock(base_channels * 16 + base_channels * 8, base_channels * 8)
+        self.dec3 = ConvBlock(base_channels * 8 + base_channels * 4, base_channels * 4)
+        self.dec2 = ConvBlock(base_channels * 4 + base_channels * 2, base_channels * 2)
+        self.dec1 = ConvBlock(base_channels * 2 + base_channels, base_channels)
+
+        self.out_conv = torch.nn.Conv2d(base_channels, out_channels, kernel_size=1)
+        self.use_sigmoid = use_sigmoid
+
+    def _upsample_to(self, x, target):
+        return F.interpolate(x, size=target.shape[-2:], mode="nearest")
+
+    def forward(self, x):
+        e1 = self.enc1(x)
+        e2 = self.enc2(self.pool(e1))
+        e3 = self.enc3(self.pool(e2))
+        e4 = self.enc4(self.pool(e3))
+        b = self.bottleneck(self.pool(e4))
+
+        d4 = self._upsample_to(b, e4)
+        d4 = self.dec4(torch.cat([d4, e4], dim=1))
+
+        d3 = self._upsample_to(d4, e3)
+        d3 = self.dec3(torch.cat([d3, e3], dim=1))
+
+        d2 = self._upsample_to(d3, e2)
+        d2 = self.dec2(torch.cat([d2, e2], dim=1))
+
+        d1 = self._upsample_to(d2, e1)
+        d1 = self.dec1(torch.cat([d1, e1], dim=1))
+
+        output = self.out_conv(d1)
+        if self.use_sigmoid:
+            output = torch.sigmoid(output)
+        return output
+</code></pre>
 
 		<hr class="squiggly-line">
 
@@ -235,14 +296,18 @@
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure:</span> text
+			<span class="caption_title">Figure:</span> Spectrograms and the mask of a denoising process. The noisy spectrogram is the input of the U-Net and the mask is the output.
 		</div>
+
+		<p>
+			Here the mask itself almost looks like a spectrogram because it has identified the specific parts where the actual audio is coming in. The clean spectrogram is also not entirely noise free in this example which most likely is limiting the learning potential of the network. Still, the general principle of there being many ways to be wrong but only one to be right applies here and the denoised version appears to have gotten rid of at least some of the higher frequency artifacts of the clean version.
+		</p>
 
 		<p>
 			The audio for this particular example can be played here.
 		</p>
 
-		<div class="figure_container_small">
+		<div class="figure_container">
 			<audio style="width: 32%;" controls>
 				<source src="media/mask_output/clean.wav" type="audio/wav">
 				Your browser does not support the audio element.
@@ -260,6 +325,10 @@
 			<span class="caption_title">Figure:</span> Clean (left), noisy (middle) denoised (right).
 		</div>
 
+		<p>
+			Below is the loss curve for this training run.
+		</p>
+
 		<div class="figure_container_small">
 			<a data-fancybox="gallery0" href="media/mask_output/loss_curve.png">
 				<img class="figure" src="media/mask_output/loss_curve.png"></img>
@@ -268,6 +337,99 @@
 		<div class="figure_caption">
 			<span class="caption_title">Figure:</span> Loss curve (smoothened) during training of masked spectrogram U-Net.
 		</div>
+
+		<p>
+			Here we see a relatively quick plateau. Most likely this is due to the task being simple due to there only being white noise and the presence of noise in the target waveforms as well.
+		</p>
+
+		<p>
+			Note that since we have not changed the phase of the noisy spectrogram, we subject to the noisy phase messing up the resulting signal in the same way as we illustrated <a href="#phase_background">earlier</a>. This is a clear limitation but in return we get a method which is very structured. By forcing the output to use the phase data from the original noisy output and capping the mask at $1$ we place limits on how much we can diverge from the original (noisy) input signal. This can be valuable due to the high explainability of this method. In this next method, we trade some of this explainability for expressiveness.
+		</p>
+
+		<hr class="squiggly-line">
+
+		<h2>Take 2: 2-channel complex STFT prediction</h2>
+
+		<p>
+			One way to lift the limitations just discussed with the masking approach is to give up the multiplicative formulation. Specifically, we can let a U-Net map the noisy STFT to a 2D matrix of complex numbers of the same shape and then synthesize a signal from that. By doing so, we move away from the time-frequency structured approach of the earlier method and take a step towards an end-to-end solution.
+		</p>
+
+		<p>
+			By doing this, we are letting the phases into the U-Net directly. There are a few different ways to go about this. Perhaps the simplest one is to let the U-Net map to and from an image with 2 channels (real + imaginary, or magnitude + phase). Predicting phase in $[-\pi, \pi]$ is difficult due to the wrapping behavior so we go with the continuous approach of predicting real and imaginary values as two channels.
+		</p>
+
+		<p>
+			The only modifications needed on the model side is to <i>not</i> apply sigmoid activation to the last layer of the U-Net and to encode/decode complex numbers in two channels.
+		</p>
+
+<pre><code class="language-py">class Spectrogram2ChannelUNet(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.n_fft = N_FFT
+        self.unet = UNet2D(
+            in_channels=2,
+            base_channels=16,
+            out_channels=2,
+            use_sigmoid=False,
+        )
+        self.register_buffer("window", torch.hann_window(WINDOW_LENGTH))
+
+    def forward(self, waveform):
+        stft = torch.stft(
+            waveform.squeeze(1),
+            n_fft=N_FFT,
+            hop_length=HOP_LENGTH,
+            win_length=WINDOW_LENGTH,
+            window=self.window,
+            return_complex=True,
+        )
+        stft_in = torch.stack([stft.real, stft.imag], dim=1)
+        stft_out = self.unet(stft_in)
+        out_complex = torch.complex(stft_out[:, 0], stft_out[:, 1])
+
+        denoised = torch.istft(
+            out_complex,
+            n_fft=N_FFT,
+            hop_length=HOP_LENGTH,
+            win_length=WINDOW_LENGTH,
+            window=self.window,
+            length=waveform.shape[-1],
+        )
+
+        return denoised.unsqueeze(1), out_complex
+</code></pre>
+
+<div class="figure_container">
+			<a data-fancybox="gallery0" href="media/2channel_output/denoise_compare.png">
+				<img class="figure" src="media/2channel_output/denoise_compare.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> Example 
+		</div>
+
+		<p>
+			Text
+		</p>
+
+		<div class="figure_container">
+			<audio style="width: 32%;" controls>
+				<source src="media/2channel_output/clean.wav" type="audio/wav">
+				Your browser does not support the audio element.
+			</audio>
+			<audio style="width: 33%;" controls>
+				<source src="media/2channel_output/noisy.wav" type="audio/wav">
+				Your browser does not support the audio element.
+			</audio>
+			<audio style="width: 33%;" controls>
+				<source src="media/2channel_output/denoised.wav" type="audio/wav">
+				Your browser does not support the audio element.
+			</audio>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> Clean (left), noisy (middle) denoised (right).
+		</div>
+
 
 
 	</section>

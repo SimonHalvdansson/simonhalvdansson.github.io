@@ -36,7 +36,7 @@ class UNet2D(torch.nn.Module):
         self.dec1 = ConvBlock(base_channels * 2 + base_channels, base_channels)
 
         self.out_conv = torch.nn.Conv2d(base_channels, out_channels, kernel_size=1)
-        self.use_sigmoid = bool(use_sigmoid)
+        self.use_sigmoid = use_sigmoid
 
     def _upsample_to(self, x, target):
         return F.interpolate(x, size=target.shape[-2:], mode="nearest")
@@ -98,7 +98,7 @@ class SpectrogramMaskUNet(torch.nn.Module):
         return denoised.unsqueeze(1), mask
 
 
-class SpectrogramUNet(torch.nn.Module):
+class Spectrogram2ChannelUNet(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.n_fft = N_FFT
