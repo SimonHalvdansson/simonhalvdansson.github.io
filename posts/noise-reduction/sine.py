@@ -6,7 +6,7 @@ from scipy.signal import stft, istft
 
 
 def phase_gradient(phi, axis):
-    """Compute wrapped phase gradient along an axis."""
+    """Compute wrapped phase_gradient along an axis."""
     d = np.diff(phi, axis=axis)
     return np.angle(np.exp(1j * d))
 
@@ -24,7 +24,7 @@ def plot_stft(f, tt, Zxx, *, title_prefix, out_path, ylim=(0, 1000)):
     hsv = np.stack([hue, np.ones_like(hue), mag_norm], axis=-1)
     rgb_phase = hsv_to_rgb(hsv)
 
-    # Calculate Phase Gradients
+    # Calculate phase_gradients
     grad_t = phase_gradient(phi, axis=1)
     grad_f = phase_gradient(phi, axis=0)
 
@@ -64,7 +64,7 @@ def plot_stft(f, tt, Zxx, *, title_prefix, out_path, ylim=(0, 1000)):
     # Now shows only the energy-bearing components
     axs[1, 0].imshow(rgba_t, origin='lower', aspect='auto',
                      extent=[tt[1], tt[-1], f[0], f[-1]])
-    axs[1, 0].set_title(f'{title_prefix} Phase Gradient (time axis - Masked)')
+    axs[1, 0].set_title(f'{title_prefix} phase_gradient (time axis - Masked)')
     axs[1, 0].set_xlabel('Time [s]')
     axs[1, 0].set_ylabel('Frequency [Hz]')
     axs[1, 0].set_ylim(*ylim)
@@ -73,7 +73,7 @@ def plot_stft(f, tt, Zxx, *, title_prefix, out_path, ylim=(0, 1000)):
     # Now shows only the energy-bearing components
     axs[1, 1].imshow(rgba_f, origin='lower', aspect='auto',
                      extent=[tt[0], tt[-1], f[1], f[-1]])
-    axs[1, 1].set_title(f'{title_prefix} Phase Gradient (frequency axis - Masked)')
+    axs[1, 1].set_title(f'{title_prefix} phase_gradient (frequency axis - Masked)')
     axs[1, 1].set_xlabel('Time [s]')
     axs[1, 1].set_ylim(*ylim)
 

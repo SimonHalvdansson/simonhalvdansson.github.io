@@ -476,6 +476,19 @@ h1 {
     overflow: hidden;
 }
 
+.blog .audio_group {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.blog .audio_group audio {
+    flex: 1 1 200px;
+    min-width: 200px;
+}
+
 .blog .figure_container a, .blog .figure_container_small a {
     border-bottom: none;
 }
@@ -708,6 +721,14 @@ h1 {
         padding-right: 12px;
         padding-top: 4px;
         padding-bottom: 14px;
+    }
+
+    .blog .audio_group {
+        flex-direction: column;
+    }
+
+    .blog .audio_group audio {
+        min-width: 100%;
     }
 
     .blog .figure_caption {

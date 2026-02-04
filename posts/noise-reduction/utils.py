@@ -7,7 +7,9 @@ import torch
 import torch.nn.functional as F
 
 matplotlib.use("Agg")
+from typing import Optional
 import matplotlib.pyplot as plt
+from matplotlib.colors import hsv_to_rgb
 
 N_FFT = 1024
 HOP_LENGTH = 256
@@ -158,6 +160,39 @@ def plot_loss_curve(steps, losses, path: Path, ma_window: int = 50, long_ma_wind
     plt.close(fig)
 
 
+def plot_simple_loss_curve(losses, path: Path, title: str = "Gradient Integration Loss", y_label: str = "Loss"):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    fig = plt.figure(figsize=(6, 4), layout="constrained")
+    ax = fig.add_subplot(1, 1, 1)
+    ax.plot(range(1, len(losses) + 1), losses, color="#1f77b4", linewidth=1.5)
+    ax.set_yscale("log")
+    ax.yaxis.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.4)
+    ax.set_xlabel("Iteration")
+    ax.set_ylabel(y_label)
+    ax.set_title(title)
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
+def phase_hsv_rgb(phase: torch.Tensor, mag: torch.Tensor) -> np.ndarray:
+    phase_np = phase.detach().cpu().numpy()
+    mag_np = mag.detach().cpu().numpy()
+    mag_db = 20.0 * np.log10(mag_np + 1e-8)
+    mag_min = mag_db.min()
+    mag_max = mag_db.max()
+    if mag_max - mag_min < 1e-8:
+        mag_norm = np.zeros_like(mag_db)
+    else:
+        mag_norm = (mag_db - mag_min) / (mag_max - mag_min)
+    # Wrap phase to [-pi, pi] to keep HSV hue in [0, 1).
+    phase_wrapped = np.arctan2(np.sin(phase_np), np.cos(phase_np))
+    hue = (phase_wrapped + np.pi) / (2.0 * np.pi)
+    hsv = np.stack([hue, np.ones_like(hue), mag_norm], axis=-1)
+    return hsv_to_rgb(hsv)
+
+
 def compute_spec_db(waveform: torch.Tensor, window: torch.Tensor):
     spec = torch.stft(
         waveform,
@@ -181,6 +216,8 @@ def plot_denoise_comparison(
     path: Path,
     mask_title: str = "Mask (0-1)",
     model_type: str = "mask",
+    phase_pred_rgb: Optional[np.ndarray] = None,
+    phase_gabor_rgb: Optional[np.ndarray] = None,
 ):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -193,8 +230,13 @@ def plot_denoise_comparison(
     x_max = min(2.0, duration)
     extent = [0.0, duration, 0.0, float(sample_rate) / 2000.0]
 
-    fig = plt.figure(figsize=(12, 7), layout="constrained")
-    axes = fig.subplots(2, 2, sharex=True)
+    use_phase_plots = model_type == "phase_gradient" and phase_pred_rgb is not None and phase_gabor_rgb is not None
+    if use_phase_plots:
+        fig = plt.figure(figsize=(18, 7), layout="constrained")
+        axes = fig.subplots(2, 3, sharex=True)
+    else:
+        fig = plt.figure(figsize=(12, 7), layout="constrained")
+        axes = fig.subplots(2, 2, sharex=True)
 
     im0 = axes[0, 0].imshow(noisy_spec, origin="lower", aspect="auto", cmap="magma", extent=extent)
     axes[0, 0].set_title("Noisy Spectrogram (dB)")
@@ -206,7 +248,7 @@ def plot_denoise_comparison(
     mask_np = mask.cpu().numpy()
     if mask_np.ndim == 3:
         mask_np = mask_np[0]
-    if model_type == "2channel":
+    if model_type in {"2channel", "phase_gradient"}:
         vmin = None
         vmax = None
         cmap = "magma"
@@ -225,8 +267,17 @@ def plot_denoise_comparison(
     )
     axes[1, 1].set_title(mask_title)
 
+    if use_phase_plots:
+        axes[0, 2].imshow(phase_gabor_rgb, origin="lower", aspect="auto", extent=extent)
+        axes[0, 2].set_title("Phase After Gabor Projection (HSV, log-mag weighted)")
+        axes[1, 2].imshow(phase_pred_rgb, origin="lower", aspect="auto", extent=extent)
+        axes[1, 2].set_title("Predicted Phase (HSV, log-mag weighted)")
+
     axes[0, 1].sharey(axes[0, 0])
     axes[1, 0].sharey(axes[0, 0])
+    if use_phase_plots:
+        axes[0, 2].sharey(axes[0, 0])
+        axes[1, 2].sharey(axes[0, 0])
 
     for ax in axes[1, :]:
         ax.set_xlabel("Time (s)")

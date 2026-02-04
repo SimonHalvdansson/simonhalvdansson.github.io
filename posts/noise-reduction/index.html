@@ -73,16 +73,16 @@
 		<h2>Background</h2>
 
 		<p>
-			As to keep the post focused, we will assume the reader has a basic familiarity with the short-time Fourier transform (STFT) and spectrograms as 2D representations of signals which allows simultaneous inspection of the time and frequency contents. A key fact about the STFT is that any signal (vector) has a STFT (2D matrix) but not all 2D matrices (of the correct shape) correspond to a signal. This can be seen as a consequence of the <a target="_blank" href="https://en.wikipedia.org/wiki/Uncertainty_principle">uncertainty principle</a> which puts limits on the time-frequency localization of a signal. 
+			To keep the post focused, we will assume the reader has a basic familiarity with the short-time Fourier transform (STFT) and spectrograms as 2D representations of signals which allows simultaneous inspection of the time and frequency contents. A key fact about the STFT is that any signal (vector) has a STFT (2D matrix) but not all 2D matrices (of the correct shape) correspond to a signal. This can be seen as a consequence of the <a target="_blank" href="https://en.wikipedia.org/wiki/Uncertainty_principle">uncertainty principle</a> which puts limits on the time-frequency localization of a signal. 
 		</p>
 
 		<h3 id="phase_background">Phase in the STFT</h3>
 		<p>
-			Since the STFT is complex-valued, it is often visualized via its absolute values, the spectrogram. The role of the phase of the STFT was not clear in the <a href="https://www.sciencedirect.com/science/article/abs/pii/S0167639316300784" target="_blank">early days of time frequency analysis</a>. Indeed, energy is a much more familiar concept and that is determine only by the absolute value of the STFT. Moreover, as <a href="https://arxiv.org/pdf/2006.10579">phase retrieval</a> has shown, knowing spectrogram the phase can be recovered up to a global unimodular factor.
+			Since the STFT is complex-valued, it is often visualized via its absolute values, the spectrogram. The role of the phase of the STFT was not clear in the <a href="https://www.sciencedirect.com/science/article/abs/pii/S0167639316300784" target="_blank">early days of time-frequency analysis</a>. Indeed, energy is a much more familiar concept and that is determined only by the absolute value of the STFT. Moreover, as <a href="https://arxiv.org/pdf/2006.10579">phase retrieval</a> has shown, knowing the spectrogram the phase can be recovered up to a global unimodular factor.
 		</p>
 
 		<p>
-			So what happens if we have a 2D matrix of the correct shape of complex numbers and want to synthesize a signal from it but the phase and/or magnitude are not chosen so that they correspond to an actual signal? Such a matrix is said to be <i>inconsistent</i> but if we still do synthesize a signal by means of the inverse STFT, we do get a signal. What happens is that we implicitly compute the orithogonal projection onto the subspace of consistent matrices, the <a>Gabor projection</a>. This is fine, after all orthogonal projections are the best kind, but the resulting audio signal may sound a little weird to human ears.
+			So what happens if we have a 2D matrix of the correct shape of complex numbers and want to synthesize a signal from it but the phase and/or magnitude are not chosen so that they correspond to an actual signal? Such a matrix is said to be <i>inconsistent</i> but if we still do synthesize a signal by means of the inverse STFT, we do get a signal. What happens is that we implicitly compute the orthogonal projection onto the subspace of consistent matrices, the <a>Gabor projection</a>. This is fine, after all orthogonal projections are the best kind, but the resulting audio signal may sound a little weird to human ears.
 		</p>
 
 		<p>
@@ -95,7 +95,7 @@
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure:</span> STFT of pure sine tone at 440 Hz visualized as magnitude, phase, and phase gradients.
+			<span class="caption_title">Figure:</span> STFT of pure sine tone at 440 Hz visualized as magnitude, phase, and phase gradients. For the phase gradients the alpha channel is mapped to the $[0,1]$-normalized magnitude.
 		</div>
 		
 		<p>
@@ -112,15 +112,15 @@
 		</div>
 
 		<p>
-			Here we see that the Gabor projection has changed the magnitude of the STFT as well, even though it is only tha phases we changed. The phase gradients are a lot less even which is the main takeaway. The change can be heard in the following comparison.
+			Here we see that the Gabor projection has changed the magnitude of the STFT as well, even though it is only the phases we changed. The phase gradients are a lot less even which is the main takeaway. The change can be heard in the following comparison.
 		</p>
 
-		<div class="figure_container_small">
-			<audio style="width: 49%;" controls>
+		<div class="figure_container_small audio_group">
+			<audio controls>
 				<source src="media/pure_sine.wav" type="audio/wav">
 				Your browser does not support the audio element.
 			</audio>
-			<audio style="width: 50%;" controls>
+			<audio controls>
 				<source src="media/modified_sine.wav" type="audio/wav">
 				Your browser does not support the audio element.
 			</audio>
@@ -221,9 +221,11 @@ class UNet2D(torch.nn.Module):
 			Since our focus is more on the method than the data and performance, we take a simple approach to the data. Specifically, we use the <a target="_blank" href="https://datacollective.mozillafoundation.org/datasets/cmj8u3pud00q9nxxbcmq6uz24">Common Voice Scripted Speech 24.0 - Swedish</a> subset which is <code>1.13 GB</code>. This dataset is not perfectly noise-free nor is it incredibly large but it is easily accessible and generally of high quality. To create noisy data, we add white noise to the waveform with energy between 0% and 60% of that of the waveform, then normalize the noisy version to have energy 1 and use the same scale factor for the clean version to that the target has less energy but the network does not know a priori how much energy it is supposed to have.
 		</p>
 
-		$$
+			<div class="equation">
+				$
 		f_{\text{noisy}} = \frac{f + s\frac{\mathcal{N}}{\Vert \mathcal{N} \Vert}}{\big\Vert f + s\frac{\mathcal{N}}{\Vert \mathcal{N} \Vert} \big\Vert},\qquad f_{\text{clean}} = \frac{f}{\big\Vert f + s\frac{\mathcal{N}}{\Vert \mathcal{N} \Vert} \big\Vert},\qquad s \sim U(0, 0.6).
-		$$
+				$
+			</div>
 
 		<p>
 			We could also have added different sorts of noise $\mathcal{N}$ (pink noise, environmental noise, etc.) to make the algorithm more robust but we skip this in the interest of simplicity.
@@ -234,11 +236,11 @@ class UNet2D(torch.nn.Module):
 		<h2>Take 1: Time-frequency multiplier</h2>
 
 		<p>
-			If we want to attack noise reduction using machine learning using we need to identify the loss function we wish to train using. While mean squared error (MSE) is a tried and true method, it has a clear disadvantage when it comes to audio tasks: The human ear does not hear (waveform) phase. For example, we cannot distinguish between $f$ and $-f$, yet $\operatorname{MSE}(f, -f) > 0$. There is a classical <a href="https://www.soundsandwords.io/audio-loss-functions/" target="_blank">blog post</a> by Evan Radkoff on loss functions in Audio ML with many details and suggestions but we will settle with just looking at the spectrogram $L^1$ distance, defined as $\Vert \operatorname{SPEC}(f) - \operatorname{SPEC}(g) \Vert_{L^1}$. This loss function is phase invariant and easy to understand; we want to match the time-frequency distribution of the energy. 
+			If we want to attack noise reduction using machine learning we need to identify the loss function we wish to train using. While mean squared error (MSE) is a tried and true method, it has a clear disadvantage when it comes to audio tasks: The human ear does not hear (waveform) phase. For example, we cannot distinguish between $f$ and $-f$, yet $\operatorname{MSE}(f, -f) > 0$. There is a classical <a href="https://www.soundsandwords.io/audio-loss-functions/" target="_blank">blog post</a> by Evan Radkoff on loss functions in Audio ML with many details and suggestions but we will settle with just looking at the spectrogram $L^1$ distance, defined as $\Vert \operatorname{SPEC}(f) - \operatorname{SPEC}(g) \Vert_{L^1}$. This loss function is phase invariant and easy to understand; we want to match the time-frequency distribution of the energy. 
 		</p>
 
 		<p>
-			Now in this simplest version of noise reduction, the U-Net will only act to modify the magntudes of the STFT and only take the magnitudes as input data to the U-Net. This means that, with $V_g f$ the STFT and $V_g f^*$ the inverse STFT, the pipeline can be written as
+			Now in this simplest version of noise reduction, the U-Net will only act to modify the magnitudes of the STFT and only take the magnitudes as input data to the U-Net. This means that, with $V_g f$ the STFT and $V_g f^*$ the inverse STFT, the pipeline can be written as
 		</p>
 			<div class="equation">
 				$
@@ -307,16 +309,16 @@ class UNet2D(torch.nn.Module):
 			The audio for this particular example can be played here.
 		</p>
 
-		<div class="figure_container">
-			<audio style="width: 32%;" controls>
+		<div class="figure_container audio_group">
+			<audio controls>
 				<source src="media/mask_output/clean.wav" type="audio/wav">
 				Your browser does not support the audio element.
 			</audio>
-			<audio style="width: 33%;" controls>
+			<audio controls>
 				<source src="media/mask_output/noisy.wav" type="audio/wav">
 				Your browser does not support the audio element.
 			</audio>
-			<audio style="width: 33%;" controls>
+			<audio controls>
 				<source src="media/mask_output/denoised.wav" type="audio/wav">
 				Your browser does not support the audio element.
 			</audio>
@@ -326,24 +328,7 @@ class UNet2D(torch.nn.Module):
 		</div>
 
 		<p>
-			Below is the loss curve for this training run.
-		</p>
-
-		<div class="figure_container_small">
-			<a data-fancybox="gallery0" href="media/mask_output/loss_curve.png">
-				<img class="figure" src="media/mask_output/loss_curve.png"></img>
-			</a>
-		</div>
-		<div class="figure_caption">
-			<span class="caption_title">Figure:</span> Loss curve (smoothened) during training of masked spectrogram U-Net.
-		</div>
-
-		<p>
-			Here we see a relatively quick plateau. Most likely this is due to the task being simple due to there only being white noise and the presence of noise in the target waveforms as well.
-		</p>
-
-		<p>
-			Note that since we have not changed the phase of the noisy spectrogram, we subject to the noisy phase messing up the resulting signal in the same way as we illustrated <a href="#phase_background">earlier</a>. This is a clear limitation but in return we get a method which is very structured. By forcing the output to use the phase data from the original noisy output and capping the mask at $1$ we place limits on how much we can diverge from the original (noisy) input signal. This can be valuable due to the high explainability of this method. In this next method, we trade some of this explainability for expressiveness.
+			Note that since we have not changed the phase of the noisy spectrogram, we are subject to the noisy phase messing up the resulting signal in the same way as we illustrated <a href="#phase_background">earlier</a>. This is a clear limitation but in return we get a method which is very structured. By forcing the output to use the phase data from the original noisy output and capping the mask at $1$ we place limits on how much we can diverge from the original (noisy) input signal. This can be valuable due to the high explainability of this method. In this next method, we trade some of this explainability for expressiveness.
 		</p>
 
 		<hr class="squiggly-line">
@@ -355,7 +340,7 @@ class UNet2D(torch.nn.Module):
 		</p>
 
 		<p>
-			By doing this, we are letting the phases into the U-Net directly. There are a few different ways to go about this. Perhaps the simplest one is to let the U-Net map to and from an image with 2 channels (real + imaginary, or magnitude + phase). Predicting phase in $[-\pi, \pi]$ is difficult due to the wrapping behavior so we go with the continuous approach of predicting real and imaginary values as two channels.
+			With this approach, we are letting the phases into the U-Net directly. There are a few different ways to go about this. Perhaps the simplest one is to let the U-Net map to and from an image with 2 channels (real + imaginary, or magnitude + phase). Predicting phase in $[-\pi, \pi]$ is difficult due to the wrapping behavior so we go with the continuous approach of predicting real and imaginary values as two channels.
 		</p>
 
 		<p>
@@ -399,29 +384,29 @@ class UNet2D(torch.nn.Module):
         return denoised.unsqueeze(1), out_complex
 </code></pre>
 
-<div class="figure_container">
+		<p>
+			Training this model for a few epochs, we get results of the following sort.
+		</p>
+
+		<div class="figure_container">
 			<a data-fancybox="gallery0" href="media/2channel_output/denoise_compare.png">
 				<img class="figure" src="media/2channel_output/denoise_compare.png"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure:</span> Example 
+			<span class="caption_title">Figure:</span> Spectrograms and output of the complex denoising process. Note that the top right spectrogram is for the Gabor projection of the bottom right output. 
 		</div>
 
-		<p>
-			Text
-		</p>
-
-		<div class="figure_container">
-			<audio style="width: 32%;" controls>
+		<div class="figure_container audio_group">
+			<audio controls>
 				<source src="media/2channel_output/clean.wav" type="audio/wav">
 				Your browser does not support the audio element.
 			</audio>
-			<audio style="width: 33%;" controls>
+			<audio controls>
 				<source src="media/2channel_output/noisy.wav" type="audio/wav">
 				Your browser does not support the audio element.
 			</audio>
-			<audio style="width: 33%;" controls>
+			<audio controls>
 				<source src="media/2channel_output/denoised.wav" type="audio/wav">
 				Your browser does not support the audio element.
 			</audio>
@@ -429,6 +414,196 @@ class UNet2D(torch.nn.Module):
 		<div class="figure_caption">
 			<span class="caption_title">Figure:</span> Clean (left), noisy (middle) denoised (right).
 		</div>
+
+		<p>
+			Compared to the mask approach, this output is less bound to the structure of the input spectrogram and seemingly retains less of the noise of the clean signal. Training this model is a bit less predictable, more training runs ended up in local minima. While this should be easy to counteract (change optimizer, learning rate or scheduler) it should be seen as a consequence of this method being more end-to-end.
+		</p>
+
+		<p>
+			The main weakness of this approach is what we will attempt to remedy in the final method; the loss is invariant to a global change of phase so the model will struggle to learn how to choose the output phase.
+		</p>
+
+		<hr class="squiggly-line">
+
+		<h2>Take 3: STFT phase gradient prediction</h2>
+
+		<p>
+			The obvious way to solve the problem of the global phase invariance is to not output the phase, but instead the phase <i>gradient</i> $\nabla \Phi$. At this point, it is important to remark that the training target and the model output is liable to diverge. Indeed, going from the phase gradients to a consistent phase is non-trivial. It is very unlikely that we can find a function $\Phi$ with a prescribed $\nabla \Phi$ since it is a function on a 2D space. Instead we can try to solve this problem approximately, either via a phase integrator which attempts to find the phase at a prescribed point by integrating up to it, or by minimizing a functional of the form
+		</p>
+		<div class="equation">
+			$\Vert \nabla \Phi - F \Vert$
+		</div>
+		<p>
+			where $F$ is the prescribed phase gradient. The phase integrator, while convoluted (there are many ways to integrate to each point) can be formulated in a differentiable way. The same can not be said for the general concept of minimizing the above functional. However, there is no need for this final step to differentiable. During training we have access to the clean phase gradients which we can use for the loss function, and the process of actually determining the phase can happen outside the training process.
+		</p>
+
+		<h3>Gradient matching loss function</h3>
+
+		<p>
+			Outputting the gradients directly raises a new issue - what is the appropriate loss function? Let $\phi_x$ be the target derivative in the $x$ direction, $\hat{\phi}_x$ the network output and $\Delta_x =\phi_x - \hat{\phi}_x$. Then we want the loss to satisfy $L(\Delta) = L(\Delta + 2\pi)$. One way to solve this problem is to choose 
+		</p>
+		<div class="equation">
+			$L(\Delta) = 1-\cos(\Delta).$
+		</div>
+		<p>
+			For small $\Delta$, this loss function is quadratic which is desirable. Another quadratic solution is to wrap $\Delta$ to $[-\pi, \pi]$ as
+		</p>
+		<div class="equation">
+			$\operatorname{wrap}(\Delta) = ((\Delta + \pi) \operatorname{mod} 2\pi) - \pi$
+		</div>
+		<p>
+			and choose $L(\Delta) = \operatorname{wrap}(\Delta)^2$. This sidesteps the problem of flattness of derivative of $1-\cos(\Delta)$ for $\Delta$ near $\pi$ at the cost of nondifferentiability at a point. A third way is to output two numbers $\hat{c}, \hat{s}$, choose $\hat{\phi}_x = \operatorname{atan2}(\hat{c}, \hat{s})$ and $ L = | \hat{c} + i\hat{s} - e^{i\phi_x} |$. All approaches are valid but in the interest of simplicity we will go with the squared wrapping option for our approach.
+		</p>
+
+		<p>
+			Note also that having the correct phase gradient is only important if the related time-frequency bin has energy. Therefore we will weigh the gradient loss function by the associated clean magnitude. After adding a loss term for the magnitude prediction as well, the total loss function becomes
+		</p>
+		<div class="equation">
+			$ \big\Vert A - \hat{A} \big\Vert_{L^2}^2 + \big\Vert |A| (\operatorname{wrap}(\Delta_x)^2 + \operatorname{wrap}(\Delta_y)^2) \big\Vert_{L^1}.$
+		</div>
+		<p>
+			The precise weighing of the amplitude (linear, quadratic, logarithmic) should be considered as a hyperparameter. The choices we have made here are not necessarily optimal. In PyTorch we can formulate this loss as follows:
+		</p>
+
+		<pre><code class="language-py">class PhaseGradientLoss(torch.nn.Module):
+    def __init__(self, n_fft=N_FFT, hop_length=HOP_LENGTH, win_length=WINDOW_LENGTH):
+        super().__init__()
+        self.n_fft = int(n_fft)
+        self.hop_length = int(hop_length)
+        self.win_length = int(win_length)
+        self.register_buffer("window", torch.hann_window(self.win_length))
+
+    def forward(self, clean: torch.Tensor, pred: Dict[str, torch.Tensor]) -> torch.Tensor:
+        clean_mono = clean.squeeze(1)
+        stft = torch.stft(
+            clean_mono,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+            window=self.window,
+            return_complex=True,
+        )
+        target_mag = stft.abs()
+        target_phase = torch.angle(stft)
+        target_phi_x, target_phi_y = compute_phase_gradients(target_phase)
+
+        pred_mag = pred["mag"]
+        pred_phi_x = pred["phi_x"]
+        pred_phi_y = pred["phi_y"]
+
+        mag_loss = F.mse_loss(pred_mag, target_mag)
+
+        delta_x = wrap_phase(pred_phi_x - target_phi_x)
+        delta_y = wrap_phase(pred_phi_y - target_phi_y)
+        weight = target_mag
+        grad_loss = (weight * (delta_x.abs()**2 + delta_y.abs()**2)).mean()
+
+        return mag_loss + grad_loss
+		</code></pre>
+		
+		<p>
+			The function <code>compute_phase_loss()</code> is a helper function that does precisely what you expect.
+		</p>
+
+		<h3>Implementation</h3>
+		<p>
+			For training the actual network, since we are outputing the final denoised spectrogram but rather a suggested amplitude and phase gradient which later on needs to be married, we let the U-Net work on a 3-dimensional representation; amplitude and phase derivatives in time and frequency.
+		</p>
+
+		<pre><code class="language-py">class SpectrogramPhaseGradientUNet(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.n_fft = N_FFT
+        self.unet = UNet2D(
+            in_channels=3,
+            base_channels=24,
+            out_channels=3,
+            use_sigmoid=False,
+        )
+        self.register_buffer("window", torch.hann_window(WINDOW_LENGTH))
+
+    def forward(self, waveform):
+        stft = torch.stft(
+            waveform.squeeze(1),
+            n_fft=N_FFT,
+            hop_length=HOP_LENGTH,
+            win_length=WINDOW_LENGTH,
+            window=self.window,
+            return_complex=True,
+        )
+        mag_in = stft.abs()
+        phase = torch.angle(stft)
+        phi_x_in, phi_y_in = compute_phase_gradients(phase)
+        stft_in = torch.stack([mag_in, phi_x_in, phi_y_in], dim=1)
+
+        stft_out = self.unet(stft_in)
+
+        mag = F.softplus(stft_out[:, 0])
+        phi_x = torch.tanh(stft_out[:, 1]) * math.pi
+        phi_y = torch.tanh(stft_out[:, 2]) * math.pi
+
+        return {"mag": mag, "phi_x": phi_x, "phi_y": phi_y}
+		</code></pre>
+
+		<p>
+			As discussed, when performaing inference and actually producing a denoised audio sample, we find the phase by minimizing the $\Vert \nabla \Phi - F \Vert$ functional. This is done as follows:
+		</p>
+
+		<pre><code class="language-py">def minimize_phase_from_gradients(phi_x, phi_y, num_iters = 480, lr = 0.2):
+    with torch.enable_grad():
+        phase = torch.zeros_like(phi_x, requires_grad=True)
+        optimizer = torch.optim.Adam([phase], lr=lr)
+        
+        for _ in range(num_iters):
+            optimizer.zero_grad(set_to_none=True)
+            diff_t = phase[:, 1:] - phase[:, :-1]
+            diff_f = phase[1:, :] - phase[:-1, :]
+            loss_t = wrap_phase(diff_t - phi_x[:, :-1])
+            loss_f = wrap_phase(diff_f - phi_y[:-1, :])
+            loss = loss_t.pow(2).mean() + loss_f.pow(2).mean()
+            loss.backward()
+            optimizer.step()
+
+    return phase.detach()
+		</code></pre>
+
+		<h3>Results</h3>
+
+		<p>
+			Training this more intricate network again takes more time 
+		</p>
+
+		<div class="figure_container">
+			<a data-fancybox="gallery0" href="media/phase_gradient_output/denoise_compare.png">
+				<img class="figure" src="media/phase_gradient_output/denoise_compare.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> Spectrograms, phases and output of the phase gradient denoising process. Note that the top right spectrogram is for the Gabor projection of the bottom right output. 
+		</div>
+
+		<div class="figure_container audio_group">
+			<audio controls>
+				<source src="media/phase_gradient_output/clean.wav" type="audio/wav">
+				Your browser does not support the audio element.
+			</audio>
+			<audio controls>
+				<source src="media/phase_gradient_output/noisy.wav" type="audio/wav">
+				Your browser does not support the audio element.
+			</audio>
+			<audio controls>
+				<source src="media/phase_gradient_output/denoised.wav" type="audio/wav">
+				Your browser does not support the audio element.
+			</audio>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> Clean (left), noisy (middle) denoised (right).
+		</div>
+
+
+
+
+
 
 
 

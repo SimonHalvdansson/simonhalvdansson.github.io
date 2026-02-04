@@ -1,3 +1,5 @@
+import math
+from typing import Dict, Tuple
 import torch
 import torch.nn.functional as F
 import torchaudio
@@ -135,6 +137,57 @@ class Spectrogram2ChannelUNet(torch.nn.Module):
         return denoised.unsqueeze(1), out_complex
 
 
+def wrap_phase(phase: torch.Tensor) -> torch.Tensor:
+    return torch.atan2(torch.sin(phase), torch.cos(phase))
+
+
+def compute_phase_gradients(phase: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    grad_t = torch.zeros_like(phase)
+    grad_f = torch.zeros_like(phase)
+
+    diff_t = phase[..., 1:] - phase[..., :-1]
+    diff_f = phase[:, 1:, :] - phase[:, :-1, :]
+
+    grad_t[..., :-1] = wrap_phase(diff_t)
+    grad_f[:, :-1, :] = wrap_phase(diff_f)
+    return grad_t, grad_f
+
+
+class SpectrogramPhaseGradientUNet(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.n_fft = N_FFT
+        self.unet = UNet2D(
+            in_channels=3,
+            base_channels=24,
+            out_channels=3,
+            use_sigmoid=False,
+        )
+        self.register_buffer("window", torch.hann_window(WINDOW_LENGTH))
+
+    def forward(self, waveform):
+        stft = torch.stft(
+            waveform.squeeze(1),
+            n_fft=N_FFT,
+            hop_length=HOP_LENGTH,
+            win_length=WINDOW_LENGTH,
+            window=self.window,
+            return_complex=True,
+        )
+        mag_in = stft.abs()
+        phase = torch.angle(stft)
+        phi_x_in, phi_y_in = compute_phase_gradients(phase)
+        stft_in = torch.stack([mag_in, phi_x_in, phi_y_in], dim=1)
+
+        stft_out = self.unet(stft_in)
+
+        mag = F.softplus(stft_out[:, 0])
+        phi_x = torch.tanh(stft_out[:, 1]) * math.pi
+        phi_y = torch.tanh(stft_out[:, 2]) * math.pi
+
+        return {"mag": mag, "phi_x": phi_x, "phi_y": phi_y}
+
+
 class SpectrogramLoss(torch.nn.Module):
     def __init__(self, n_fft=N_FFT, hop_length=HOP_LENGTH, win_length=WINDOW_LENGTH):
         super().__init__()
@@ -160,3 +213,39 @@ class SpectrogramLoss(torch.nn.Module):
         clean_mag = self._stft_mag(clean_mono)
         denoised_mag = self._stft_mag(denoised_mono)
         return F.l1_loss(denoised_mag, clean_mag)
+
+
+class PhaseGradientLoss(torch.nn.Module):
+    def __init__(self, n_fft=N_FFT, hop_length=HOP_LENGTH, win_length=WINDOW_LENGTH):
+        super().__init__()
+        self.n_fft = int(n_fft)
+        self.hop_length = int(hop_length)
+        self.win_length = int(win_length)
+        self.register_buffer("window", torch.hann_window(self.win_length))
+
+    def forward(self, clean: torch.Tensor, pred: Dict[str, torch.Tensor]) -> torch.Tensor:
+        clean_mono = clean.squeeze(1)
+        stft = torch.stft(
+            clean_mono,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+            window=self.window,
+            return_complex=True,
+        )
+        target_mag = stft.abs()
+        target_phase = torch.angle(stft)
+        target_phi_x, target_phi_y = compute_phase_gradients(target_phase)
+
+        pred_mag = pred["mag"]
+        pred_phi_x = pred["phi_x"]
+        pred_phi_y = pred["phi_y"]
+
+        mag_loss = F.mse_loss(pred_mag, target_mag)
+
+        delta_x = wrap_phase(pred_phi_x - target_phi_x)
+        delta_y = wrap_phase(pred_phi_y - target_phi_y)
+        weight = target_mag
+        grad_loss = (weight * (delta_x.abs()**2 + delta_y.abs()**2)).mean()
+
+        return mag_loss + grad_loss
