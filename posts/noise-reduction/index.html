@@ -47,21 +47,21 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			A standard way of reducing the noise of audio or another signal with some form of time-frequency structure using a machine learning approach is as follows: Compute the short-time Fourier transform of the signal, map it to a "clean" spectrogram using a U-Net, and then synthesize a signal back. In the simplest version of this construction, the U-Net returns a real-valued mask over the time-frequency plane, telling us which time-frequency bins to ignore in the reconstruction and which to keep. This approach reuses the noisy phase value of the original signal.
+			A standard way of reducing the noise of audio or another signal with some form of time-frequency structure using a machine learning approach is as follows: Compute the short-time Fourier transform of the signal, map it to a "clean" spectrogram using a U-Net, and then synthesize a signal back. In the simplest version of this construction, the U-Net returns a real-valued mask over the time-frequency plane, telling us which time-frequency bins to ignore in the reconstruction and which to keep. This approach reuses the noisy phase values of the original signal.
 		</p>
 
 		<p>
-			In this post we look at more intricate versions of this construction that go beyond time-frequency multipliers by paying more attention to the phase of the output.
+			In this post we look at more intricate versions of this construction that go beyond time-frequency multipliers by paying more attention to the phase of the output. The idea is to highlight the concepts behind these versions and indicate how they are encoded in PyTorch.
 		</p>
 
 		
-		<div class="figure_container_small">
-			<a data-fancybox="gallery0" href="media/complex_output/denoise_compare.png">
-				<img class="figure" src="media/complex_output/denoise_compare.png"></img>
+		<div class="figure_container">
+			<a data-fancybox="gallery0" href="media/illustration.png">
+				<img class="figure" src="media/illustration.png"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure:</span> Denoising example with an STFT -> STFT U-Net.
+			<span class="caption_title">Figure:</span> Rough sketch of the U-Net + STFT denoising process. Made with <a href="https://excalidraw.com/" target="_blank">Excalidraw</a> + ChatGPT Images.
 		</div>
 
 		<p>
@@ -218,7 +218,7 @@ class UNet2D(torch.nn.Module):
 		<h2>Dataset</h2>
 		
 		<p>
-			Since our focus is more on the method than the data and performance, we take a simple approach to the data. Specifically, we use the <a target="_blank" href="https://datacollective.mozillafoundation.org/datasets/cmj8u3pud00q9nxxbcmq6uz24">Common Voice Scripted Speech 24.0 - Swedish</a> subset which is <code>1.13 GB</code>. This dataset is not perfectly noise-free nor is it incredibly large but it is easily accessible and generally of high quality. To create noisy data, we add white noise to the waveform with energy between 0% and 60% of that of the waveform, then normalize the noisy version to have energy 1 and use the same scale factor for the clean version to that the target has less energy but the network does not know a priori how much energy it is supposed to have.
+			Since our focus is more on the method than the data and performance, we take a simple approach to the data. Specifically, we use the <a target="_blank" href="https://datacollective.mozillafoundation.org/datasets/cmj8u3pud00q9nxxbcmq6uz24">Common Voice Scripted Speech 24.0 - Swedish</a> subset which is <code>1.13 GB</code>. This dataset is not perfectly noise-free nor is it incredibly large but it is easily accessible and generally of high quality. To create noisy data, we add white noise to the waveform with energy between 0% and 60% of that of the waveform, then normalize the noisy version to have energy 1 and use the same scale factor for the clean version so that the target has less energy but the network does not know a priori how much energy it is supposed to have.
 		</p>
 
 			<div class="equation">
@@ -452,7 +452,7 @@ class UNet2D(torch.nn.Module):
 			$\operatorname{wrap}(\Delta) = ((\Delta + \pi) \operatorname{mod} 2\pi) - \pi$
 		</div>
 		<p>
-			and choose $L(\Delta) = \operatorname{wrap}(\Delta)^2$. This sidesteps the problem of flattness of derivative of $1-\cos(\Delta)$ for $\Delta$ near $\pi$ at the cost of nondifferentiability at a point. A third way is to output two numbers $\hat{c}, \hat{s}$, choose $\hat{\phi}_x = \operatorname{atan2}(\hat{c}, \hat{s})$ and $ L = | \hat{c} + i\hat{s} - e^{i\phi_x} |$. All approaches are valid but in the interest of simplicity we will go with the squared wrapping option for our approach.
+			and choose $L(\Delta) = \operatorname{wrap}(\Delta)^2$. This sidesteps the problem of flatness of derivative of $1-\cos(\Delta)$ for $\Delta$ near $\pi$ at the cost of nondifferentiability at a point. A third way is to output two numbers $\hat{c}, \hat{s}$, choose $\hat{\phi}_x = \operatorname{atan2}(\hat{c}, \hat{s})$ and $ L = | \hat{c} + i\hat{s} - e^{i\phi_x} |$. All approaches are valid but in the interest of simplicity we will go with the squared wrapping option for our approach.
 		</p>
 
 		<p>
@@ -473,7 +473,7 @@ class UNet2D(torch.nn.Module):
         self.win_length = int(win_length)
         self.register_buffer("window", torch.hann_window(self.win_length))
 
-    def forward(self, clean: torch.Tensor, pred: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def forward(self, clean, pred):
         clean_mono = clean.squeeze(1)
         stft = torch.stft(
             clean_mono,
@@ -502,12 +502,12 @@ class UNet2D(torch.nn.Module):
 		</code></pre>
 		
 		<p>
-			The function <code>compute_phase_loss()</code> is a helper function that does precisely what you expect.
+			The function <code>compute_phase_gradients()</code> is a helper function that does precisely what you expect.
 		</p>
 
 		<h3>Implementation</h3>
 		<p>
-			For training the actual network, since we are outputing the final denoised spectrogram but rather a suggested amplitude and phase gradient which later on needs to be married, we let the U-Net work on a 3-dimensional representation; amplitude and phase derivatives in time and frequency.
+			For training the actual network, since we are outputting the final denoised spectrogram but rather a suggested amplitude and phase gradient which later on needs to be married, we let the U-Net work on a 3-dimensional representation; amplitude and phase derivatives in time and frequency.
 		</p>
 
 		<pre><code class="language-py">class SpectrogramPhaseGradientUNet(torch.nn.Module):
@@ -546,10 +546,10 @@ class UNet2D(torch.nn.Module):
 		</code></pre>
 
 		<p>
-			As discussed, when performaing inference and actually producing a denoised audio sample, we find the phase by minimizing the $\Vert \nabla \Phi - F \Vert$ functional. This is done as follows:
+			As discussed, when performing inference and actually producing a denoised audio sample, we find the phase by minimizing the $\Vert \nabla \Phi - F \Vert$ functional. This is done as follows:
 		</p>
 
-		<pre><code class="language-py">def minimize_phase_from_gradients(phi_x, phi_y, num_iters = 480, lr = 0.2):
+		<pre><code class="language-py">def minimize_phase_from_gradients(phi_x, phi_y, num_iters=480, lr=0.2):
     with torch.enable_grad():
         phase = torch.zeros_like(phi_x, requires_grad=True)
         optimizer = torch.optim.Adam([phase], lr=lr)
@@ -570,7 +570,7 @@ class UNet2D(torch.nn.Module):
 		<h3>Results</h3>
 
 		<p>
-			Training this more intricate network again takes more time 
+			With even more outputs than the two other methods (3 channels), this method takes slightly longer to train in our experiments. Still, after a few minutes we obtain performance on the level of the following example.
 		</p>
 
 		<div class="figure_container">
@@ -599,6 +599,18 @@ class UNet2D(torch.nn.Module):
 		<div class="figure_caption">
 			<span class="caption_title">Figure:</span> Clean (left), noisy (middle) denoised (right).
 		</div>
+
+		<p>
+			This output is arguable weaker than the two methods discussed above. Not optimizing end to end with the spectrogram $L^1$ loss certainly hurts us with this method. Moreover integrating the phase correctly is nontrivial.
+		</p>
+
+		<hr class="squiggly-line">
+
+		<h2>Conclusions</h2>
+		
+		<p>
+			We have looked at three increasingly complex and phase-dependent methods of reducing noise in audio using a U-Net acting on STFT-based input. Treating phase is a nontrivial but very important issue in this setting. It is a general fact of life that more intricate models are harder to train but can also perform better when done so properly. In our examples, it is not clear that, e.g., the phase gradient method performed better. Those are the types of results being shown in the papers on these methods. The goal here has instead been to show the reader some of the underlying principles at play and how they can be attacked. The implementation for all the plots in this post can be found on <a href="https://github.com/SimonHalvdansson/simonhalvdansson.github.io/tree/master/posts/noise-reduction" target="_blank">GitHub</a>.
+		</p>
 
 
 
