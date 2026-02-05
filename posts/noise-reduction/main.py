@@ -327,7 +327,7 @@ if __name__ == "__main__":
     else:
         model = SpectrogramMaskUNet().to(device)
         loss_fn = SpectrogramLoss().to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=8e-5)
 
     step = 0
     loss_steps = []

@@ -434,7 +434,7 @@ class UNet2D(torch.nn.Module):
 			$\Vert \nabla \Phi - F \Vert$
 		</div>
 		<p>
-			where $F$ is the prescribed phase gradient. The phase integrator, while convoluted (there are many ways to integrate to each point) can be formulated in a differentiable way. The same can not be said for the general concept of minimizing the above functional. However, there is no need for this final step to differentiable. During training we have access to the clean phase gradients which we can use for the loss function, and the process of actually determining the phase can happen outside the training process.
+			where $F$ is the prescribed phase gradient. The phase integrator, while convoluted (there are many ways to integrate to each point) can be formulated in a differentiable way. The same can not be said for the general concept of minimizing the above functional. However, there is no inherent need for this final step to differentiable. During training we have access to the clean phase gradients which we can use for the loss function, and the process of actually determining the phase can happen outside the training process.
 		</p>
 
 		<h3>Gradient matching loss function</h3>
@@ -443,10 +443,10 @@ class UNet2D(torch.nn.Module):
 			Outputting the gradients directly raises a new issue - what is the appropriate loss function? Let $\phi_x$ be the target derivative in the $x$ direction, $\hat{\phi}_x$ the network output and $\Delta_x =\phi_x - \hat{\phi}_x$. Then we want the loss to satisfy $L(\Delta) = L(\Delta + 2\pi)$. One way to solve this problem is to choose 
 		</p>
 		<div class="equation">
-			$L(\Delta) = 1-\cos(\Delta).$
+			$L(\Delta) = 1-\cos(\Delta)$
 		</div>
 		<p>
-			For small $\Delta$, this loss function is quadratic which is desirable. Another quadratic solution is to wrap $\Delta$ to $[-\pi, \pi]$ as
+			which is connected to the von-Mises distribution. For small $\Delta$, this loss function is quadratic which is desirable. Another quadratic solution is to wrap $\Delta$ to $[-\pi, \pi]$ as
 		</p>
 		<div class="equation">
 			$\operatorname{wrap}(\Delta) = ((\Delta + \pi) \operatorname{mod} 2\pi) - \pi$
@@ -507,7 +507,7 @@ class UNet2D(torch.nn.Module):
 
 		<h3>Implementation</h3>
 		<p>
-			For training the actual network, since we are outputting the final denoised spectrogram but rather a suggested amplitude and phase gradient which later on needs to be married, we let the U-Net work on a 3-dimensional representation; amplitude and phase derivatives in time and frequency.
+			For training the actual network, since we are outputting the final denoised spectrogram but rather a suggested amplitude and phase gradient which later on needs to be married, we let the U-Net map to and from the magnitude and phase gradients. However, a phase gradient of $\pi$ is equivalent to one of $-\pi$ so we want these points to be close together. Therefore, instead of passing <code>phi_x</code> and <code>phi_y</code> into the U-Net, we encode these angles by their location on the unit circle. That means we pass in $\cos(\phi_x), \sin(\phi_x)$, etc. and decode using <code>atan2</code>. 
 		</p>
 
 		<pre><code class="language-py">class SpectrogramPhaseGradientUNet(torch.nn.Module):
@@ -515,9 +515,9 @@ class UNet2D(torch.nn.Module):
         super().__init__()
         self.n_fft = N_FFT
         self.unet = UNet2D(
-            in_channels=3,
-            base_channels=24,
-            out_channels=3,
+            in_channels=5,
+            base_channels=32,
+            out_channels=5,
             use_sigmoid=False,
         )
         self.register_buffer("window", torch.hann_window(WINDOW_LENGTH))
@@ -534,13 +534,19 @@ class UNet2D(torch.nn.Module):
         mag_in = stft.abs()
         phase = torch.angle(stft)
         phi_x_in, phi_y_in = compute_phase_gradients(phase)
-        stft_in = torch.stack([mag_in, phi_x_in, phi_y_in], dim=1)
+		#pass in phase gradients mapped to unit circle
+        stft_in = torch.stack([mag_in,
+                               torch.cos(phi_x_in),
+                               torch.sin(phi_x_in),
+                               torch.cos(phi_y_in),
+                               torch.sin(phi_y_in)], dim=1)
 
         stft_out = self.unet(stft_in)
 
         mag = F.softplus(stft_out[:, 0])
-        phi_x = torch.tanh(stft_out[:, 1]) * math.pi
-        phi_y = torch.tanh(stft_out[:, 2]) * math.pi
+		#project 2d locations back to unit circle
+        phi_x = torch.atan2(stft_out[:, 1], stft_out[:, 2])
+        phi_y = torch.atan2(stft_out[:, 3], stft_out[:, 4])
 
         return {"mag": mag, "phi_x": phi_x, "phi_y": phi_y}
 		</code></pre>
@@ -601,7 +607,7 @@ class UNet2D(torch.nn.Module):
 		</div>
 
 		<p>
-			This output is arguable weaker than the two methods discussed above. Not optimizing end to end with the spectrogram $L^1$ loss certainly hurts us with this method. Moreover integrating the phase correctly is nontrivial.
+			This output is arguable weaker than the two methods discussed above. Not optimizing end to end with the spectrogram $L^1$ loss certainly hurts us with this method which is a consequence of our two stage approach. A phase integrator could be made differentially to improve on this. However the big upside of the entire phase gradient approach is the ability to act in the "correct" space for audio where there are less limitations to how good the implementation can become.
 		</p>
 
 		<hr class="squiggly-line">
@@ -609,7 +615,7 @@ class UNet2D(torch.nn.Module):
 		<h2>Conclusions</h2>
 		
 		<p>
-			We have looked at three increasingly complex and phase-dependent methods of reducing noise in audio using a U-Net acting on STFT-based input. Treating phase is a nontrivial but very important issue in this setting. It is a general fact of life that more intricate models are harder to train but can also perform better when done so properly. In our examples, it is not clear that, e.g., the phase gradient method performed better. Those are the types of results being shown in the papers on these methods. The goal here has instead been to show the reader some of the underlying principles at play and how they can be attacked. The implementation for all the plots in this post can be found on <a href="https://github.com/SimonHalvdansson/simonhalvdansson.github.io/tree/master/posts/noise-reduction" target="_blank">GitHub</a>.
+			We have looked at three increasingly complex and phase-dependent methods of reducing noise in audio using a U-Net acting on STFT-based input. Treating phase is a nontrivial but very important issue in this setting. It is a general fact of life that more intricate models are harder to train but can also perform better when done so properly. In our examples, it is not clear that, e.g., the phase gradient method performed better. Those are the types of results being shown in the papers on these methods. The goal here has instead been to show the reader some of the underlying principles at play and how they can be attacked. The implementation for all the models and plots in this post can be found on <a href="https://github.com/SimonHalvdansson/simonhalvdansson.github.io/tree/master/posts/noise-reduction" target="_blank">GitHub</a>.
 		</p>
 
 

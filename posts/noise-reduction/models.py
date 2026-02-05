@@ -158,9 +158,9 @@ class SpectrogramPhaseGradientUNet(torch.nn.Module):
         super().__init__()
         self.n_fft = N_FFT
         self.unet = UNet2D(
-            in_channels=3,
-            base_channels=24,
-            out_channels=3,
+            in_channels=5,
+            base_channels=32,
+            out_channels=5,
             use_sigmoid=False,
         )
         self.register_buffer("window", torch.hann_window(WINDOW_LENGTH))
@@ -177,13 +177,17 @@ class SpectrogramPhaseGradientUNet(torch.nn.Module):
         mag_in = stft.abs()
         phase = torch.angle(stft)
         phi_x_in, phi_y_in = compute_phase_gradients(phase)
-        stft_in = torch.stack([mag_in, phi_x_in, phi_y_in], dim=1)
+        stft_in = torch.stack([mag_in,
+                               torch.cos(phi_x_in),
+                               torch.sin(phi_x_in),
+                               torch.cos(phi_y_in),
+                               torch.sin(phi_y_in)], dim=1)
 
         stft_out = self.unet(stft_in)
 
         mag = F.softplus(stft_out[:, 0])
-        phi_x = torch.tanh(stft_out[:, 1]) * math.pi
-        phi_y = torch.tanh(stft_out[:, 2]) * math.pi
+        phi_x = torch.atan2(stft_out[:, 1], stft_out[:, 2])
+        phi_y = torch.atan2(stft_out[:, 3], stft_out[:, 4])
 
         return {"mag": mag, "phi_x": phi_x, "phi_y": phi_y}
 
