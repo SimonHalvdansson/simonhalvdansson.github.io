@@ -429,6 +429,13 @@ h1 {
     }
 }
 
+@media (max-width: 1400px) {
+    body::before {
+        -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.68) 10%, rgba(0, 0, 0, 0.16) 18%, rgba(0, 0, 0, 0) 24%, rgba(0, 0, 0, 0) 76%, rgba(0, 0, 0, 0.16) 82%, rgba(0, 0, 0, 0.68) 90%, rgba(0, 0, 0, 0.92) 100%);
+        mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.68) 10%, rgba(0, 0, 0, 0.16) 18%, rgba(0, 0, 0, 0) 24%, rgba(0, 0, 0, 0) 76%, rgba(0, 0, 0, 0.16) 82%, rgba(0, 0, 0, 0.68) 90%, rgba(0, 0, 0, 0.92) 100%);
+    }
+}
+
 @media (max-width: 630px) {
     body::before {
         opacity: 0;
