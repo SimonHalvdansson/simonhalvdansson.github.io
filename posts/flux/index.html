@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<title>On the role of phase in ML audio noise reduction</title>
+	<title>Introducing Flux, and some thoughts on agentic coding</title>
 
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="theme-color" content="#FBEDEA" />
@@ -47,20 +47,20 @@
 		<hr class="squiggly-line"/>
 
 		<p>
-			I just finished version 1.0 of <a href="https://play.google.com/store/apps/details?id=io.github.simonhalvdansson.flux">Flux</a>, an electricity price tracking app for Android, and wanted to put down some words about the development process along with some assorted musings about agentic coding. This post is less structured than usual and is rather and attempt by me to sort out some thought on the state of the industry.
+			I just finished version 1.0 of <a href="https://play.google.com/store/apps/details?id=io.github.simonhalvdansson.flux">Flux</a>, an electricity price tracking app for Android, and wanted to put down some words about the development process along with some assorted musings about agentic coding.
 		</p>
 
 		<div class="figure_container">
-			<a style="float:left; width: 25%" data-fancybox="gallery0" href="media/illustration.png">
+			<a style="float:left; width: 25%" data-fancybox="gallery0" href="media/Screenshot_1.png">
 				<img class="figure" src="media/Screenshot_1.png"></img>
 			</a>
-			<a style="float:left; width: 25%" data-fancybox="gallery0" href="media/illustration.png">
+			<a style="float:left; width: 25%" data-fancybox="gallery0" href="media/Screenshot_2.png">
 				<img class="figure" src="media/Screenshot_2.png"></img>
 			</a>
-			<a style="float:left; width: 25%" data-fancybox="gallery0" href="media/illustration.png">
+			<a style="float:left; width: 25%" data-fancybox="gallery0" href="media/Screenshot_3.png">
 				<img class="figure" src="media/Screenshot_3.png"></img>
 			</a>
-			<a style="float:left; width: 25%" data-fancybox="gallery0" href="media/illustration.png">
+			<a style="float:left; width: 25%" data-fancybox="gallery0" href="media/Screenshot_4.png">
 				<img class="figure" src="media/Screenshot_4.png"></img>
 			</a>
 		</div>
@@ -69,7 +69,7 @@
 		</div>
 
 		<p>
-			Since the energy crisis in Europe around 2022, and especially since starting at <a href="https://www.sintef.no/en/sintef-energy/">SINTEF Energy Research</a>, I have been thinking a lot about energy costs and supplies. Nowadays energy availability is especially important the context of AI data centers, although the extent of this is probably a good Rorschach test for a persons views on a possible AGI scenario. Either way, consumer awareness of energy prices appears to still be at a high level and there is some room to save by optimizing usage to time local spot markets in Europe.
+			Since the energy crisis in Europe around 2022, and especially since starting at <a href="https://www.sintef.no/en/sintef-energy/">SINTEF Energy Research</a>, I have been thinking a lot about energy costs and supplies. Consumers can save (mostly marginal amounts) by optimizing their consumption based on the time of day since electricity prices vary.
 		</p>
 
 		<p>
@@ -77,19 +77,19 @@
 		</p>
 
 		<div class="figure_container">
-			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/illustration.png">
+			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/other_app_1.png">
 				<img class="figure" src="media/other_app_1.png"></img>
 			</a>
-			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/illustration.png">
+			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/other_app_2.png">
 				<img class="figure" src="media/other_app_2.png"></img>
 			</a>
-			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/illustration.png">
+			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/other_app_3.png">
 				<img class="figure" src="media/other_app_3.png"></img>
 			</a>
-			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/illustration.png">
+			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/other_app_4.png">
 				<img class="figure" src="media/other_app_4.png"></img>
 			</a>
-			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/illustration.png">
+			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/other_app_5.png">
 				<img class="figure" src="media/other_app_5.png"></img>
 			</a>
 		</div>
@@ -98,7 +98,7 @@
 		</div>
 
 		<p>
-			So the goal was to design and develop a simple solution to this problem, preferably with a homescreen widget since going into an app to check prices is even more of a commitment.
+			So the goal was to design and develop a simple solution to this problem, preferably with a homescreen widget.
 		</p>
 
 		<hr class="squiggly-line"/>
@@ -106,19 +106,15 @@
 		<h2>Development</h2>
 		
 		<p>
-			In these pre-Codex/CC days of early 2025, at least I was still copy-pasting from ChatGPT whenever I had it write something for me. This is how an initial version of the app was built, with only a widget and an unreliable implementation of the prices API from <a href="https://www.hvakosterstrommen.no/" target="_blank">hvakosterstrommen.no/</a>. This is a rather natural place for a passion project of this kind to end up, abandoned after reaching some sort of MVP status.
+			In these pre-Codex days of early 2025, at least I was still copy-pasting snippets or full files for simplicity from the ChatGPT web UI. I made some sketches of what I wanted the app to look like but all in all integrating with an energy price API and learning about Android widgets made this task a bit too hard without spending a significant amount of time. Once Codex was released multi-file tasks such as Android app development got considerably easier and I was able to get a working prototype relatively easily.
 		</p>
 
 		<p>
-			As a TODO list sat untouched for an increasing number of months, GPT-5 was launched and the first version of Codex on the web. I learned a lot iterating on Flux using Codex as I gave up the idea of maintaining an understanding of the codebase and instead embraced the exponential. While I by no means think this is how all software should be developed, I think it is very easy to dismiss without second thought for reasons which are seemingly obvious.
+			I was initially using <a href="https://www.hvakosterstrommen.no/" target="_blank">hvakosterstrommen.no/</a> for electricity prices since they have a good website and simple API but I think my prototype app was eventually banned due to excessive usage. After not finding any other good APIs I ended up making my own based on the official <a href="https://transparency.entsoe.eu/" target="_blank">ENTSO-E</a> API. That API is very complex and slow so, using Codex, I set up a very simple solution with a GitHub action which updates a JSON file for each country's prices once every hour. Just giving Codex an API key and telling it to <code>curl</code> was a bit of a "feel the AGI" moment for me at least. The result is the <a href="https://github.com/SimonHalvdansson/ENTSOE-Mirror" target="_blank">ENTSO-E Mirror</a> repository. 
 		</p>
 
 		<p>
-			Ultimately, it is impossible to truly know at which point the returns will start to diminish. I think the next year or so will bring an ever increased focus on taste as this is harder to verify than correctness, albeit far from impossible. Flux is by no means a pinnacle of taste but iterating in the modern fashion makes the link between quality and taste painfully obvious, what you ask for is what you get.
-		</p>
-
-		<p>
-			I've yet to use the MCP tools for end-to-end iteration on Android apps for Flux development, although I did try it out with Gemini 3 Flash in Android Studio for a separate project. From that experience, I have no doubt that Flux could have been developed in a considerably shortened timeline today. Perhaps this is what will bring the promised explosion of software, of which I view Flux as a part of.
+			Iterating on the app was mainly done using Codex. I've tried out the MCP iteration loop in Android Studio where the LLM can take screenshots and look at logs and it is magical so this is a clear next step, although I haven't looked at how this can be set up inside Codex. Overall, this was a very nice project to get more comfortable with  agentic coding and I'm happy with how nice this initial version of the app turned out.
 		</p>
 
 
