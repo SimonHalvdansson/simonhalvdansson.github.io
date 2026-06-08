@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Harmonic 3.0</title>
+
+
+	<meta name="description" content="Introducing Flux, an Android electricity price tracking app, with notes on its development process and agentic coding.">
+	<meta name="author" content="Simon Halvdansson">
+	<link rel="canonical" href="https://simonhalvdansson.github.io/posts/harmonic-3/">
+
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#FBEDEA" />
+	<meta charset="utf-8">
+
+	<link rel="shortcut icon" type="image/x-icon"  href="../../favicon.ico?">
+	<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+
+	<link rel="stylesheet" href="style.css">
+
+	<script>
+	window.MathJax = {
+	tex: {
+		inlineMath: [['$', '$'], ['\\(', '\\)']]
+	}
+	};
+	</script>
+
+	<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+	<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+	<link rel="stylesheet" href="../atom-one-dark.min.css">
+	<script src="../highlight.min.js"></script>
+
+	<script>hljs.highlightAll();</script>
+
+</head>
+<body>
+	<div class="blog centering" id="back_container">
+		<a href="../index.html" class="back"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="14" fill="currentColor" class="bi bi-caret-left" viewBox="0 0 22 18">
+			<path fill-rule="evenodd" clip-rule="evenodd" d="M14.0303 7.46967C14.3232 7.76256 14.3232 8.23744 14.0303 8.53033L10.5607 12L14.0303 15.4697C14.3232 15.7626 14.3232 16.2374 14.0303 16.5303C13.7374 16.8232 13.2626 16.8232 12.9697 16.5303L8.96967 12.5303C8.67678 12.2374 8.67678 11.7626 8.96967 11.4697L12.9697 7.46967C13.2626 7.17678 13.7374 7.17678 14.0303 7.46967Z"/>
+		  </svg>All posts</a>
+	</div>
+
+	<section class="blog centering post">
+		<h1>Harmonic 3.0</h1>
+		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;June. 2026</div>
+
+		<hr class="squiggly-line"/>
+
+		<p>
+			Harmonic for Hacker News is my open source Hacker News client for Android which I've developed over six years. In that time, it's gone through a lot of changes and has to a large part defined and reflected my relation to and how I think about development. With the advent of Codex and related tools, this has shifted significantly over the last year, an experience I'm sure I'm far from alone with. In this post I want to tell about the development process of Harmonic and force myself to make explicit how I view software development.
+		</p>
+
+		<div class="figure_container">
+			<img class="figure" src="media/harmonic_header.png"></img>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> Google Play header for Harmonic, hastily thrown together in a mix of Photoshop, GPT-Image 2, and screenshotting Google Fonts at 2 AM. Don't worry, headers are barely visible on the Play Store nowadays.
+		</div>
+
+		<p>
+			First, something about what Harmonic is. The Hacker News forum is run by the startup incubator Y Combinator and has been around for nearly 20 years. Its greatest strength is its users, which contribute some of the greatest semi-anonymous discource you can find online. The moderators ruthlessly enforce the simple but fair rules and there is a genuine culture which is holding up OK against the evergrowing pressure of <a href="https://en.wikipedia.org/wiki/Eternal_September" target="_blank">eternal september</a>.
+		</p>
+
+		<p>
+			Since the energy crisis in Europe around 2022, and especially since starting at <a href="https://www.sintef.no/en/sintef-energy/">SINTEF Energy Research</a>, I have been thinking a lot about energy costs and supplies. Consumers can save (mostly marginal amounts) by optimizing their consumption based on the time of day since electricity prices vary.
+		</p>
+
+		<p>
+			If you generally enjoy optimizing things, timing the charging of your car with this market can be a fun activity, and evening out demand generally has a positive impact on emissions. I am such a person, but I also take great pleasure in good design and have a hard time putting up with UIs that don't look good. This was the situation for the Android electricity price apps, at least in my opinion, about a year ago when I started work on Flux.
+		</p>
+
+		<div class="figure_container">
+			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/other_app_1.png">
+				<img class="figure" src="media/other_app_1.png"></img>
+			</a>
+			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/other_app_2.png">
+				<img class="figure" src="media/other_app_2.png"></img>
+			</a>
+			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/other_app_3.png">
+				<img class="figure" src="media/other_app_3.png"></img>
+			</a>
+			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/other_app_4.png">
+				<img class="figure" src="media/other_app_4.png"></img>
+			</a>
+			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/other_app_5.png">
+				<img class="figure" src="media/other_app_5.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> Various competing electricity price apps for Android.
+		</div>
+
+		<p>
+			So the goal was to design and develop a simple solution to this problem, preferably with a homescreen widget.
+		</p>
+
+		<hr class="squiggly-line"/>
+
+		<h2>Development</h2>
+		
+		<p>
+			In these pre-Codex days of early 2025, at least I was still copy-pasting snippets or full files for simplicity from the ChatGPT web UI. I made some sketches of what I wanted the app to look like but all in all integrating with an energy price API and learning about Android widgets made this task a bit too hard without spending a significant amount of time. Once Codex was released multi-file tasks such as Android app development got considerably easier and I was able to get a working prototype relatively easily.
+		</p>
+
+		<p>
+			I was initially using <a href="https://www.hvakosterstrommen.no/" target="_blank">hvakosterstrommen.no/</a> for electricity prices since they have a good website and simple API but I think my prototype app was eventually banned due to excessive usage. After not finding any other good APIs I ended up making my own based on the official <a href="https://transparency.entsoe.eu/" target="_blank">ENTSO-E</a> API. That API is very complex and slow so, using Codex, I set up a very simple solution with a GitHub action which updates a JSON file for each country's prices once every hour. Just giving Codex an API key and telling it to <code>curl</code> was a bit of a "feel the AGI" moment for me at least. The result is the <a href="https://github.com/SimonHalvdansson/ENTSOE-Mirror" target="_blank">ENTSO-E Mirror</a> repository. 
+		</p>
+
+		<p>
+			Iterating on the app was mainly done using Codex. I've tried out the MCP iteration loop in Android Studio where the LLM can take screenshots and look at logs and it is magical so this is a clear next step, although I haven't looked at how this can be set up inside Codex. Overall, this was a very nice project to get more comfortable with  agentic coding and I'm happy with how nice this initial version of the app turned out.
+		</p>
+
+
+
+	</section>
+	
+	<link rel="stylesheet" href="../fancybox.css" />
+	<script src="../fancybox.umd.js"></script>
+
+	<script>
+		Fancybox.bind("[data-fancybox]", {
+			closeButton: false,
+		});
+	  </script>
+
+</body>
+</html>
