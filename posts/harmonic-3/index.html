@@ -4,7 +4,6 @@
 	<title>Harmonic 3.0</title>
 
 
-	<meta name="description" content="Introducing Flux, an Android electricity price tracking app, with notes on its development process and agentic coding.">
 	<meta name="author" content="Simon Halvdansson">
 	<link rel="canonical" href="https://simonhalvdansson.github.io/posts/harmonic-3/">
 
@@ -46,13 +45,13 @@
 	</div>
 
 	<section class="blog centering post">
-		<h1>Harmonic 3.0</h1>
+		<h1>Harmonic 3.0, history, and future</h1>
 		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;June. 2026</div>
 
 		<hr class="squiggly-line"/>
 
 		<p>
-			Harmonic for Hacker News is my open source Hacker News client for Android which I've developed over six years. In that time, it's gone through a lot of changes and has to a large part defined and reflected my relation to and how I think about development. With the advent of Codex and related tools, this has shifted significantly over the last year, an experience I'm sure I'm far from alone with. In this post I want to tell about the development process of Harmonic and force myself to make explicit how I view software development.
+			Harmonic for Hacker News is my open source Hacker News client for Android which I've developed over six years. In that time, it's gone through a lot of changes and has to a large part defined and reflected my relation to and how I think about development. With the advent of Codex and related tools, this has shifted significantly over the last year, an experience I'm sure I'm far from alone with. In this post I want to tell about the development process of Harmonic and force myself to make explicit how I view software development. Ultimately this leads to some thoughts on how I can bring some form of value to society, a constant battle.
 		</p>
 
 		<div class="figure_container">
@@ -67,52 +66,76 @@
 		</p>
 
 		<p>
-			Since the energy crisis in Europe around 2022, and especially since starting at <a href="https://www.sintef.no/en/sintef-energy/">SINTEF Energy Research</a>, I have been thinking a lot about energy costs and supplies. Consumers can save (mostly marginal amounts) by optimizing their consumption based on the time of day since electricity prices vary.
+			The dated spartan design of the <a href="https://news.ycombinator.com/" target="_blank">homepage</a> and the technical theme of the discussions does a fair enough job of scaring away the normies. At the same time, it does appear to scare away the designers as well which resulted in all the Android clients for HN to share the level of polish of the web client (which, again, I am very glad looks the way it does). As an avid reader with a passion for product design, the prospect of making my own version and sparing myself from the existing clients was too alluring and during COVID I started work on version 1.0 of Harmonic.
 		</p>
 
-		<p>
-			If you generally enjoy optimizing things, timing the charging of your car with this market can be a fun activity, and evening out demand generally has a positive impact on emissions. I am such a person, but I also take great pleasure in good design and have a hard time putting up with UIs that don't look good. This was the situation for the Android electricity price apps, at least in my opinion, about a year ago when I started work on Flux.
-		</p>
 
-		<div class="figure_container">
-			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/other_app_1.png">
-				<img class="figure" src="media/other_app_1.png"></img>
+		<div class="figure_container_small">
+			<a style="float:left; width: 50%" data-fancybox="gallery0" href="media/Screenshot_20260608-225125.png">
+				<img class="figure" src="media/Screenshot_20260608-225125.png"></img>
 			</a>
-			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/other_app_2.png">
-				<img class="figure" src="media/other_app_2.png"></img>
-			</a>
-			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/other_app_3.png">
-				<img class="figure" src="media/other_app_3.png"></img>
-			</a>
-			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/other_app_4.png">
-				<img class="figure" src="media/other_app_4.png"></img>
-			</a>
-			<a style="float:left; width: 20%" data-fancybox="gallery0" href="media/other_app_5.png">
-				<img class="figure" src="media/other_app_5.png"></img>
+			<a style="float:left; width: 50%" data-fancybox="gallery0" href="media/Screenshot_20260608-225132.png">
+				<img class="figure" src="media/Screenshot_20260608-225132.png"></img>
 			</a>
 		</div>
 		<div class="figure_caption">
-			<span class="caption_title">Figure:</span> Various competing electricity price apps for Android.
+			<span class="caption_title">Figure:</span> Version 1.0 of Harmonic, pulled from the GitHub archives.
 		</div>
 
 		<p>
-			So the goal was to design and develop a simple solution to this problem, preferably with a homescreen widget.
+			I don't know how long it took to complete because it seems the entire app was built in a single commit but I can't imagine this was more than a couple weeks of work. The layout is far from unrecognizable and clearly had at least some love poured into it, not that I'm blind to the flaws, but I still find it asthetichally appealing. By 2020 I had already made more than 10 Android apps which had made a fair amount of money considering most of it came during high school, and I considered my Android career to be mostly behind me as I was doing my masters in mathematics. For this reason, I didn't want to invest in learning the new Android tools which had been made available during my hiatus but rather focused on pixel pushing and iterated to add the features and design tweaks I wanted at each step. 
+		</p>
+
+		<p>
+			This process has essentially continued all the way to now, with pauses whenever I was excessively busy or interested in some other part of life. Reading Hacker News almost daily makes sure I never forget about the app though, and can think deeply about design tweaks before it's time to implement them. When Harmonic was open sourced in 2023, it got a boost in downloads but overall the installs have been climbing fairly evenly over all these years which can be interpreted as the user appeal being roughly constant but I prefer to see it as staying on top of an increasingly competetive landscape, the truth is probably somewhere in between.
+		</p>
+
+		<div class="figure_container_small">
+			<a style="float:left; width: 50%" data-fancybox="gallery0" href="media/Screenshot_20251016-175525-min.png">
+				<img class="figure" src="media/Screenshot_20251016-175525-min.png"></img>
+			</a>
+			<a style="float:left; width: 50%" data-fancybox="gallery0" href="media/Screenshot_20251016-175645-min.png">
+				<img class="figure" src="media/Screenshot_20251016-175645-min.png"></img>
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> Version 2.2 of Harmonic, also pulled from the GitHub archives.
+		</div>
+
+		<p>
+			I do feel a little bad about playing a part in making Hacker News more accessible, but I do genuinely hope that having the app be a high quality labor of love with no ads, tracking, or paid features can instill a sense of respect for the community in the users.
+		</p>
+
+		<p>
+			With the open sourcing of Harmonic, pull requests started to roll in. Most of them were good, but product wise it was a challenge to start evaluating features which another human being had spent their own considerable time on. Luckily enough for me, most of the stuff that came in was good and issues were opened on Github for less mature feature requests. I think I learnt a lot about managing a product during those years as deciding what to focus on became considerably harder as the app was becoming more feature complete.
+		</p>
+
+		<p>
+			Over the years, the issue backlog for Harmonic grew as I didn't want to close good ideas but didn't neccessarily have the time to implement them either. Coding with ChatGPT certainly helped but I was still deep in the code for all the features as the models weren't advanced enough for large codebases yet.
+		</p>
+
+		<hr class="squiggly-line">
+
+		<p>
+			As I write this, I was looking up the first Codex PR to be merged into Harmonic and found out it was precisely a year ago, June 9th 2025. This o3 (?) based model was not particularly advanced either but the promise was clear. Over the year, I wrote less and less code myself by hand and in the month leading up to version 3.0 I burnt through 69 million tokens of GPT 5.5 at an API cost of around 1000 dollars. This was probably the most productive I've ever been in my life as I was participating in a loop of writing rough issues, formatting them into prompts, testing, and iterating for features at the same time. 
+		</p>
+
+		<p>
+			I have used Codex extensively throughout the 5-series of GPT and have, as most probably, spent less and less time reading the output the more I learned through experience what it could and couldn't do. I still read some code, especially when it touches a part I know is especially finnicky, but I pretty much never write code myself anymore. To be clear, I am incredibly proud of the polish of Harmonic 3.0 and think that from the user side it is as far away from a sloppily vibe coded app as you can come. I've spent so many hours on the smallest of details that I think we'll be rather deep into RSI and AGI if LLMs can ever reproduce something similar (which I do believe will happen). 
+		</p>
+
+		<p>
+			At the same time, embracing the exponential and extreme productivity has forced me to grapple with the fact that it is not by being a better software engineer that Harmonic has been improved, it is by being moving myself to something of a product manager role. Having migrated from a path towards being a software engineer to that of a mathematician and researcher in the last 5 years, I'm spared from having my professional self-image shattered to some degree (not that that's path is safe neccessarily) which perhaps should be off some comfort. I don't think I quite respected the old role of PMs (as someone from the outside) when I couldn't understand why leverage was so important in development. I've never been passionate about dependency injection or various programming patterns which aren't of much consequence to the user but have rather focused on getting the job done. This doesn't mean I don't understand why they're valuable, it's just that digging deep into them hasn't been intellectually fulfilling.
+		</p>
+
+		<p>
+			I think I define myself professionally through writing and thinking, and as long as that writing is consumed by humans as opposed to machines (see: code), I have no desire to use LLMs to write for me as so much of our message is conveyed in how we formulate it. However, should LLMs continue to conquer mathematics, there may soon be no need for human readers. I recently experimented with having GPT 5.5 Pro write a paper about a research idea I had and while I have no doubt I could have written a paper which at least I would have prefered to the LLM output, the proofs were seemingly correct and a variant of the result I envisioned seemed to hold. I now doubt that my mathematics skills will be of much use to further mathematics in the future as the common vision of a country of geniuses in a datacenter which write mathematics to each other seems increasingly plausible. Since GPT-4, I've believed that my greatest contribution to mathematics would be providing high quality training material on ArXiV and that is looking to hold up so far. But now that models can prove results of similar quality to my papers, that training data is no longer so scarse (remember 2023/2024 was when the common consensus was that a data wall was the biggest obstacle to scaling LLMs, thanks Chinchilla!). It's not always to see how influenced you are by the time you live in.
 		</p>
 
 		<hr class="squiggly-line"/>
 
-		<h2>Development</h2>
-		
 		<p>
-			In these pre-Codex days of early 2025, at least I was still copy-pasting snippets or full files for simplicity from the ChatGPT web UI. I made some sketches of what I wanted the app to look like but all in all integrating with an energy price API and learning about Android widgets made this task a bit too hard without spending a significant amount of time. Once Codex was released multi-file tasks such as Android app development got considerably easier and I was able to get a working prototype relatively easily.
-		</p>
-
-		<p>
-			I was initially using <a href="https://www.hvakosterstrommen.no/" target="_blank">hvakosterstrommen.no/</a> for electricity prices since they have a good website and simple API but I think my prototype app was eventually banned due to excessive usage. After not finding any other good APIs I ended up making my own based on the official <a href="https://transparency.entsoe.eu/" target="_blank">ENTSO-E</a> API. That API is very complex and slow so, using Codex, I set up a very simple solution with a GitHub action which updates a JSON file for each country's prices once every hour. Just giving Codex an API key and telling it to <code>curl</code> was a bit of a "feel the AGI" moment for me at least. The result is the <a href="https://github.com/SimonHalvdansson/ENTSOE-Mirror" target="_blank">ENTSO-E Mirror</a> repository. 
-		</p>
-
-		<p>
-			Iterating on the app was mainly done using Codex. I've tried out the MCP iteration loop in Android Studio where the LLM can take screenshots and look at logs and it is magical so this is a clear next step, although I haven't looked at how this can be set up inside Codex. Overall, this was a very nice project to get more comfortable with  agentic coding and I'm happy with how nice this initial version of the app turned out.
+			I've pivoted to mathematics here because it is how I've seen myself as contributing to society during my PhD over the last years. Should that be made obsolete by better methods so quickly, which is at the very least plausible from where we are now, that value has paid off (albeit in a very small scale) over an exceptionally small time scale. Similarly the research I currently do during the day is counting on paying off over longer time scales but is not public for the most part and so stands the risk of contributing even less to society over the long run. Conceding that working on hard problems with long timelines is unfavorable as their returns will be superceeded by an incoming exponential feels like the wrong conclusion, yet it is not obviously false. Maybe the best we can do is make a faint contribution to frontier ML, or focus on problems which pay off for society over shorter timelines, like making the best Hacker News client for Android. I'll think about it. Maybe it's best to just touch some grass.
 		</p>
 
 
