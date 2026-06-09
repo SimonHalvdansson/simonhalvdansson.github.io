@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Every Frame an INR</title>
+
+
+	<meta name="description" content="A short note introducing Every Frame an INR, an interactive WebGPU tool for watching implicit neural representations learn images.">
+	<meta name="author" content="Simon Halvdansson">
+	<link rel="canonical" href="https://simonhalvdansson.github.io/posts/every-frame-an-inr/">
+
+	<meta property="og:type" content="article">
+	<meta property="og:site_name" content="Simon Halvdansson">
+	<meta property="og:title" content="Every Frame an INR">
+	<meta property="og:description" content="A short note introducing Every Frame an INR, an interactive WebGPU tool for watching implicit neural representations learn images.">
+	<meta property="og:url" content="https://simonhalvdansson.github.io/posts/every-frame-an-inr/">
+	<meta property="og:image" content="https://simonhalvdansson.github.io/posts/every-frame-an-inr/media/screenshot.png">
+	<meta property="og:image:type" content="image/png">
+	<meta property="og:image:width" content="1959">
+	<meta property="og:image:height" content="1117">
+	<meta property="og:image:alt" content="Screenshot of the Every Frame an INR WebGPU tool">
+
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="Every Frame an INR">
+	<meta name="twitter:description" content="A short note introducing Every Frame an INR, an interactive WebGPU tool for watching implicit neural representations learn images.">
+	<meta name="twitter:image" content="https://simonhalvdansson.github.io/posts/every-frame-an-inr/media/screenshot.png">
+	<meta name="twitter:image:alt" content="Screenshot of the Every Frame an INR WebGPU tool">
+
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#FBEDEA" />
+	<meta charset="utf-8">
+
+	<link rel="shortcut icon" type="image/x-icon"  href="../../favicon.ico?">
+	<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+
+	<link rel="stylesheet" href="style.css">
+
+	<script>
+	window.MathJax = {
+	tex: {
+		inlineMath: [['$', '$'], ['\\(', '\\)']]
+	}
+	};
+	</script>
+
+	<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+	<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+	<link rel="stylesheet" href="../atom-one-dark.min.css">
+	<script src="../highlight.min.js"></script>
+
+	<script>hljs.highlightAll();</script>
+
+</head>
+<body>
+	<div class="blog centering" id="back_container">
+		<a href="../index.html" class="back"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="14" fill="currentColor" class="bi bi-caret-left" viewBox="0 0 22 18">
+			<path fill-rule="evenodd" clip-rule="evenodd" d="M14.0303 7.46967C14.3232 7.76256 14.3232 8.23744 14.0303 8.53033L10.5607 12L14.0303 15.4697C14.3232 15.7626 14.3232 16.2374 14.0303 16.5303C13.7374 16.8232 13.2626 16.8232 12.9697 16.5303L8.96967 12.5303C8.67678 12.2374 8.67678 11.7626 8.96967 11.4697L12.9697 7.46967C13.2626 7.17678 13.7374 7.17678 14.0303 7.46967Z"/>
+		  </svg>All posts</a>
+	</div>
+
+	<section class="blog centering post">
+		<h1>Every Frame an INR</h1>
+		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;June. 2026</div>
+
+		<hr class="squiggly-line"/>
+
+		<p>
+			I've written extensively about implicit neural representations (<a href="../gabor-feature-experiments/index.html">1</a> <a href="../phase-retrieval-inr/index.html">2</a> <a href="../image-inrs-quick/index.html">3</a>) during the last year, which I refer readers interested in what an implicit neural representation is to. The learning process is somewhat mesmerizing to watch and interactive tools make such a bigger impression when you use them compared to just reading so I thought I'd make one. That tool is <a href="../../Every-frame-an-INR/index.html" target="_blank">Every Frame an INR</a> and can be run in the browser with WebGPU. 
+		</p>
+
+		<div class="figure_container">
+			<img class="figure" src="media/screenshot.png"></img>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure:</span> Screenshot from the <a href="../../Every-frame-an-INR/index.html" target="_blank">Every Frame an INR</a> tool.
+		</div>
+
+		<p>
+			It's meant as a learning art project more so than a research artefact, and was constructed with extensive help from Codex. I could describe it here, but it should be simple enough that you'd be better off spending your time using it instead of reading about it. Happy learning! 
+		</p>
+
+
+
+	</section>
+	
+	<link rel="stylesheet" href="../fancybox.css" />
+	<script src="../fancybox.umd.js"></script>
+
+	<script>
+		Fancybox.bind("[data-fancybox]", {
+			closeButton: false,
+		});
+	  </script>
+
+</body>
+</html>
