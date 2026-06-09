@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<title>Harmonic 3.0, history, and future</title>
+	<title>Harmonic 3.0, its history, and future</title>
 
 
 	<meta name="description" content="A look back at six years of developing Harmonic for Hacker News, the Harmonic 3.0 release, and how Codex changed the development process.">
@@ -10,7 +10,7 @@
 
 	<meta property="og:type" content="article">
 	<meta property="og:site_name" content="Simon Halvdansson">
-	<meta property="og:title" content="Harmonic 3.0, history, and future">
+	<meta property="og:title" content="Harmonic 3.0, its history, and future">
 	<meta property="og:description" content="A look back at six years of developing Harmonic for Hacker News, the Harmonic 3.0 release, and how Codex changed the development process.">
 	<meta property="og:url" content="https://simonhalvdansson.github.io/posts/harmonic-3/">
 	<meta property="og:image" content="https://simonhalvdansson.github.io/posts/harmonic-3/media/harmonic_header.png">
@@ -20,7 +20,7 @@
 	<meta property="og:image:alt" content="Google Play header for Harmonic for Hacker News">
 
 	<meta name="twitter:card" content="summary_large_image">
-	<meta name="twitter:title" content="Harmonic 3.0, history, and future">
+	<meta name="twitter:title" content="Harmonic 3.0, its history, and future">
 	<meta name="twitter:description" content="A look back at six years of developing Harmonic for Hacker News, the Harmonic 3.0 release, and how Codex changed the development process.">
 	<meta name="twitter:image" content="https://simonhalvdansson.github.io/posts/harmonic-3/media/harmonic_header.png">
 	<meta name="twitter:image:alt" content="Google Play header for Harmonic for Hacker News">
@@ -63,13 +63,13 @@
 	</div>
 
 	<section class="blog centering post">
-		<h1>Harmonic 3.0, history, and future</h1>
+		<h1>Harmonic 3.0, its history, and future</h1>
 		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;June. 2026</div>
 
 		<hr class="squiggly-line"/>
 
 		<p>
-			Harmonic for Hacker News is my open-source Hacker News client for Android which I've developed over six years. In that time, it's gone through a lot of changes and has to a large part defined and reflected my relation to and how I think about development. With the advent of Codex and related tools, this has shifted significantly over the last year, an experience I'm sure I'm far from alone with. In this post I want to tell about the development process of Harmonic and force myself to make explicit how I view software development. Ultimately this leads to some thoughts on how I can bring some form of value to society, a constant battle.
+			Harmonic for Hacker News is my open-source Hacker News client for Android which I've developed over six years. In that time, it's gone through a lot of changes and has to a large part defined and reflected my relation to and how I think about development. With the advent of Codex and related tools, this has shifted significantly over the last year, an experience I'm sure is not unique. In this post I want to chronicle parts of the development process of Harmonic and reflect on what how the experience developing it has evolved.
 		</p>
 
 		<div class="figure_container">
@@ -80,7 +80,7 @@
 		</div>
 
 		<p>
-			First, something about what Harmonic is. The Hacker News forum is run by the startup incubator Y Combinator and has been around for nearly 20 years. Its greatest strength is its users, which contribute some of the greatest semi-anonymous discourse you can find online. The moderators ruthlessly enforce the simple but fair rules and there is a genuine culture which is holding up OK against the ever-growing pressure of <a href="https://en.wikipedia.org/wiki/Eternal_September" target="_blank">Eternal September</a>.
+			First, something about what Harmonic is. The Hacker News forum is run by the startup incubator Y Combinator and has been around for nearly 20 years. Its greatest strength is its users, which contribute some of the greatest semi-anonymous discourse you can find online. The moderators ruthlessly enforce the simple but fair rules and there is a strong culture which is holding up OK against the ever-growing pressure of <a href="https://en.wikipedia.org/wiki/Eternal_September" target="_blank">Eternal September</a>.
 		</p>
 
 		<p>
@@ -101,11 +101,11 @@
 		</div>
 
 		<p>
-			I don't know how long it took to complete because it seems the entire app was built in a single commit but I can't imagine this was more than a couple weeks of work. The layout is far from unrecognizable and clearly had at least some love poured into it, not that I'm blind to the flaws, but I still find it aesthetically appealing. By 2020 I had already made more than 10 Android apps which had made a fair amount of money considering most of it came during high school, and I considered my Android career to be mostly behind me as I was doing my masters in mathematics. For this reason, I didn't want to invest in learning the new Android tools which had been made available during my hiatus but rather focused on pixel pushing and iterated to add the features and design tweaks I wanted at each step. 
+			I don't know how long it took to complete because it seems the entire app was built in a single commit but I can't imagine this was more than a couple weeks of work. The layout is far from unrecognizable and clearly had at least some love poured into it, not that I'm blind to the flaws, but I still find it aesthetically appealing. By 2020 I had already made more than 10 Android apps which had made a decent amount of money considering most of it came during high school, and I considered my Android career to be mostly behind me as I was doing my masters in mathematics. For this reason, I didn't want to invest in learning the new Android tools which had been made available during my hiatus but rather focused on pixel pushing and iterated to add the features and design tweaks I wanted at each step. 
 		</p>
 
 		<p>
-			This process has essentially continued all the way to now, with pauses whenever I was excessively busy or interested in some other part of life. Reading Hacker News almost daily makes sure I never forget about the app though, and can think deeply about design tweaks before it's time to implement them. When Harmonic was open sourced in 2023, it got a boost in downloads but overall the installs have been climbing fairly evenly over all these years which can be interpreted as the user appeal being roughly constant but I prefer to see it as staying on top of an increasingly competitive landscape, the truth is probably somewhere in between.
+			This process has essentially continued all the way to now, with pauses whenever I was excessively busy or interested in some other part of life, and periods of intense development when I fealt like it. Reading Hacker News almost daily makes sure I never forget about the app though, and can think deeply about design tweaks before it's time to implement them. When Harmonic was open sourced in 2023, it got a boost in downloads but overall the installs have been climbing fairly evenly over all these years which can be interpreted as the user appeal being roughly constant but I prefer to see it as staying on top of an increasingly competitive landscape, the truth is probably somewhere in between.
 		</p>
 
 		<div class="figure_container_small">
@@ -135,25 +135,19 @@
 		<hr class="squiggly-line">
 
 		<p>
-			As I write this, I was looking up the first Codex PR to be merged into Harmonic and found out it was precisely a year ago, June 9th 2025. This o3 (?) based model was not particularly advanced either but the promise was clear. Over the year, I wrote less and less code myself by hand and in the month leading up to version 3.0 I burnt through 69 million tokens of GPT 5.5 at an API cost of around 1000 dollars. This was probably the most productive I've ever been in my life as I was participating in a loop of writing rough issues, formatting them into prompts, testing, and iterating for features at the same time. 
+			As I write this, I was looking up the first Codex PR to be merged into Harmonic and found out it was precisely a year ago, June 9th 2025. This o3 (?) based model was not particularly advanced either but the promise was clear. Over the year, I wrote less and less code myself by hand and in the month leading up to version 3.0 I burnt through 69 million tokens of GPT 5.5 at an API cost of around 1000 dollars. This was probably the most productive I've ever been in my life as I was participating in a loop of writing rough issues, formatting them into prompts, testing, and iterating for features at the same time. This issue backlog is essentially worked through completely and I am no longer limited by time but rather good design ideas.
 		</p>
 
 		<p>
-			I have used Codex extensively throughout the 5-series of GPT and have, as most probably, spent less and less time reading the output the more I learned through experience what it could and couldn't do. I still read some code, especially when it touches a part I know is especially finicky, but I pretty much never write code myself anymore. To be clear, I am incredibly proud of the polish of Harmonic 3.0 and think that from the user side it is as far away from a sloppily vibe coded app as you can come. I've spent so many hours on the smallest of details that I think we'll be rather deep into RSI and AGI if LLMs can ever reproduce something similar (which I do believe will happen). 
+			I have used Codex extensively throughout the 5-series of GPT and have, as most probably, spent less and less time reading the output the more I learned through experience what it could and couldn't do. I still read some code, especially when it touches a part I know is especially finicky, but I pretty much never write code myself anymore. To be clear, I am incredibly proud of the polish of Harmonic 3.0 and think that from the user side it is as far away from a sloppily vibe coded app as you can come. I've spent so many hours on the smallest of details that I think we'll be rather deep into AGI if LLMs can ever reproduce something similar (which I do believe will happen). 
 		</p>
 
 		<p>
-			At the same time, embracing the exponential and extreme productivity has forced me to grapple with the fact that it is not by being a better software engineer that Harmonic has been improved, it is by moving myself to something of a product manager role. Having migrated from a path towards being a software engineer to that of a mathematician and researcher in the last 5 years, I'm spared from having my professional self-image shattered to some degree (not that that path is safe necessarily) which perhaps should be of some comfort. I don't think I quite respected the old role of PMs (as someone from the outside) when I couldn't understand why leverage was so important in development. I've never been passionate about dependency injection or various programming patterns which aren't of much consequence to the user but have rather focused on getting the job done. This doesn't mean I don't understand why they're valuable, it's just that digging deep into them hasn't been intellectually fulfilling.
+			At the same time, embracing the exponential and extreme productivity has forced me to grapple with the fact that it is not by being a better software engineer that Harmonic has been improved, it is by moving myself to something of a product manager role. Having migrated from a path towards being a software engineer to that of a mathematician and researcher in the last 5 years, I'm spared from having my professional self-image shattered to some degree (not that that path is safe necessarily) which perhaps should be of some comfort. I don't think I quite respected the old role of PMs (as someone from the outside) when I couldn't understand why leverage was so important in development. I've never been passionate about dependency injection or random programming patterns which aren't of much consequence to the user but have rather focused on getting the job done. This doesn't mean I don't understand why they're valuable, it's just that digging deep into them hasn't been particularly intellectually fulfilling.
 		</p>
 
 		<p>
-			I think I define myself professionally through writing and thinking, and as long as that writing is consumed by humans as opposed to machines (see: code), I have no desire to use LLMs to write for me as so much of our message is conveyed in how we formulate it. However, should LLMs continue to conquer mathematics, there may soon be no need for human readers. I recently experimented with having GPT 5.5 Pro write a paper about a research idea I had and while I have no doubt I could have written a paper which at least I would have preferred to the LLM output, the proofs were seemingly correct and a variant of the result I envisioned seemed to hold. I now doubt that my mathematics skills will be of much use to further mathematics in the future as the common vision of a country of geniuses in a datacenter which write mathematics to each other seems increasingly plausible. Since GPT-4, I've believed that my greatest contribution to mathematics would be providing high quality training material on arXiv and that is looking to hold up so far. But now that models can prove results of similar quality to my papers, that training data is no longer so scarce (remember 2023/2024 was when the common consensus was that a data wall was the biggest obstacle to scaling LLMs, thanks Chinchilla!). It's not always easy to see how influenced you are by the time you live in.
-		</p>
-
-		<hr class="squiggly-line"/>
-
-		<p>
-			I've pivoted to mathematics here because it is how I've seen myself as contributing to society during my PhD over the last years. Should that be made obsolete by better methods so quickly, which is at the very least plausible from where we are now, that value has paid off (albeit on a very small scale) over an exceptionally small time scale. Similarly the research I currently do during the day is counting on paying off over longer time scales but is not public for the most part and so stands the risk of contributing even less to society over the long run. Conceding that working on hard problems with long timelines is unfavorable as their returns will be superseded by an incoming exponential feels like the wrong conclusion, yet it is not obviously false. Maybe the best we can do is make a faint contribution to frontier ML, or focus on problems which pay off for society over shorter timelines, like making the best Hacker News client for Android. I'll think about it. Maybe it's best to just touch some grass.
+			Keeping improving Harmonic with a very different skillset is a bit scary but there's still a role to be played by taste, which I hope version 3.0 has benefited from. Thankfully, development is still fun to me and a nice way to express creativity and put something out into the world.
 		</p>
 
 
