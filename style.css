@@ -163,6 +163,10 @@ h1 {
 }
 
 /* Custom background colors for individual papers */
+#hydrogen-event-tree {
+    background-color: #A7E7E0;
+}
+
 #imitation {
     background-color: #FFE4A3;
 }
