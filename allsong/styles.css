@@ -1,0 +1,170 @@
+:root {
+  --paper: #f6f3ec;
+  --surface: #fbfaf7;
+  --ink: #20262d;
+  --muted: #66717c;
+  --accent: #173f68;
+  --border: #d9d8d2;
+  --focus: #cc6c4e;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: clamp(1rem, 0.94rem + 0.25vw, 1.12rem);
+  line-height: 1.6;
+  text-rendering: optimizeLegibility;
+}
+a { color: inherit; }
+a:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 4px;
+  border-radius: 3px;
+}
+.site-shell {
+  width: min(100% - 2rem, 72rem);
+  margin: 0 auto;
+  padding: 1.25rem 0 4.5rem;
+}
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.wordmark {
+  color: var(--accent);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.55rem, 3vw, 2.05rem);
+  letter-spacing: -0.05em;
+  line-height: 1;
+  text-decoration: none;
+}
+.site-title {
+  margin: 0;
+  font-weight: 400;
+}
+.site-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.index-main { padding: clamp(2.25rem, 5vw, 4.5rem) 0 0; }
+.index-main h1,
+.song-main h1 {
+  margin: 0;
+  color: var(--accent);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.25rem, 5vw, 4.1rem);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 1.05;
+}
+.index-main h1 {
+  max-width: 34rem;
+  padding-bottom: clamp(1.5rem, 3vw, 2.25rem);
+  border-bottom: 1px solid var(--border);
+}
+.song-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.song-list li { border-bottom: 1px solid var(--border); }
+.song-list a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 4.35rem;
+  padding: 0.9rem 0.1rem;
+  color: var(--accent);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.12rem, 2vw, 1.45rem);
+  text-decoration: none;
+  transition: color 160ms ease, padding 160ms ease;
+}
+.song-list a:hover { padding-left: 0.5rem; color: var(--focus); }
+.song-list .icon {
+  flex: 0 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.4;
+}
+.song-main {
+  width: min(100%, 46rem);
+  margin: 0 auto;
+  padding: clamp(2.8rem, 8vw, 5.5rem) 0 0;
+}
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 2.25rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+.back-link:hover { color: var(--accent); }
+.back-link .icon {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.4;
+}
+.song-main h1 {
+  padding-bottom: 1.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.lyrics { padding: 2.45rem 0 1rem; }
+.stanza {
+  margin: 0 0 1.7rem;
+  font-size: clamp(1.06rem, 1rem + 0.2vw, 1.18rem);
+  line-height: 1.58;
+}
+.line {
+  display: block;
+  min-height: 1.58em;
+}
+.section-marker {
+  margin: 2.2rem 0 0.75rem;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+.section-marker + .stanza { margin-top: 0; }
+@media (max-width: 40rem) {
+  .site-shell { width: min(100% - 1.5rem, 72rem); }
+  .site-header { padding-bottom: 1.15rem; }
+  .site-note { display: none; }
+  .index-main { padding-top: 2.5rem; }
+  .song-main { padding-top: 2.5rem; }
+  .song-main h1 { padding-bottom: 1.25rem; }
+  .lyrics { padding-top: 2rem; }
+  .stanza { margin-bottom: 1.45rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
