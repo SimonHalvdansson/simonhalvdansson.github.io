@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Presentation on INRs</title>
+
+
+	<meta name="description" content="Presentation on INRs.">
+	<meta name="author" content="Simon Halvdansson">
+	<link rel="canonical" href="https://simonhalvdansson.github.io/posts/implicit-neural-representations/">
+
+	<meta property="og:type" content="article">
+	<meta property="og:site_name" content="Simon Halvdansson">
+	<meta property="og:title" content="Presentation on INRs">
+	<meta property="og:description" content="Presentation on INRs.">
+	<meta property="og:url" content="https://simonhalvdansson.github.io/posts/implicit-neural-representations/">
+	<meta property="og:image" content="https://simonhalvdansson.github.io/posts/implicit-neural-representations/media/hero.jpg">
+	<meta property="og:image:type" content="image/jpeg">
+	<meta property="og:image:width" content="1920">
+	<meta property="og:image:height" content="1080">
+	<meta property="og:image:alt" content="Audio, images, video, 3D shapes, radiance fields, and physical fields represented as functions">
+
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="Presentation on INRs">
+	<meta name="twitter:description" content="Presentation on INRs.">
+	<meta name="twitter:image" content="https://simonhalvdansson.github.io/posts/implicit-neural-representations/media/hero.jpg">
+	<meta name="twitter:image:alt" content="Audio, images, video, 3D shapes, radiance fields, and physical fields represented as functions">
+
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#FBEDEA" />
+	<meta charset="utf-8">
+
+	<link rel="shortcut icon" type="image/x-icon"  href="../../favicon.ico?">
+	<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+
+	<link rel="stylesheet" href="style.css">
+
+	<script>
+	window.MathJax = {
+	tex: {
+		inlineMath: [['$', '$'], ['\\(', '\\)']]
+	}
+	};
+	</script>
+
+	<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+	<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+	<link rel="stylesheet" href="../atom-one-dark.min.css">
+	<script src="../highlight.min.js"></script>
+
+	<script>hljs.highlightAll();</script>
+
+</head>
+<body>
+	<div class="blog centering" id="back_container">
+		<a href="../index.html" class="back"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="14" fill="currentColor" class="bi bi-caret-left" viewBox="0 0 22 18">
+			<path fill-rule="evenodd" clip-rule="evenodd" d="M14.0303 7.46967C14.3232 7.76256 14.3232 8.23744 14.0303 8.53033L10.5607 12L14.0303 15.4697C14.3232 15.7626 14.3232 16.2374 14.0303 16.5303C13.7374 16.8232 13.2626 16.8232 12.9697 16.5303L8.96967 12.5303C8.67678 12.2374 8.67678 11.7626 8.96967 11.4697L12.9697 7.46967C13.2626 7.17678 13.7374 7.17678 14.0303 7.46967Z"/>
+		  </svg>All posts</a>
+	</div>
+
+	<section class="blog centering post">
+		<h1>Presentation on INRs</h1>
+		<div class="subtitle monospace">By Simon Halvdansson&nbsp;|&nbsp;Nov. 2026</div>
+
+		<hr class="squiggly-line"/>
+
+		<p>
+			I recently put together a short presentation about implicit neural representations at work using Opus 5.5 which I thought was nice and wanted to put up online as well.
+		</p>
+
+		<div class="figure_container_small">
+			<a href="../../slides/INR/index.html">
+				<img class="figure" src="media/hero.jpg" width="1920" height="1080" style="height: auto;" alt="Audio, images, video, 3D shapes, radiance fields, and physical fields represented as functions">
+			</a>
+		</div>
+		<div class="figure_caption">
+			<span class="caption_title">Figure: </span> Screenshot from the presentation, press the image to open it.
+		</div>
+
+		<p>
+			It's nothing novel or particularly innovative, but it does capture how I think about the basics of this problem and I think it does a good job of explaining things. INRs are particularly well suited for these types of visual explanations which is why I was inclined to try out one of these LLM-HTML presentations which you see frequently nowadays. To be clear, to produce this I wrote a rought script (~750 words) which I handed to Opus 5.5 and gave a few rounds of feedback with changes to all of the slides but nothing too major. This is a nice way to produce a presentation of customized presentation of a somewhat-well-known topic without spending too much time. Hopefully
+		</p>
+
+
+	</section>
+
+	<link rel="stylesheet" href="../fancybox.css" />
+	<script src="../fancybox.umd.js"></script>
+
+	<script>
+		Fancybox.bind("[data-fancybox]", {
+			closeButton: false,
+		});
+	  </script>
+
+</body>
+</html>

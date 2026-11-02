@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Implicit Neural Representations</title>
+<link rel="stylesheet" href="vendor/katex/katex.min.css">
+<link rel="stylesheet" href="css/deck.css">
+<link rel="stylesheet" href="css/slides.css">
+</head>
+<body>
+<div id="viewport">
+<div id="stage">
+
+<!-- =============================== 1. TITLE =============================== -->
+<section class="slide" id="s-title" data-title="Implicit neural representations" data-chrome="off">
+  <div class="t-left">
+    <h1 class="t-title">Implicit neural<br>representations</h1>
+    <p class="t-sub">How to store a picture, a sound, a shape or a physical field <em>inside</em> a neural network</p>
+    <div class="t-author">Simon Nyholm + Claude Opus 5.5</div>
+  </div>
+  <div class="t-right">
+    <div class="t-frame">
+      <canvas id="title-canvas"></canvas>
+      <div class="t-probe"><span class="t-swatch"></span><span class="t-xy mono"></span></div>
+    </div>
+    <div class="t-formula">\( f_\theta(x, y) = (r, g, b) \)</div>
+    <div class="t-readout mono"></div>
+  </div>
+  <aside class="notes"><ul>
+    <li>One sentence: an INR is a neural network that <i>is</i> the data — you store a function instead of samples.</li>
+    <li>Right: a small network learning a photo, replayed from training snapshots.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 2. UAT =============================== -->
+<section class="slide" id="s-uat" data-title="Universal approximation">
+  <div class="kicker"><span class="num">1</span>Background</div>
+  <h2 class="title">Neural networks can approximate <em>any</em> function</h2>
+  <div class="uat-grid">
+    <div class="uat-left">
+      <div class="theorem">
+        <div class="th-head">Universal approximation theorem</div>
+        For every continuous \( f : [0,1]^n \to \R \) and every \( \varepsilon > 0 \) there is a network
+        \[ \mathcal{N}(x) = \sum_{j=1}^{N} a_j\, \sigma(w_j \cdot x + b_j) \]
+        such that \( |f(x) - \mathcal{N}(x)| < \varepsilon \) for all \( x \).
+      </div>
+      <div class="uat-net"><svg id="uat-net" viewBox="0 0 640 300"></svg></div>
+    </div>
+    <div class="uat-right">
+      <canvas id="uat-plot"></canvas>
+      <div class="uat-legend">
+        <span><i class="swatch" style="background:#b9b6ad"></i>target \( f \)</span>
+        <span><i class="swatch" style="background:var(--orange)"></i>ReLU network \( \mathcal{N} \)</span>
+        <span class="uat-readout mono"></span>
+      </div>
+    </div>
+  </div>
+  <div class="callout plain uat-callout" data-step="3">In reality, \( N \) needs to be <em>very</em> large.</div>
+  <aside class="notes"><ul>
+    <li>~1.5 min. Most of you know this theorem: one hidden layer can approximate any continuous function.</li>
+    <li>Step 1: with ReLU every neuron is a hinge; three hinges add up to a piecewise linear fit.</li>
+    <li>Step 2: more neurons, better fit (N = 3 → 48, max error 0.54 → 0.01).</li>
+    <li>Step 3: the catch — the theorem says nothing about how many neurons.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 3. FUNCTIONS =============================== -->
+<section class="slide" id="s-funcs" data-title="Lots of things are functions">
+  <div class="kicker"><span class="num">1</span>Background</div>
+  <h2 class="title">A function can be much more than a curve</h2>
+  <div class="fn-grid">
+    <div class="fn-card card" data-k="audio">
+      <canvas class="fn-canvas"></canvas>
+      <div class="fn-meta"><div class="fn-name">Audio</div><div class="fn-map">\( t \mapsto p(t) \)</div><div class="fn-dim">\( \R \to \R \)</div></div>
+    </div>
+    <div class="fn-card card" data-k="image" data-step="1">
+      <canvas class="fn-canvas"></canvas>
+      <div class="fn-meta"><div class="fn-name">Image <span class="fn-sub">red, green, blue</span></div><div class="fn-map">\( (x, y) \mapsto (r, g, b) \)</div><div class="fn-dim">\( \R^2 \to \R^3 \)</div></div>
+    </div>
+    <div class="fn-card card" data-k="video" data-step="2">
+      <canvas class="fn-canvas"></canvas>
+      <div class="fn-meta"><div class="fn-name">Video</div><div class="fn-map">\( (x, y, t) \mapsto (r, g, b) \)</div><div class="fn-dim">\( \R^3 \to \R^3 \)</div></div>
+    </div>
+    <div class="fn-card card" data-k="sdf" data-step="3">
+      <canvas class="fn-canvas"></canvas>
+      <div class="fn-meta"><div class="fn-name">3D shape <span class="fn-sub">signed distance</span></div><div class="fn-map">\( (x, y, z) \mapsto d \)</div><div class="fn-dim">\( \R^3 \to \R \)</div><div class="fn-note">Left: the surface, where \( d = 0 \). Right: a slice through \( d \), blue inside (\( d<0 \)), orange outside.</div></div>
+    </div>
+    <div class="fn-card card" data-k="nerf" data-step="4">
+      <canvas class="fn-canvas"></canvas>
+      <div class="fn-meta"><div class="fn-name">Radiance field <span class="fn-sub">NeRF</span></div><div class="fn-map">\( (x, y, z, \theta, \phi) \mapsto (r, g, b, \sigma) \)</div><div class="fn-dim">\( \R^5 \to \R^4 \)</div><div class="fn-note">Colour and density \( \sigma \) at every point, seen from direction \( (\theta, \phi) \). Integrating along camera rays renders any new viewpoint.</div></div>
+    </div>
+    <div class="fn-card card" data-k="field" data-step="5">
+      <canvas class="fn-canvas"></canvas>
+      <div class="fn-meta"><div class="fn-name">Physical field <span class="fn-sub">wind, temperature</span></div><div class="fn-map">\( (x, y, z, t) \mapsto (\mathbf{u}, T) \)</div><div class="fn-dim">\( \R^4 \to \R^4 \)</div></div>
+    </div>
+  </div>
+  <div class="fn-bottom" data-step="6">Any information can be encoded by a function \( f \). <span class="blue">We are interested in mappings between low-dimensional spaces.</span></div>
+  <aside class="notes"><ul>
+    <li>~2 min, one card per click. We usually picture functions as curves ℝ→ℝ: audio is exactly that.</li>
+    <li>An image is a function from position to colour; a video adds time.</li>
+    <li>A shape: signed distance to the surface (inside negative, outside positive; the surface is d = 0).</li>
+    <li>NeRF: colour and density at every point and viewing direction → render views nobody photographed.</li>
+    <li>Closer to home: wind / temperature / pressure fields over space and time.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 4. INR DEFINITION =============================== -->
+<section class="slide" id="s-inr" data-title="Implicit neural representation">
+  <div class="kicker"><span class="num">1</span>Background</div>
+  <h2 class="title">Implicit neural representation</h2>
+  <div class="inr-grid">
+    <div class="inr-left">
+      <div class="inr-label">Explicit: a grid of numbers</div>
+      <div class="inr-imgwrap">
+        <canvas id="inr-img" class="pix"></canvas>
+        <canvas id="inr-zoom" class="pix"></canvas>
+      </div>
+      <div class="inr-count"><span class="mono">128 × 128 × 3</span> = <b>49,152</b> numbers</div>
+    </div>
+    <div class="inr-right">
+      <div class="inr-label">Implicit: a function \( f_\theta \)</div>
+      <svg id="inr-net" viewBox="0 0 900 520"></svg>
+    </div>
+  </div>
+  <div class="inr-bottom">
+    <div class="inr-fit" data-step="1">Fit with gradient descent: \( \displaystyle \min_\theta \sum_{i} \big\| f_\theta(\mathbf{x}_i) - \mathbf{y}_i \big\|^2 \) <span class="muted small">(pixel positions \( \mathbf{x}_i \), colors \( \mathbf{y}_i \))</span></div>
+    <div class="inr-punch" data-step="2">The weights \( \theta \) <b>are</b> the image: query it anywhere, at any resolution.</div>
+  </div>
+  <aside class="notes"><ul>
+    <li>~1.5 min. Explicit: store every pixel (49k numbers here). Implicit: store a function you can ask "what colour at (x, y)?".</li>
+    <li>"Implicit" because the object is defined through a function rather than listed.</li>
+    <li>Training is plain least squares over the pixels — like any regression.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 5. RELU FAILS =============================== -->
+<section class="slide" id="s-relu" data-title="Attempt 1: a plain MLP">
+  <div class="kicker orange"><span class="num">2</span>Naive learning</div>
+  <h2 class="title">Attempt 1: a plain ReLU multilayer perceptron (MLP)</h2>
+  <div class="relu-tiles">
+    <figure class="tile target"><canvas class="tile-c"></canvas><figcaption><b>Target</b><span>128 × 128 · 49k values</span></figcaption></figure>
+  </div>
+  <div class="relu-bottom">
+    <canvas id="relu-plot"></canvas>
+    <div class="relu-side">
+      <div class="relu-step mono">step <span>0</span></div>
+      <div class="callout plain relu-callout" data-step="1">The largest network has <b>16× more parameters</b> than the image has values — and it is still blurry.</div>
+    </div>
+  </div>
+  <aside class="notes"><ul>
+    <li>~1.5 min. Same image, four plain ReLU MLPs from 1.3k to 791k parameters, 5000 full-batch Adam steps each (precomputed on a GPU).</li>
+    <li>Log-scale loss: fast start, then a crawl. You cannot read the sign even at 791k parameters (27 dB).</li>
+    <li>Click: 791k parameters is 16× the 49k pixel values — more parameters than data, still blurry.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 6. CHIRP (ReLU) =============================== -->
+<section class="slide" id="s-chirp" data-title="Even in 1D: the chirp">
+  <div class="kicker orange"><span class="num">2</span>Naive learning</div>
+  <h2 class="title">Learning a 1D signal: the chirp</h2>
+  <div class="chirp-top">
+    <div class="chirp-eq">\( y(t) = \sin\!\big(2\pi(t + 20\,t^2)\big) \)</div>
+    <div class="chirp-legend">
+      <span><i class="swatch" style="background:#b9b6ad"></i>target</span>
+      <span><i class="swatch" style="background:var(--o2)"></i>ReLU MLP <span class="muted">3 × 256 · 132k</span></span>
+      <span><i class="swatch" style="background:var(--o4)"></i>ReLU MLP <span class="muted">4 × 512 · 790k</span></span>
+    </div>
+  </div>
+  <canvas class="chirp-main"></canvas>
+  <div class="chirp-row">
+    <div class="chirp-panel"><div class="panel-title">Loss</div><canvas class="chirp-loss"></canvas></div>
+    <div class="chirp-panel"><div class="panel-title">Spectrum \( |\hat{y}(\xi)| \)</div><canvas class="chirp-spec"></canvas></div>
+    <div class="chirp-panel chirp-text" data-step="1">
+      <div class="big-q">Spectral bias</div>
+      <p>Networks learn <b>low frequencies first</b>. High frequencies take forever.</p>
+    </div>
+  </div>
+  <aside class="notes"><ul>
+    <li>~1.5 min. A chirp: a sine whose frequency increases. Two plain MLPs (132k and 790k parameters) train in the browser.</li>
+    <li>The slow wiggles on the left are fitted; the fast ones on the right stay flat, even for the 6× bigger network.</li>
+    <li>Spectrum: the networks only reproduce the low end. Click: this is spectral bias.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 7. FOURIER SERIES =============================== -->
+<section class="slide" id="s-fourier" data-title="Recall: Fourier series">
+  <div class="kicker"><span class="num">3</span>Fourier features</div>
+  <h2 class="title">Recall: Fourier series</h2>
+  <div class="fs-eq">\( \displaystyle f(x) \approx a_0 + \sum_{k=1}^{K} \big( a_k \cos(2\pi k x) + b_k \sin(2\pi k x) \big) \)</div>
+  <div class="fs-grid">
+    <div class="fs-left">
+      <canvas id="fs-plot"></canvas>
+      <div class="fs-readout mono"></div>
+    </div>
+    <div class="fs-right" data-step="1">
+      <canvas id="fs-epi"></canvas>
+      <div class="fs-epi-eq">\( \displaystyle \mathbf{z}(t) = \sum_{k} r_k \begin{pmatrix} \cos(kt + \varphi_k) \\ \sin(kt + \varphi_k) \end{pmatrix} \in \R^2 \)</div>
+    </div>
+  </div>
+  <div class="fs-take" data-step="2">Sinusoids are a <b>very efficient vocabulary</b>. Idea: let the MLP build its function <span class="blue">out of sinusoids</span>.</div>
+  <aside class="notes"><ul>
+    <li>~1 min. Reminder: a periodic signal is a sum of sines and cosines; coefficients decay fast for smooth signals.</li>
+    <li>Click: same idea in 2D — a closed curve drawn by 40 rotating circles (80 numbers).</li>
+    <li>Message: sinusoids are a compact vocabulary for signals.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 8. FOURIER FEATURES =============================== -->
+<section class="slide" id="s-ff" data-title="Fourier features">
+  <div class="kicker"><span class="num">3</span>Fourier features</div>
+  <h2 class="title">Fourier features <span class="ff-year">2020</span></h2>
+  <div class="ff-eqs">
+    <div class="ff-eq1">\( \gamma(\mathbf{x}) = \big[\cos(2\pi B\mathbf{x}),\; \sin(2\pi B\mathbf{x})\big] \in \R^{2m}, \qquad B \in \R^{m \times 2},\; B_{ij} \sim \mathcal{N}(0, \sigma^2) \)</div>
+    <div class="ff-eq2">\( f_\theta(\mathbf{x}) = \mathrm{MLP}_\theta\big(\gamma(\mathbf{x})\big) \)</div>
+  </div>
+  <div class="ff-pipe">
+    <div class="ff-in"><div class="ff-node">\( (x, y) \)</div><div class="ff-cap">2 numbers</div></div>
+    <div class="ff-arrow">→</div>
+    <div class="ff-feats"><div class="ff-tiles"></div><div class="ff-cap">\( \gamma(\mathbf{x}) \): <b class="blue">2m numbers</b> (m = 128 → 256), 8 shown</div></div>
+    <div class="ff-arrow">→</div>
+    <div class="ff-mlp"><svg id="ff-net" viewBox="0 0 360 260"></svg><div class="ff-cap">MLP with 2m inputs</div></div>
+    <div class="ff-arrow">→</div>
+    <div class="ff-out"><canvas id="ff-out" class="pix"></canvas><div class="ff-cap">\( (r, g, b) \)</div></div>
+  </div>
+  <div class="ff-bottom">
+    <pre class="ff-code" data-step="1"><span class="c"># the entire trick (PyTorch), x: (N, 2) coordinates</span>
+B = sigma * torch.randn(m, 2)       <span class="c"># m × 2, fixed</span>
+Bx = 2 * pi * x @ B.T               <span class="c"># (N, m)</span>
+gamma = torch.cat([cos(Bx), sin(Bx)], -1)   <span class="c"># (N, 2m)</span></pre>
+    <div class="ff-compare" data-step="2">
+      <div><span class="muted">Fourier series:</span> <b>linear</b> combination of sinusoids</div>
+      <div><span class="muted">Fourier features:</span> <b class="blue">nonlinear</b> combination (an MLP) of random sinusoids</div>
+    </div>
+  </div>
+  <aside class="notes"><ul>
+    <li>~1.5 min. Idea: instead of feeding (x, y), feed sines and cosines of random projections of (x, y).</li>
+    <li>Each tile is one feature: a plane wave with random direction and frequency; σ sets the bandwidth.</li>
+    <li>Timeline: universal approximation is from 1989; this trick is from 2020 (with NeRF and SIREN the same year).</li>
+    <li>Click: it is three lines of code. Click: Fourier series combine sinusoids linearly, the MLP combines them nonlinearly.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 9. CHIRP (FF) =============================== -->
+<section class="slide" id="s-chirp-ff" data-title="The chirp with Fourier features">
+  <div class="kicker"><span class="num">3</span>Fourier features</div>
+  <h2 class="title">The chirp again, with Fourier features</h2>
+  <div class="chirp-top">
+    <div class="chirp-eq">\( y(t) = \sin\!\big(2\pi(t + 20\,t^2)\big) \)</div>
+    <div class="chirp-legend">
+      <span><i class="swatch" style="background:#b9b6ad"></i>target</span>
+      <span><i class="swatch" style="background:var(--orange)"></i>ReLU MLP <span class="muted">132k</span></span>
+      <span><i class="swatch" style="background:var(--blue)"></i>Fourier features + MLP <span class="muted">3 × 64 · 17k</span></span>
+    </div>
+  </div>
+  <canvas class="chirp-main"></canvas>
+  <div class="chirp-row">
+    <div class="chirp-panel"><div class="panel-title">Loss</div><canvas class="chirp-loss"></canvas></div>
+    <div class="chirp-panel"><div class="panel-title">Spectrum \( |\hat{y}(\xi)| \)</div><canvas class="chirp-spec"></canvas></div>
+    <div class="chirp-panel chirp-text">
+      <div class="big-q blue">Fewer parameters, faster learning</div>
+      <p>…although a chirp is, admittedly, tailor-made for sinusoidal features.</p>
+    </div>
+  </div>
+  <aside class="notes"><ul>
+    <li>~1 min. Same target and optimizer, slowed down so it can be followed. The blue network has 8× fewer parameters.</li>
+    <li>Fair caveat: a chirp suits sinusoidal features unusually well.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 10. IMAGE (FF) =============================== -->
+<section class="slide" id="s-img-ff" data-title="Attempt 2: Fourier features">
+  <div class="kicker"><span class="num">3</span>Fourier features</div>
+  <h2 class="title">Attempt 2: Fourier features</h2>
+  <div class="iff-top">
+    <div class="iff-tiles">
+      <figure class="tile"><canvas class="tile-c" id="iff-target"></canvas><figcaption><b>Target</b><span>128 × 128 px</span></figcaption></figure>
+      <figure class="tile"><canvas class="tile-c" id="iff-relu"></canvas><figcaption><b class="orange-key">ReLU MLP</b><span>791k params · 5000 steps</span></figcaption></figure>
+      <figure class="tile"><canvas class="tile-c" id="iff-ff"></canvas><figcaption><b class="blue-key">Fourier features + MLP</b><span>50k params</span></figcaption></figure>
+    </div>
+    <div class="iff-stats">
+      <div class="iff-stat"><span class="lbl">PSNR</span><span class="val big mono iff-psnr">—</span></div>
+      <div class="iff-stat"><span class="lbl">training steps</span><span class="val mono iff-steps">0</span></div>
+      <div class="iff-stat"><span class="lbl">wall-clock time</span><span class="val mono"><span class="iff-time">0.0</span> s</span></div>
+    </div>
+  </div>
+  <canvas id="iff-plot"></canvas>
+  <aside class="notes"><ul>
+    <li>~1 min. Live in the browser (TensorFlow.js on the GPU). Same image as before.</li>
+    <li>50k parameters (16× fewer than the largest ReLU net): readable sign within a couple of seconds, ~40 dB.</li>
+    <li>Press <b>r</b> to rerun.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 11. WHY =============================== -->
+<section class="slide" id="s-why" data-title="Why are INRs useful?">
+  <div class="kicker"><span class="num">4</span>Applications</div>
+  <h2 class="title">Why are INRs cool?</h2>
+  <div class="why-grid">
+    <div class="why-card card" data-k="continuous"><canvas class="why-c"></canvas><h3>Continuous</h3><p>Evaluate anywhere, good interpolation.</p></div>
+    <div class="why-card card" data-k="diff" data-step="1"><canvas class="why-c"></canvas><h3>Differentiable</h3><p>Exact derivatives \( \nabla_{\mathbf{x}} f_\theta \) by autodiff: normals, PDE residuals (PINNs).</p></div>
+    <div class="why-card card" data-k="physics" data-step="2"><canvas class="why-c"></canvas><h3>Plugs into physics</h3><p>Fit <i>through</i> a forward model: \( \min_\theta \| A(f_\theta) - y \|^2 \).</p></div>
+    <div class="why-card card" data-k="compact" data-step="3"><canvas class="why-c"></canvas><h3>Compact</h3><p>Store \( \theta \), not samples. Compress images, textures, simulation and weather data.</p></div>
+  </div>
+  <aside class="notes"><ul>
+    <li>~1 min. Continuous: no resolution — ask for any point.</li>
+    <li>Differentiable: derivatives with respect to the input for free (normals, PDE residuals → PINNs).</li>
+    <li>Plugs into physics: we can fit it to <i>indirect</i> measurements → CT next.</li>
+    <li>Compact: with the right size, the network is smaller than the data (e.g. weather/climate data) → textures at the end.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 12. CT MEASUREMENT =============================== -->
+<section class="slide" id="s-ct" data-title="Computed tomography">
+  <div class="kicker"><span class="num">4</span>Applications</div>
+  <h2 class="title">Example: Computed tomography (CT)</h2>
+  <div class="ct-grid">
+    <div class="ct-scene"><canvas id="ct-scene"></canvas>
+      <div class="ct-legend">
+        <span><i class="swatch" style="background:#eda100"></i>X-ray source</span>
+        <span><i class="swatch" style="background:#1d2130"></i>detector</span>
+        <span><i class="swatch" style="background:var(--blue)"></i>measured projection</span>
+      </div>
+    </div>
+    <div class="ct-right">
+      <div class="ct-sino-wrap">
+        <div class="panel-title">Sinogram \( y(\varphi, s) \)</div>
+        <canvas id="ct-sino"></canvas>
+        <div class="ct-axis-x muted tiny">angle \( \varphi \) →</div>
+        <div class="ct-axis-y muted tiny">detector \( s \) →</div>
+      </div>
+      <div class="ct-eq" data-step="1">\( y(\varphi, s) = \displaystyle\int \mu\big(s\,\mathbf{n}_\varphi + t\,\mathbf{n}_\varphi^{\perp}\big)\,dt \;=\; (A\mu)(\varphi, s) \)</div>
+      <div class="ct-defs" data-step="1">
+        <div><span class="ct-sym">\( \mu(x, y) \)</span>attenuation: how strongly the material absorbs X-rays at \( (x, y) \)</div>
+        <div><span class="ct-sym">\( \varphi \)</span>rotation angle of source and detector</div>
+        <div><span class="ct-sym">\( s \)</span>position along the detector</div>
+        <div><span class="ct-sym">\( t \)</span>position along the ray, \( \mathbf{n}_\varphi = (\cos\varphi, \sin\varphi) \)</div>
+      </div>
+      <div class="ct-note" data-step="2">We never observe \( \mu \) itself, only its line integrals. Reconstruction means inverting \( A \).</div>
+    </div>
+  </div>
+  <aside class="notes"><ul>
+    <li>~1 min. X-rays through the object; the detector measures total attenuation along each line.</li>
+    <li>Rotate and stack the projections: the sinogram is the data.</li>
+    <li>Click: A is the Radon transform — known physics. Click: we only see shadows; the classical inverse is filtered back-projection.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 13. CT WITH INR (concept) =============================== -->
+<section class="slide" id="s-ct-inr" data-title="INRs for CT">
+  <div class="kicker"><span class="num">4</span>Applications</div>
+  <h2 class="title">Solving the inverse problem</h2>
+  <div class="cti-top">
+  <div class="cti-def"><b>Inverse problem:</b> we measure \( y = A(\mu) \) for a known forward model \( A \) and want \( \mu \) back.</div>
+  <div class="cti-eqs">
+    <div class="cti-row cti-before"><span class="cti-lbl">Fitting an image</span><span class="cti-eq">\( \displaystyle \min_\theta \; \big\| {\color{#2a78d6} f_\theta} - y \big\|^2 \)</span></div>
+    <div class="cti-row cti-after" data-step="1"><span class="cti-lbl blue">Inverse problem</span><span class="cti-eq">\( \displaystyle \min_\theta \; \big\| {\color{#b07800} A}\big({\color{#2a78d6} f_\theta}\big) - y \big\|^2 \)</span></div>
+  </div>
+  </div>
+  <div class="cti-pipe" data-step="2">
+    <svg id="cti-svg" viewBox="0 0 1700 460"></svg>
+  </div>
+  <div class="cti-notes" data-step="3">
+    <div><b class="blue">\( f_\theta \)</b> is our current best guess of the object.</div>
+    <div>We have a <b>differentiable</b> model for \( A \).</div>
+    <div class="nowrap">Gradients flow <i>through</i> \( A \) back to \( \theta \).</div>
+  </div>
+  <aside class="notes"><ul>
+    <li>~1.5 min. Before: compare the network directly to the data. Click: now the data are projections, so project the guess the same way and compare.</li>
+    <li>Click: because f_θ is continuous, "integrate along a ray" = evaluate the network at points on the ray and sum.</li>
+    <li>The gradient goes back through A to the weights. No ground-truth image needed anywhere.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 14. CT LIVE =============================== -->
+<section class="slide" id="s-ct-live" data-title="Sparse-view CT, live">
+  <div class="kicker"><span class="num">4</span>Applications</div>
+  <h2 class="title">Sparse-view CT from <span class="ctl-n">30</span> projections</h2>
+  <div class="ctl-grid">
+    <figure class="ctl-tile"><canvas id="ctl-gt" class="ctl-c"></canvas><figcaption>Ground truth <span class="muted">(unknown in practice)</span></figcaption></figure>
+    <figure class="ctl-tile"><canvas id="ctl-sino" class="ctl-c"></canvas><figcaption>Measurements \( y \)</figcaption></figure>
+    <figure class="ctl-tile"><canvas id="ctl-fbp" class="ctl-c"></canvas><figcaption>Filtered back-projection <span class="mono ctl-psnr-fbp muted"></span><span class="ctl-sub">classical: sharpen each projection, then smear it back along its rays</span></figcaption></figure>
+    <figure class="ctl-tile"><canvas id="ctl-inr" class="ctl-c"></canvas><figcaption class="blue-key">INR \( f_\theta \) <span class="mono ctl-psnr-inr muted"></span></figcaption></figure>
+  </div>
+  <div class="ctl-bottom">
+    <canvas id="ctl-plot"></canvas>
+    <div class="ctl-side">
+      <div class="ctl-step mono">step <span>0</span></div>
+      <div class="ctl-keys"><div><span class="kbd">1</span>15 views</div><div><span class="kbd">2</span>30 views</div><div><span class="kbd">3</span>90 views</div></div>
+    </div>
+  </div>
+  <aside class="notes"><ul>
+    <li>~1.5 min. Shepp–Logan phantom, only 30 angles. Filtered back-projection gives streaks (~19 dB).</li>
+    <li>The INR is trained only on the projections — no regularizer, the architecture does the work (~23 dB).</li>
+    <li>Keys 1 / 2 / 3: 15 / 30 / 90 projections. With 90 views FBP catches up.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 15. GENERAL RECIPE =============================== -->
+<section class="slide" id="s-general" data-title="One recipe, many problems">
+  <div class="kicker"><span class="num">4</span>Applications</div>
+  <h2 class="title">Other problems</h2>
+  <div class="gen-eq texbig">\( \displaystyle \min_\theta \; \big\| {\color{#b07800} A}\big({\color{#2a78d6} f_\theta}\big) - y \big\|^2 \)</div>
+  <table class="gen-table">
+    <thead><tr><th></th><th>\( f_\theta \) is…</th><th>forward model \( A \)</th><th>data \( y \)</th></tr></thead>
+    <tbody>
+      <tr data-step="1"><td class="gen-name">CT</td><td>attenuation \( \mu(x, y, z) \)</td><td>line integrals</td><td>X-ray projections</td></tr>
+      <tr data-step="2"><td class="gen-name">NeRF</td><td>color &amp; density \( (x, y, z, \theta, \phi) \)</td><td>volume rendering along camera rays</td><td>photos</td></tr>
+      <tr data-step="3"><td class="gen-name">PINNs</td><td>PDE solution \( u(x, t) \)</td><td>PDE residual, boundary conditions</td><td>zero residual, sensor data</td></tr>
+      <tr data-step="4"><td class="gen-name">Phase retrieval</td><td>audio signal \( s(t) \)</td><td>spectrogram \( |\mathrm{STFT}| \)</td><td>magnitude spectrogram</td></tr>
+      <tr data-step="5"><td class="gen-name">Super-resolution</td><td>image \( I(x, y) \)</td><td>blur + downsample</td><td>low-res image</td></tr>
+    </tbody>
+  </table>
+  <aside class="notes"><ul>
+    <li>~1 min. Same template everywhere: choose what f_θ represents, write down A, fit.</li>
+    <li>NeRF is "CT with cameras". PINNs: A is the PDE operator. Phase retrieval: my SIREN blog post.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 16. NEURAL TEXTURES =============================== -->
+<section class="slide" id="s-ntc" data-title="Neural texture compression">
+  <div class="kicker"><span class="num">4</span>Applications</div>
+  <h2 class="title">Neural texture compression</h2>
+  <div class="ntc-grid">
+    <div class="ntc-stage"><div class="ntc-stack"></div><canvas id="ntc-render"></canvas></div>
+    <div class="ntc-right">
+      <p class="ntc-lead">A material on a 3D model is many textures stacked: <b>9+ channels</b> at 4096 × 4096.</p>
+      <ul class="ntc-list" data-step-out="2">
+        <li><b>Albedo</b> (3) base colour</li>
+        <li><b>Normal</b> (3) surface direction: fake bumps</li>
+        <li><b>Roughness</b> (1) matte vs. shiny</li>
+        <li><b>Ambient occlusion</b> (1) shadow in crevices</li>
+        <li><b>Height</b> (1) displacement</li>
+      </ul>
+      <div class="ntc-how" data-step="2">
+        <div class="ntc-how-row"><span class="ntc-ico">\( f_\theta(u, v, \text{lod}) \)</span></div>
+        <p>One small network per material (latent grid + tiny MLP) decodes <b>all channels at once</b>, per pixel, inside the shader.</p>
+      </div>
+      <div class="ntc-bars" data-step="3"><canvas id="ntc-bars"></canvas></div>
+    </div>
+  </div>
+  <aside class="notes"><ul>
+    <li>~1.5 min. A 3D model's material stores albedo, normals, roughness, AO, height … (9+ channels at 4K).</li>
+    <li>Click: together they make the material (relit live here).</li>
+    <li>Click: NVIDIA (SIGGRAPH 2023): one tiny network per material, decoded per pixel in the shader, exploiting correlations across channels and mip levels.</li>
+    <li>Click: same quality as block compression at ~1/3.5 of the bits (≈ 1.1 vs 3.9 bits per value), or 16× more texels for the same memory.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 17. TAKEAWAYS =============================== -->
+<section class="slide" id="s-take" data-title="Takeaways">
+  <div class="kicker"><span class="num">5</span>Summary</div>
+  <h2 class="title">Takeaways</h2>
+  <div class="take-grid">
+    <ol class="take-list">
+      <li data-step="0"><span class="take-n">1</span><div>Images, sound, video, shapes and physical fields are all <b>functions</b> \( \R^n \to \R^m \).</div></li>
+      <li data-step="1"><span class="take-n">2</span><div>An INR stores such a function as a <b>small neural network</b>&nbsp;\( f_\theta \).</div></li>
+      <li data-step="2"><span class="take-n">3</span><div>Plain MLPs are biased towards <span class="orange">low frequencies</span>. <b class="blue">Fourier features</b> fix this in three lines of code.</div></li>
+      <li data-step="3"><span class="take-n">4</span><div>INRs are compact, continuous, differentiable — and can be fitted through physics: \( \min_\theta \|A(f_\theta) - y\|^2 \).</div></li>
+    </ol>
+  </div>
+  <aside class="notes"><ul>
+    <li>~1 min. Recap the four points; then the ideas closer to home — invite discussion.</li>
+  </ul></aside>
+</section>
+
+<!-- =============================== 18. THANKS =============================== -->
+<section class="slide" id="s-thanks" data-title="Thank you" data-chrome="off">
+  <div class="th-wrap">
+    <div class="th-left">
+      <h1 class="th-title">That's it!</h1>
+    </div>
+    <div class="th-right"><canvas id="th-canvas"></canvas><div class="th-cap muted tiny mono"></div></div>
+  </div>
+  <aside class="notes"><ul>
+    <li>Questions. Press <b>w</b> to train an INR on the webcam live (optional).</li>
+  </ul></aside>
+</section>
+
+</div>
+</div>
+
+<script src="vendor/katex/katex.min.js"></script>
+<script src="vendor/katex/contrib/auto-render.min.js"></script>
+<script src="vendor/tfjs/tf.min.js"></script>
+<script src="vendor/tfjs/tf-backend-webgpu.min.js"></script>
+<script src="assets/relu.js"></script>
+<script src="assets/media.js"></script>
+<script src="js/util.js"></script>
+<script src="js/plot.js"></script>
+<script src="js/mlpsvg.js"></script>
+<script src="js/gl.js"></script>
+<script src="js/inr.js"></script>
+<script src="js/deck.js"></script>
+<script src="js/slides/title.js"></script>
+<script src="js/slides/uat.js"></script>
+<script src="js/slides/funcs.js"></script>
+<script src="js/slides/inr-def.js"></script>
+<script src="js/slides/relu.js"></script>
+<script src="js/slides/chirp.js"></script>
+<script src="js/slides/fourier.js"></script>
+<script src="js/slides/ff.js"></script>
+<script src="js/slides/img-ff.js"></script>
+<script src="js/slides/why.js"></script>
+<script src="js/slides/ct.js"></script>
+<script src="js/slides/general.js"></script>
+<script src="js/slides/ntc.js"></script>
+<script src="js/slides/thanks.js"></script>
+<script>
+  window.addEventListener('load', () => {
+    Deck.init();
+    INR.init().then(() => setTimeout(() => INR.warmup(), 800)).catch(() => {});
+  });
+</script>
+</body>
+</html>

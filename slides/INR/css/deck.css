@@ -1,0 +1,250 @@
+/* ------------------------------------------------------------------
+   INR talk — deck styles
+   Design space is a fixed 1920 x 1080 stage that is scaled to the window.
+------------------------------------------------------------------- */
+
+@font-face { font-family: "Fira Sans"; font-weight: 300; font-style: normal; src: url("../fonts/fira-sans-latin-300-normal.woff2") format("woff2"); }
+@font-face { font-family: "Fira Sans"; font-weight: 400; font-style: normal; src: url("../fonts/fira-sans-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Fira Sans"; font-weight: 400; font-style: italic; src: url("../fonts/fira-sans-latin-400-italic.woff2") format("woff2"); }
+@font-face { font-family: "Fira Sans"; font-weight: 500; font-style: normal; src: url("../fonts/fira-sans-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Fira Sans"; font-weight: 500; font-style: italic; src: url("../fonts/fira-sans-latin-500-italic.woff2") format("woff2"); }
+@font-face { font-family: "Fira Sans"; font-weight: 600; font-style: normal; src: url("../fonts/fira-sans-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Fira Sans"; font-weight: 700; font-style: normal; src: url("../fonts/fira-sans-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Fira Mono"; font-weight: 400; font-style: normal; src: url("../fonts/fira-mono-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Fira Mono"; font-weight: 500; font-style: normal; src: url("../fonts/fira-mono-latin-500-normal.woff2") format("woff2"); }
+
+:root {
+  --bg: #fbfaf6;
+  --bg-2: #f3f1ea;           /* panels */
+  --bg-3: #e9e6dc;           /* deeper panels / tracks */
+  --ink: #1d2130;
+  --ink-2: #4b4f5c;          /* secondary text */
+  --muted: #8a8780;          /* axis labels, captions */
+  --grid: #e3e1d9;           /* hairline grid */
+  --axis: #c3c2b7;
+  --blue: #2a78d6;           /* Fourier features / INR */
+  --blue-soft: rgba(42,120,214,0.10);
+  --orange: #eb6834;         /* plain ReLU MLP */
+  --orange-soft: rgba(235,104,52,0.10);
+  --aqua: #1baf7a;
+  --violet: #6250d6;
+  --red: #e34948;
+  --gold: #eda100;
+  --o1: #f2a072; --o2: #eb6834; --o3: #c04a17; --o4: #8a3008;   /* ordinal orange ramp */
+  --sans: "Fira Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Fira Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --ease: cubic-bezier(.4, 0, .2, 1);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#viewport { position: fixed; inset: 0; background: var(--bg); }
+
+#stage {
+  position: absolute; left: 50%; top: 50%;
+  width: 1920px; height: 1080px;
+  transform-origin: 50% 50%;
+  transform: translate(-50%, -50%) scale(var(--scale, 0.5));
+  background: var(--bg);
+}
+
+/* ------------------------------ slides ------------------------------ */
+
+.slide {
+  position: absolute; inset: 0;
+  padding: 78px 110px 70px;
+  opacity: 0; visibility: hidden;
+  transition: opacity 420ms var(--ease), visibility 0s linear 420ms;
+  font-size: 36px; line-height: 1.38;
+}
+.slide.active {
+  opacity: 1; visibility: visible;
+  transition: opacity 420ms var(--ease), visibility 0s;
+  z-index: 2;
+}
+.slide.leaving { z-index: 1; }
+
+.kicker {
+  font-size: 22px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--blue); margin: 0 0 10px;
+  display: flex; align-items: center; gap: 14px;
+}
+.kicker .num {
+  display: inline-grid; place-items: center;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--blue); color: #fff; font-size: 18px; letter-spacing: 0;
+}
+.kicker.orange { color: var(--orange); }
+.kicker.orange .num { background: var(--orange); }
+
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.012em; }
+h2.title { font-size: 64px; line-height: 1.1; margin-bottom: 34px; }
+h2.title .soft { color: var(--muted); font-weight: 400; }
+
+p { margin: 0 0 0.6em; }
+.lead { font-size: 40px; color: var(--ink-2); }
+.small { font-size: 28px; }
+.tiny { font-size: 22px; }
+.muted { color: var(--muted); }
+.ink2 { color: var(--ink-2); }
+.blue { color: var(--blue); }
+.orange { color: var(--orange); }
+.aqua { color: var(--aqua); }
+.violet { color: var(--violet); }
+.red { color: var(--red); }
+.bold { font-weight: 600; }
+.mono { font-family: var(--mono); }
+em { font-style: italic; }
+b, strong { font-weight: 600; }
+
+.hl-blue   { background: linear-gradient(transparent 58%, rgba(42,120,214,0.20) 58%); padding: 0 .08em; }
+.hl-orange { background: linear-gradient(transparent 58%, rgba(235,104,52,0.22) 58%); padding: 0 .08em; }
+
+ul.clean { list-style: none; padding: 0; margin: 0; }
+ul.clean > li { position: relative; padding-left: 1.05em; margin: 0 0 0.5em; }
+ul.clean > li::before {
+  content: ""; position: absolute; left: 0.1em; top: 0.58em;
+  width: 0.36em; height: 0.36em; border-radius: 50%; background: var(--blue);
+}
+ul.clean.orange > li::before { background: var(--orange); }
+
+/* citations / footers */
+.cite {
+  position: absolute; left: 110px; bottom: 34px; right: 260px;
+  font-size: 19px; color: var(--muted); line-height: 1.35;
+}
+.cite i { font-style: italic; }
+
+/* generic layout helpers */
+.row { display: flex; gap: 48px; }
+.col { display: flex; flex-direction: column; }
+.grow { flex: 1 1 0; min-width: 0; }
+.center { display: flex; align-items: center; justify-content: center; }
+.abs { position: absolute; }
+
+.panel {
+  background: var(--bg-2);
+  border-radius: 22px;
+  padding: 28px 32px;
+}
+.card {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 1px 2px rgba(20,24,40,0.06), 0 8px 28px rgba(20,24,40,0.06);
+  border: 1px solid rgba(20,24,40,0.06);
+}
+
+.theorem {
+  border-left: 5px solid var(--blue);
+  background: var(--blue-soft);
+  border-radius: 0 18px 18px 0;
+  padding: 24px 32px;
+  font-size: 32px;
+}
+.theorem .th-head { font-weight: 600; color: var(--blue); margin-bottom: 8px; }
+
+.callout {
+  border-radius: 18px; padding: 20px 28px;
+  background: var(--orange-soft); border-left: 5px solid var(--orange);
+  font-size: 32px;
+}
+.callout.blue { background: var(--blue-soft); border-left-color: var(--blue); }
+.callout.plain { border-left: none; border-radius: 18px; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 6px 16px; border-radius: 999px;
+  background: var(--bg-2); font-size: 22px; color: var(--ink-2);
+}
+.swatch { display: inline-block; width: 26px; height: 6px; border-radius: 3px; vertical-align: middle; }
+.dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: middle; }
+
+canvas { display: block; }
+canvas.pix { image-rendering: pixelated; }
+
+/* ------------------------------ build steps ------------------------------ */
+
+.slide [data-step] {
+  opacity: 0; transform: translateY(18px);
+  transition: opacity 500ms var(--ease), transform 600ms var(--ease);
+}
+.slide [data-step].shown { opacity: 1; transform: none; }
+.slide [data-step].fade { transform: none; }
+.slide [data-step].pop { transform: scale(0.92); }
+.slide [data-step].pop.shown { transform: none; }
+.slide [data-step-out].gone { opacity: 0 !important; transform: translateY(-12px) !important; pointer-events: none; }
+.slide [data-step-out] { transition: opacity 450ms var(--ease), transform 500ms var(--ease); }
+.slide .dim { opacity: 0.28 !important; transition: opacity 400ms var(--ease); }
+
+/* ------------------------------ chrome ------------------------------ */
+
+#progress {
+  position: absolute; left: 0; bottom: 0; height: 5px; width: 0;
+  background: var(--blue); opacity: 0.55;
+  transition: width 420ms var(--ease);
+  z-index: 10;
+}
+#slideno {
+  position: absolute; right: 44px; bottom: 26px; z-index: 10;
+  font: 500 20px/1 var(--mono); color: var(--muted); letter-spacing: 0.04em;
+}
+#blank {
+  position: fixed; inset: 0; background: var(--bg); z-index: 50;
+  opacity: 0; pointer-events: none; transition: opacity 300ms;
+}
+#blank.on { opacity: 1; pointer-events: auto; }
+#hint {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+  background: rgba(29,33,48,0.86); color: #fff; font: 400 15px/1.3 var(--sans);
+  padding: 10px 16px; border-radius: 10px; z-index: 60;
+  opacity: 0; transition: opacity 500ms; pointer-events: none;
+}
+#hint.on { opacity: 1; }
+#jump {
+  position: fixed; right: 24px; top: 20px; z-index: 60;
+  background: rgba(29,33,48,0.86); color: #fff; font: 500 22px/1 var(--mono);
+  padding: 10px 14px; border-radius: 10px; display: none;
+}
+
+/* overview grid */
+body.overview #stage { display: none; }
+#overview {
+  position: fixed; inset: 0; overflow: auto; z-index: 40; display: none;
+  background: var(--bg-2); padding: 28px;
+}
+body.overview #overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; align-content: start; }
+#overview .ov {
+  background: var(--bg); border-radius: 10px; padding: 14px 16px; cursor: pointer;
+  border: 2px solid transparent; font: 500 17px/1.3 var(--sans); color: var(--ink);
+  min-height: 92px; display: flex; flex-direction: column; gap: 6px;
+}
+#overview .ov small { color: var(--muted); font: 500 14px/1 var(--mono); }
+#overview .ov.cur { border-color: var(--blue); }
+
+/* KaTeX tweaks: slightly larger than surrounding text, inherit color */
+.katex { font-size: 1.08em; }
+.katex-display { margin: 0.4em 0; }
+.texbig .katex { font-size: 1.35em; }
+
+/* notes are only shown in presenter view */
+aside.notes { display: none; }
+
+/* screenshot testing: index.html?static */
+body.static *, body.static *::before, body.static *::after { transition: none !important; }
+body.static #hint { display: none; }
+
+/* entrance animation for titles: a left-to-right "write" wipe, kicker fades in first */
+@keyframes titleWipe { from { clip-path: inset(-10% 100% -20% 0); transform: translateX(-10px); } to { clip-path: inset(-10% -2% -20% 0); transform: none; } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.slide.active h2.title { animation: titleWipe 750ms cubic-bezier(.3,.7,.2,1) 80ms both; }
+.slide.active:not(.same-kicker) .kicker { animation: fadeUp 500ms ease both; }
+.slide.no-anim h2.title, .slide.no-anim .kicker, body.static h2.title, body.static .kicker { animation: none !important; }

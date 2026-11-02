@@ -1,0 +1,254 @@
+/* ------------------------------------------------------------------
+   Per-slide layouts (design space 1920 x 1080; content box 1700 wide)
+------------------------------------------------------------------- */
+
+.slide.no-anim [data-step], .slide.no-anim [data-step-out] { transition: none !important; }
+
+.panel-title { font-size: 22px; font-weight: 600; color: var(--ink-2); letter-spacing: 0.02em; margin-bottom: 8px; }
+.big-q { font-size: 40px; font-weight: 600; margin-bottom: 10px; color: var(--orange); }
+.big-q.blue { color: var(--blue); }
+
+figure { margin: 0; }
+.tile { display: flex; flex-direction: column; gap: 12px; }
+.tile-c { border-radius: 14px; background: var(--bg-3); box-shadow: 0 1px 2px rgba(20,24,40,.08); }
+.tile figcaption { display: flex; flex-direction: column; font-size: 24px; line-height: 1.25; }
+.tile figcaption b { font-weight: 600; font-size: 26px; display: inline-flex; align-items: center; gap: 10px; }
+.tile figcaption span { color: var(--muted); font-size: 21px; font-family: var(--mono); }
+.orange-key::before, .blue-key::before, .key::before {
+  content: ""; display: inline-block; width: 22px; height: 6px; border-radius: 3px; background: var(--orange);
+}
+.blue-key::before { background: var(--blue); }
+
+/* ---------------------------- 1. title ---------------------------- */
+#s-title { padding: 0; }
+#s-title .t-left { position: absolute; left: 120px; top: 290px; width: 900px; }
+#s-title .t-title { font-size: 112px; line-height: 1.0; letter-spacing: -0.025em; font-weight: 600; margin: 0 0 34px; }
+#s-title .t-sub { font-size: 38px; line-height: 1.35; color: var(--ink-2); max-width: 820px; }
+#s-title .t-author { margin-top: 70px; font-size: 34px; font-weight: 500; }
+#s-title .t-author::before { content: ""; display: block; width: 64px; height: 5px; border-radius: 3px; background: var(--blue); margin-bottom: 22px; }
+#s-title .t-right { position: absolute; right: 120px; top: 150px; width: 660px; }
+#s-title .t-frame { position: relative; width: 660px; height: 660px; border-radius: 26px; overflow: hidden;
+  box-shadow: 0 2px 4px rgba(20,24,40,.08), 0 24px 60px rgba(20,24,40,.14); background: var(--bg-3); }
+#s-title .t-probe { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 10px; pointer-events: none;
+  transform: translate(-50%, -50%); }
+#s-title .t-probe::before { content: ""; position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px;
+  border: 3px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1.5px rgba(0,0,0,.35); }
+#s-title .t-swatch { display: none; }
+#s-title .t-xy { display: none; }
+#s-title .t-formula { margin-top: 26px; font-size: 40px; text-align: center; }
+#s-title .t-readout { margin-top: 8px; font-size: 20px; color: var(--muted); text-align: center; }
+
+/* ---------------------------- 2. UAT ---------------------------- */
+.uat-grid { display: grid; grid-template-columns: 760px 1fr; gap: 50px; }
+.uat-left .theorem { font-size: 30px; line-height: 1.45; }
+.th-cite { margin-top: 10px; font-size: 20px; color: var(--muted); }
+.uat-net { margin-top: 26px; }
+#uat-net { width: 640px; height: 300px; overflow: visible; }
+.uat-right { position: relative; }
+.uat-legend { display: flex; gap: 34px; align-items: center; font-size: 24px; margin-top: 4px; padding-left: 70px; }
+.uat-legend .swatch { margin-right: 10px; }
+.uat-readout { margin-left: auto; color: var(--ink-2); font-size: 22px; }
+.uat-callout { position: absolute; left: 920px; right: 110px; bottom: 62px; }
+
+/* ---------------------------- 3. functions ---------------------------- */
+.fn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px 36px; margin-top: -8px; }
+.fn-card { overflow: hidden; display: flex; flex-direction: column; }
+.fn-canvas { width: 100%; height: 214px; background: #f6f5f0; flex: none; }
+.fn-meta { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; padding: 12px 22px 14px; column-gap: 12px; }
+.fn-note { grid-column: 1 / span 2; font-size: 20px; line-height: 1.32; color: var(--ink-2); margin-top: 6px; }
+.fn-name { font-size: 27px; font-weight: 600; }
+.fn-sub { font-weight: 400; color: var(--muted); font-size: 21px; margin-left: 6px; }
+.fn-map { grid-column: 1; font-size: 25px; color: var(--ink-2); margin-top: 2px; }
+.fn-dim { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-size: 30px; color: var(--blue); }
+.fn-bottom { margin-top: 20px; font-size: 30px; text-align: center; }
+
+/* ---------------------------- 4. INR definition ---------------------------- */
+.inr-grid { display: grid; grid-template-columns: 700px 1fr; gap: 40px; }
+.inr-label { font-size: 30px; font-weight: 600; color: var(--ink-2); margin-bottom: 18px; }
+.inr-right .inr-label { color: var(--blue); }
+.inr-imgwrap { position: relative; width: 700px; height: 440px; }
+#inr-img { position: absolute; left: 0; top: 0; border-radius: 14px; }
+#inr-zoom { position: absolute; left: 430px; top: 50px; border-radius: 14px; box-shadow: 0 6px 24px rgba(20,24,40,.18); }
+.inr-count { margin-top: 18px; font-size: 30px; color: var(--ink-2); }
+#inr-net { width: 960px; height: 520px; overflow: visible; }
+.inr-bottom { position: absolute; left: 110px; right: 110px; bottom: 60px; display: flex; flex-direction: column; gap: 14px; }
+.inr-fit { font-size: 34px; }
+.inr-punch { font-size: 34px; }
+.inr-punch b { color: var(--blue); }
+
+/* ---------------------------- 5. ReLU ---------------------------- */
+.relu-tiles { display: grid; grid-template-columns: repeat(5, 300px); gap: 0 50px; }
+.relu-tiles .tile-c { width: 300px; height: 300px; }
+.relu-bottom { display: flex; gap: 40px; margin-top: 26px; align-items: flex-start; }
+.relu-side { padding-top: 8px; }
+.relu-step { font-size: 46px; font-weight: 500; color: var(--ink); white-space: nowrap; }
+.relu-step span { display: inline-block; min-width: 140px; }
+.relu-note { margin-top: 8px; }
+.relu-side { width: 500px; }
+.relu-callout { margin-top: 26px; font-size: 28px; line-height: 1.35; }
+
+/* ---------------------------- 6/9. chirp ---------------------------- */
+.chirp-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.chirp-eq { font-size: 32px; }
+.chirp-legend { display: flex; gap: 34px; font-size: 24px; }
+.chirp-legend .swatch { margin-right: 10px; }
+.chirp-row { display: grid; grid-template-columns: 560px 560px 1fr; gap: 40px; margin-top: 14px; }
+.chirp-panel { position: relative; }
+.chirp-text { padding-top: 26px; }
+.chirp-text p { font-size: 30px; }
+
+/* ---------------------------- 7. Fourier series ---------------------------- */
+.fs-eq { font-size: 34px; margin: -10px 0 18px; }
+.fs-grid { display: grid; grid-template-columns: 920px 1fr; gap: 50px; }
+.fs-epi-eq { text-align: center; font-size: 28px; margin-top: -10px; }
+.fs-readout, .fs-epi-readout { font-size: 22px; color: var(--ink-2); margin-top: 6px; padding-left: 70px; }
+.fs-epi-readout { padding-left: 0; text-align: center; }
+.fs-take { position: absolute; left: 110px; right: 110px; bottom: 58px; font-size: 34px; text-align: center; }
+
+/* ---------------------------- 8. Fourier features ---------------------------- */
+.ff-year { display: inline-block; font-size: 30px; font-weight: 600; color: #fff; background: var(--blue); border-radius: 12px;
+  padding: 4px 14px; vertical-align: middle; margin-left: 14px; letter-spacing: 0.02em; }
+.ff-eqs { display: flex; gap: 60px; align-items: baseline; font-size: 31px; margin-top: -8px; }
+.ff-pipe { display: flex; align-items: center; justify-content: space-between; margin-top: 34px; height: 300px; }
+.ff-in, .ff-feats, .ff-mlp, .ff-out { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.ff-node { font-size: 40px; padding: 18px 26px; border-radius: 18px; background: var(--bg-2); }
+.ff-cap { font-size: 23px; color: var(--muted); }
+.ff-arrow { font-size: 54px; color: var(--axis); }
+.ff-tiles { display: grid; grid-template-columns: repeat(4, 110px); gap: 10px; }
+.ff-tiles canvas { width: 110px; height: 110px; border-radius: 10px; }
+#ff-net { width: 360px; height: 260px; overflow: visible; }
+#ff-out { width: 230px; height: 230px; border-radius: 14px; }
+.ff-bottom { display: grid; grid-template-columns: 900px 1fr; gap: 50px; margin-top: 30px; align-items: start; }
+.ff-code { margin: 0; font: 400 25px/1.5 var(--mono); background: #1f2330; color: #e9e7df; padding: 22px 28px; border-radius: 16px; }
+.ff-code .c { color: #8f95a8; }
+.ff-compare { font-size: 31px; display: flex; flex-direction: column; gap: 16px; padding-top: 14px; }
+
+/* ---------------------------- 10. image FF ---------------------------- */
+.iff-top { display: flex; gap: 70px; align-items: flex-start; }
+.iff-tiles { display: grid; grid-template-columns: repeat(3, 330px); gap: 0 60px; }
+.iff-tiles .tile-c { width: 330px; height: 330px; }
+.iff-stats { display: flex; flex-direction: column; gap: 22px; padding-top: 4px; }
+.iff-stat { display: flex; flex-direction: column; }
+.iff-stat .lbl { font-size: 21px; color: var(--muted); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.iff-stat .val { font-size: 44px; font-weight: 500; color: var(--ink); line-height: 1.15; }
+.iff-stat .val.big { font-size: 64px; color: var(--blue); }
+#iff-plot { margin-top: 26px; }
+
+/* ---------------------------- 11. why ---------------------------- */
+.why-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 34px; margin-top: 10px; }
+.why-card { padding: 0 0 26px; overflow: hidden; }
+.why-c { width: 100%; height: 300px; background: #f6f5f0; }
+.why-card h3 { font-size: 34px; margin: 22px 26px 10px; }
+.why-card p { font-size: 27px; line-height: 1.42; margin: 0 26px; color: var(--ink-2); }
+
+/* ---------------------------- 12. CT ---------------------------- */
+.ct-grid { display: grid; grid-template-columns: 780px 1fr; gap: 60px; margin-top: -10px; }
+.ct-right { padding-top: 10px; }
+.ct-legend { display: flex; gap: 30px; justify-content: center; font-size: 23px; color: var(--ink-2); margin-top: -10px; }
+.ct-legend .swatch { margin-right: 8px; }
+.ct-sino-wrap { position: relative; }
+.ct-axis-x { margin-top: 6px; }
+.ct-axis-y { position: absolute; left: -40px; top: 250px; transform: rotate(-90deg); transform-origin: left top; white-space: nowrap; }
+.ct-eq { font-size: 31px; margin-top: 34px; }
+.ct-note { font-size: 30px; margin-top: 24px; color: var(--ink-2); }
+
+/* ---------------------------- 13. CT INR concept ---------------------------- */
+.cti-eqs { display: flex; flex-direction: column; gap: 6px; margin-top: -6px; }
+.cti-row { display: flex; align-items: center; gap: 40px; font-size: 38px; }
+.cti-lbl { width: 330px; font-size: 28px; font-weight: 600; color: var(--muted); }
+#cti-svg { width: 1700px; height: 460px; overflow: visible; margin-top: 18px; }
+.cti-lbl2 { position: absolute; transform: translateX(-50%); white-space: nowrap; font-size: 25px; font-weight: 500; }
+.cti-lbl2.strong { font-weight: 600; }
+.cti-notes { display: flex; gap: 60px; font-size: 27px; color: var(--ink-2); margin-top: 6px; }
+
+/* ---------------------------- 14. CT live ---------------------------- */
+.ctl-grid { display: grid; grid-template-columns: repeat(4, 380px); gap: 0 60px; }
+.ctl-c { width: 380px; height: 380px; border-radius: 14px; background: #000; }
+.ctl-tile figcaption { margin-top: 12px; font-size: 25px; font-weight: 500; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ctl-bottom { display: flex; gap: 40px; margin-top: 22px; }
+.ctl-side { padding-top: 20px; display: flex; flex-direction: column; gap: 14px; }
+.ctl-step { font-size: 40px; font-weight: 500; }
+.ctl-step span { display: inline-block; min-width: 120px; }
+
+/* ---------------------------- 15. general ---------------------------- */
+.gen-eq { text-align: center; font-size: 40px; margin: -6px 0 26px; }
+.gen-table { width: 100%; border-collapse: collapse; font-size: 31px; }
+.gen-table th { text-align: left; font-weight: 600; color: var(--muted); font-size: 24px; padding: 0 18px 12px; border-bottom: 2px solid var(--grid); }
+.gen-table td { padding: 21px 18px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+.gen-table .gen-name { font-weight: 600; color: var(--blue); width: 280px; }
+.gen-table tr[data-step] { transform: none; }
+.gen-foot { margin-top: 26px; font-size: 23px; color: var(--muted); }
+
+/* ---------------------------- 16. NTC ---------------------------- */
+.ntc-grid { display: grid; grid-template-columns: 900px 1fr; gap: 50px; }
+.ntc-stage { position: relative; height: 760px; perspective: 1800px; margin-top: -30px; }
+.ntc-stack { position: absolute; inset: 0; transform-style: preserve-3d; }
+.ntc-card { position: absolute; left: 240px; top: 150px; width: 400px; height: 400px; border-radius: 14px; overflow: hidden;
+  box-shadow: 0 10px 30px rgba(20,24,40,.25); transform-origin: 50% 50%;
+  transition: transform 1100ms var(--ease), opacity 700ms var(--ease); background: #ccc; }
+.ntc-card img { width: 100%; height: 100%; display: block; }
+.ntc-card .lbl { position: absolute; left: 10px; bottom: 10px; background: rgba(255,255,255,.92); color: var(--ink); font-size: 20px;
+  font-weight: 600; padding: 4px 10px; border-radius: 8px; }
+#ntc-render { position: absolute; left: 190px; top: 100px; width: 500px; height: 500px; border-radius: 18px; opacity: 0;
+  transition: opacity 600ms var(--ease); }
+.ntc-render-cap { position: absolute; left: 190px; top: 620px; width: 500px; text-align: center; font-size: 24px; color: var(--muted);
+  opacity: 0; transition: opacity 600ms var(--ease) 400ms; }
+.ntc-right { padding-top: 10px; }
+.ntc-lead { font-size: 32px; }
+.ntc-how { margin-top: 24px; }
+.ntc-how p { font-size: 29px; color: var(--ink-2); }
+.ntc-ico { font-size: 36px; color: var(--blue); }
+.ntc-how-row { margin-bottom: 10px; }
+.ntc-bars { margin-top: 26px; }
+
+/* ---------------------------- 17. takeaways ---------------------------- */
+.take-grid { display: grid; grid-template-columns: 1060px 1fr; gap: 70px; margin-top: 10px; }
+.take-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 44px; }
+.take-list li { display: flex; gap: 28px; align-items: flex-start; font-size: 36px; line-height: 1.4; }
+.take-n { flex: none; width: 52px; height: 52px; border-radius: 50%; background: var(--blue); color: #fff; display: grid; place-items: center;
+  font-size: 26px; font-weight: 600; margin-top: 2px; }
+.take-side { align-self: start; }
+.take-side-h { font-size: 32px; font-weight: 600; margin-bottom: 18px; }
+.take-side ul.clean { font-size: 30px; }
+
+/* ---------------------------- 18. thanks ---------------------------- */
+#s-thanks { padding: 0; }
+.th-wrap { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 700px; align-items: center; padding: 0 140px; gap: 80px; }
+.th-title { font-size: 120px; letter-spacing: -0.025em; }
+.th-q { font-size: 48px; color: var(--ink-2); margin-top: 10px; }
+.th-links { margin-top: 70px; font-size: 30px; display: flex; flex-direction: column; gap: 12px; }
+.th-links .muted { display: inline-block; width: 330px; }
+#th-canvas { border-radius: 26px; box-shadow: 0 2px 4px rgba(20,24,40,.08), 0 24px 60px rgba(20,24,40,.14); }
+.th-cap { text-align: center; margin-top: 14px; }
+
+/* ---------------------------- feedback round 1 ---------------------------- */
+.nowrap { white-space: nowrap; }
+/* 13: definition on the left, the two objectives on the right */
+.cti-top { display: grid; grid-template-columns: 560px 1fr; gap: 60px; align-items: center; margin-top: -6px; }
+.cti-def { font-size: 29px; line-height: 1.42; color: var(--ink-2); padding: 18px 24px; background: var(--bg-2); border-radius: 16px; }
+.cti-top .cti-lbl { width: 260px; }
+.cti-notes { display: grid; grid-template-columns: 1fr 1fr auto; gap: 50px; }
+/* 12 */
+.ct-defs { margin-top: 18px; font-size: 24px; color: var(--ink-2); display: flex; flex-direction: column; gap: 6px; }
+.ct-sym { display: inline-block; width: 100px; color: var(--ink); }
+.ct-eq { margin-top: 18px !important; }
+.ct-note { font-size: 27px !important; margin-top: 16px !important; }
+/* 14 */
+.ctl-sub { display: block; width: 100%; font-size: 20px; font-weight: 400; color: var(--muted); line-height: 1.3; }
+.ctl-keys { font-size: 25px; color: var(--ink-2); display: flex; flex-direction: column; gap: 10px; }
+.ctl-keys > div { display: flex; align-items: center; }
+.kbd { display: inline-grid; place-items: center; min-width: 36px; height: 36px; padding: 0 8px; margin: 0 8px 0 14px; border-radius: 8px;
+  background: #fff; border: 1.5px solid var(--axis); box-shadow: 0 2px 0 var(--axis); font: 600 21px/1 var(--mono); color: var(--ink); }
+.kbd { margin-left: 0 !important; margin-right: 12px; }
+/* 16 */
+.ntc-card .lbl { left: auto !important; bottom: auto !important; right: 8px; top: 8px; font-size: 18px !important; padding: 3px 8px !important; }
+.ntc-list { list-style: none; padding: 0; margin: 4px 0 0; font-size: 25px; color: var(--ink-2); max-height: 260px; overflow: hidden;
+  transition: max-height 700ms var(--ease), opacity 450ms var(--ease), margin 700ms var(--ease) !important; }
+.ntc-list li { margin: 0 0 6px; }
+.ntc-list b { color: var(--ink); font-weight: 600; }
+.slide .ntc-list.gone { max-height: 0; margin: 0; transform: none !important; }
+/* 17 */
+.take-grid { grid-template-columns: 1fr !important; }
+.take-list li { font-size: 40px !important; }
+/* 18 */
+.th-wrap { grid-template-columns: 1fr 700px !important; }
